@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Query, Body
 from ..services.fund import search_funds, get_fund_intraday, get_fund_history
 from ..config import Config
 
+from ..services.subscription import add_subscription
+
 router = APIRouter()
 
 @router.get("/search")
@@ -38,11 +40,15 @@ def subscribe_fund(fund_id: str, data: dict = Body(...)):
     Subscribe to fund alerts.
     """
     email = data.get("email")
+    up = data.get("thresholdUp")
+    down = data.get("thresholdDown")
+    
     if not email:
         raise HTTPException(status_code=400, detail="Email required")
-        
-    # TODO: Implement real persistence logic (SQLite)
-    # For MVP, we just log it.
-    print(f"Subscribe request: {email} -> {fund_id}, thresholds: {data.get('thresholdUp')}/{data.get('thresholdDown')}")
     
-    return {"status": "ok", "message": "Subscription active (Simulation)"}
+    try:
+        add_subscription(fund_id, email, float(up or 0), float(down or 0))
+        return {"status": "ok", "message": "Subscription active"}
+    except Exception as e:
+        logger.error(f"Subscription failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save subscription")

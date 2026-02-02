@@ -167,9 +167,14 @@ export default function App() {
     setDetailFundId(null);
   };
 
-  const handleSubscribeSubmit = (fund, formData) => {
-    alert(`已更新 ${fund.name} 的订阅设置：\n发送至：${formData.email}\n阈值：涨>${formData.thresholdUp}% 或 跌<${formData.thresholdDown}%`);
-    setModalOpen(false);
+  const handleSubscribeSubmit = async (fund, formData) => {
+    try {
+        await subscribeFund(fund.id, formData);
+        alert(`已更新 ${fund.name} 的订阅设置：\n发送至：${formData.email}\n阈值：涨>${formData.thresholdUp}% 或 跌<${formData.thresholdDown}%`);
+        setModalOpen(false);
+    } catch (e) {
+        alert('订阅设置保存失败，请检查网络或后端配置');
+    }
   };
 
   const handleSyncWatchlist = async (positions) => {
