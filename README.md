@@ -12,7 +12,7 @@
 ![Dashboard](docs/汇总页面.png)
 
 ### 持仓管理
-![持仓管理页面](docs/image.png)
+![alt text](image-1.png)
 
 ### 技术指标审计
 ![Technical Indicators](docs/基金详情-技术指标.png)
