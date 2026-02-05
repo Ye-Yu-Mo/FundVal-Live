@@ -65,7 +65,7 @@ def init_db():
         )
     """)
 
-    # Settings table - store user configuration
+    # Settings table - store user configuration (for client/desktop)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -91,6 +91,24 @@ def init_db():
         INSERT OR IGNORE INTO settings (key, value, encrypted) VALUES (?, ?, ?)
     """, default_settings)
 
+    # Transactions table - add/reduce position log (T+1 confirm by real NAV)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL,
+            op_type TEXT NOT NULL,
+            amount_cny REAL,
+            shares_redeemed REAL,
+            confirm_date TEXT NOT NULL,
+            confirm_nav REAL,
+            shares_added REAL,
+            cost_after REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            applied_at TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_code ON transactions(code);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_confirm_date ON transactions(confirm_date);")
     conn.commit()
     conn.close()
     logger.info("Database initialized.")

@@ -57,3 +57,20 @@ export const updatePosition = async (data) => {
 export const deletePosition = async (code) => {
     return api.delete(`/account/positions/${code}`);
 };
+
+export const addPositionTrade = async (code, data) => {
+    const response = await api.post(`/account/positions/${code}/add`, data);
+    return response.data;
+};
+
+export const reducePositionTrade = async (code, data) => {
+    const response = await api.post(`/account/positions/${code}/reduce`, data);
+    return response.data;
+};
+
+export const getTransactions = async (code = null, limit = 100) => {
+    const params = { limit };
+    if (code) params.code = code;
+    const response = await api.get('/account/transactions', { params });
+    return response.data.transactions || [];
+};

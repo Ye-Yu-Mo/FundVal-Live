@@ -1,8 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Edit2, Trash2, RefreshCw, ArrowUpDown, ChevronDown } from 'lucide-react';
-import { getAccountPositions, updatePosition, deletePosition } from '../services/api';
+import { Plus, X, Edit2, Trash2, RefreshCw, ArrowUpDown, ChevronDown, TrendingUp, TrendingDown, History } from 'lucide-react';
+import { getAccountPositions, updatePosition, deletePosition, addPositionTrade, reducePositionTrade, getTransactions } from '../services/api';
 import { getRateColor } from '../components/StatCard';
 import { PortfolioChart } from '../components/PortfolioChart';
+
+function formatDateYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function getDefaultTradeDate() {
+  return formatDateYMD(new Date());
+}
+function buildTradeTime(dateStr, cutoff) {
+  const time = cutoff === 'after' ? '15:01:00' : '14:59:00';
+  return `${dateStr}T${time}`;
+}
 
 const SORT_OPTIONS = [
   { label: '预估总值（从高到低）', key: 'est_market_value', direction: 'desc' },
@@ -35,6 +49,25 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
 
   // Form State
   const [formData, setFormData] = useState({ code: '', cost: '', shares: '' });
+
+  // 加仓/减仓
+  const [addModalPos, setAddModalPos] = useState(null);
+  const [addAmount, setAddAmount] = useState('');
+  const [addTradeDate, setAddTradeDate] = useState(() => getDefaultTradeDate());
+  const [addTradeCutoff, setAddTradeCutoff] = useState('before');
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [reduceModalPos, setReduceModalPos] = useState(null);
+  const [reduceShares, setReduceShares] = useState('');
+  const [reduceTradeDate, setReduceTradeDate] = useState(() => getDefaultTradeDate());
+  const [reduceTradeCutoff, setReduceTradeCutoff] = useState('before');
+  const [reduceSubmitting, setReduceSubmitting] = useState(false);
+
+  // 修改弹窗内该基金的操作记录
+  const [modalTransactions, setModalTransactions] = useState([]);
+  const [modalTransactionsLoading, setModalTransactionsLoading] = useState(false);
+  const [modalTransactionsOpen, setModalTransactionsOpen] = useState(false);
+  const [modalTransactionsPage, setModalTransactionsPage] = useState(1);
+  const MODAL_TX_PAGE_SIZE = 10;
 
   const fetchData = async (retryCount = 0) => {
     setLoading(true);
@@ -132,6 +165,74 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
     localStorage.setItem('account_sort_option', JSON.stringify(option));
     setSortDropdownOpen(false);
   };
+
+  const handleOpenAddModal = (pos) => {
+    setAddModalPos(pos);
+    setAddAmount('');
+    setAddTradeDate(getDefaultTradeDate());
+    setAddTradeCutoff('before');
+  };
+  const handleOpenReduceModal = (pos) => {
+    setReduceModalPos(pos);
+    setReduceShares('');
+    setReduceTradeDate(getDefaultTradeDate());
+    setReduceTradeCutoff('before');
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!addModalPos || !addAmount || parseFloat(addAmount) <= 0) return;
+    if (addSubmitting) return;
+    setAddSubmitting(true);
+    try {
+      const payload = { amount: parseFloat(addAmount), trade_time: buildTradeTime(addTradeDate, addTradeCutoff) };
+      const result = await addPositionTrade(addModalPos.code, payload);
+      setAddModalPos(null);
+      if (result.pending) alert(result.message || '已记录，待净值公布后自动更新持仓');
+      else alert(`加仓成功，确认净值 ${result.confirm_nav}，获得份额 ${result.shares_added}`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || '加仓失败');
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
+  const handleReduceSubmit = async (e) => {
+    e.preventDefault();
+    if (!reduceModalPos || !reduceShares || parseFloat(reduceShares) <= 0) return;
+    if (reduceSubmitting) return;
+    const sh = parseFloat(reduceShares);
+    if (reduceModalPos.shares != null && sh > reduceModalPos.shares) {
+      alert(`减仓份额不能大于当前持仓 ${reduceModalPos.shares}`);
+      return;
+    }
+    setReduceSubmitting(true);
+    try {
+      const payload = { shares: sh, trade_time: buildTradeTime(reduceTradeDate, reduceTradeCutoff) };
+      const result = await reducePositionTrade(reduceModalPos.code, payload);
+      setReduceModalPos(null);
+      if (result.pending) alert(result.message || '已记录，待净值公布后自动更新持仓');
+      else alert(`减仓成功，确认净值 ${result.confirm_nav}，到账金额约 ${result.amount_cny}`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || '减仓失败');
+    } finally {
+      setReduceSubmitting(false);
+    }
+  };
+
+  // 打开修改弹窗时拉取该基金操作记录
+  useEffect(() => {
+    if (!modalOpen || !editingPos) return;
+    setModalTransactionsLoading(true);
+    setModalTransactionsOpen(false);
+    setModalTransactionsPage(1);
+    getTransactions(editingPos.code, 200)
+      .then(setModalTransactions)
+      .catch(() => setModalTransactions([]))
+      .finally(() => setModalTransactionsLoading(false));
+  }, [modalOpen, editingPos?.code]);
 
   const { summary, positions } = data;
 
@@ -303,12 +404,14 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
                       <button 
                         onClick={() => handleOpenModal(pos)}
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        title="修改持仓"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => handleDelete(pos.code)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        title="删除"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -321,11 +424,11 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal：新增/修改持仓 */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h3 className="font-bold text-slate-800">
                 {editingPos ? '修改持仓' : '新增持仓'}
               </h3>
@@ -337,58 +440,275 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div className="p-6 overflow-y-auto flex-1">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">基金代码</label>
+                  <input 
+                    type="text" 
+                    value={formData.code}
+                    onChange={(e) => setFormData({...formData, code: e.target.value})}
+                    disabled={!!editingPos}
+                    placeholder="如: 005827"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono disabled:opacity-60"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">持有份额</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={formData.shares}
+                      onChange={(e) => setFormData({...formData, shares: e.target.value})}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">持仓成本(单价)</label>
+                    <input 
+                      type="number" 
+                      step="0.0001"
+                      value={formData.cost}
+                      onChange={(e) => setFormData({...formData, cost: e.target.value})}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? '保存中...' : '保存'}
+                  </button>
+                </div>
+              </form>
+
+              {/* 仅修改时显示：加仓、减仓、操作记录 */}
+              {editingPos && (
+                <div className="mt-6 pt-4 border-t border-slate-100 space-y-4">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => { setModalOpen(false); setAddModalPos(editingPos); }}
+                      className="flex-1 min-w-0 text-sm py-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium"
+                    >
+                      加仓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setModalOpen(false); setReduceModalPos(editingPos); }}
+                      className="flex-1 min-w-0 text-sm py-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 font-medium"
+                    >
+                      减仓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalTransactionsOpen((v) => !v)}
+                      className="flex-1 min-w-0 text-sm py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium flex items-center justify-center gap-1"
+                    >
+                      <History className="w-4 h-4" />
+                      操作记录
+                      {modalTransactions.length > 0 && (
+                        <span className="text-slate-400">({modalTransactions.length})</span>
+                      )}
+                    </button>
+                  </div>
+                  {modalTransactionsOpen && (
+                    <div className="rounded-lg border border-slate-100 overflow-hidden">
+                      {modalTransactionsLoading ? (
+                        <div className="text-xs text-slate-400 py-4 text-center">加载中...</div>
+                      ) : modalTransactions.length === 0 ? (
+                        <div className="text-xs text-slate-400 py-4 text-center">暂无加仓/减仓记录</div>
+                      ) : (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="bg-slate-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-medium text-slate-500">日期</th>
+                                  <th className="px-3 py-2 text-left font-medium text-slate-500">类型</th>
+                                  <th className="px-3 py-2 text-right font-medium text-slate-500">金额</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {modalTransactions
+                                  .slice((modalTransactionsPage - 1) * MODAL_TX_PAGE_SIZE, modalTransactionsPage * MODAL_TX_PAGE_SIZE)
+                                  .map((t) => (
+                                    <tr key={t.id}>
+                                      <td className="px-3 py-2 text-slate-600">
+                                        {(t.created_at || '').slice(0, 10)}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <span className={t.op_type === 'add' ? 'text-emerald-600' : 'text-amber-600'}>
+                                          {t.op_type === 'add' ? '加仓' : '减仓'}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono">
+                                        {t.op_type === 'add'
+                                          ? (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : '--')
+                                          : (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : (t.shares_redeemed != null ? `${Number(t.shares_redeemed).toLocaleString()} 份` : '--'))}
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                            <span>
+                              第 {(modalTransactionsPage - 1) * MODAL_TX_PAGE_SIZE + 1}-{Math.min(modalTransactionsPage * MODAL_TX_PAGE_SIZE, modalTransactions.length)} 条，共 {modalTransactions.length} 条
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={modalTransactionsPage <= 1}
+                                onClick={() => setModalTransactionsPage((p) => p - 1)}
+                                className="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                上一页
+                              </button>
+                              <button
+                                type="button"
+                                disabled={modalTransactionsPage * MODAL_TX_PAGE_SIZE >= modalTransactions.length}
+                                onClick={() => setModalTransactionsPage((p) => p + 1)}
+                                className="px-2 py-1 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                下一页
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 加仓 Modal */}
+      {addModalPos && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">加仓 · {addModalPos.name}</h3>
+              <button type="button" onClick={() => setAddModalPos(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">基金代码</label>
-                <input 
-                  type="text" 
-                  value={formData.code}
-                  onChange={(e) => setFormData({...formData, code: e.target.value})}
-                  disabled={!!editingPos}
-                  placeholder="如: 005827"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono disabled:opacity-60"
+                <label className="block text-sm font-medium text-slate-700 mb-1">加仓金额（元）</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={addAmount}
+                  onChange={(e) => setAddAmount(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                   required
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">持有份额</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    value={formData.shares}
-                    onChange={(e) => setFormData({...formData, shares: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                    required
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">交易日期与时段</label>
+                <div className="flex gap-2 items-stretch">
+                  <input
+                    type="date"
+                    value={addTradeDate}
+                    onChange={(e) => setAddTradeDate(e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">持仓成本(单价)</label>
-                  <input 
-                    type="number" 
-                    step="0.0001"
-                    value={formData.cost}
-                    onChange={(e) => setFormData({...formData, cost: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                    required
-                  />
+                  <select
+                    value={addTradeCutoff}
+                    onChange={(e) => setAddTradeCutoff(e.target.value)}
+                    className="shrink-0 w-[88px] px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%208L1%203h10z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_0.5rem_center] bg-no-repeat pr-7"
+                  >
+                    <option value="before">三点前</option>
+                    <option value="after">三点后</option>
+                  </select>
                 </div>
               </div>
-
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={addSubmitting}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? '保存中...' : '保存'}
+                  {addSubmitting ? '提交中...' : '确认加仓'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* 减仓 Modal */}
+      {reduceModalPos && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">减仓 · {reduceModalPos.name}</h3>
+              <button type="button" onClick={() => setReduceModalPos(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleReduceSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">减仓份额</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  max={reduceModalPos.shares ?? undefined}
+                  value={reduceShares}
+                  onChange={(e) => setReduceShares(e.target.value)}
+                  placeholder={`当前持仓 ${reduceModalPos.shares != null ? reduceModalPos.shares.toLocaleString() : '--'}`}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">交易日期与时段</label>
+                <div className="flex gap-2 items-stretch">
+                  <input
+                    type="date"
+                    value={reduceTradeDate}
+                    onChange={(e) => setReduceTradeDate(e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                  <select
+                    value={reduceTradeCutoff}
+                    onChange={(e) => setReduceTradeCutoff(e.target.value)}
+                    className="shrink-0 w-[88px] px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%208L1%203h10z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_0.5rem_center] bg-no-repeat pr-7"
+                  >
+                    <option value="before">三点前</option>
+                    <option value="after">三点后</option>
+                  </select>
+                </div>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={reduceSubmitting}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reduceSubmitting ? '提交中...' : '确认减仓'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
