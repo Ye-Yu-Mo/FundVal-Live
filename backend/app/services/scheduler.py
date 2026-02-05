@@ -9,6 +9,7 @@ from ..config import Config
 from ..services.fund import get_combined_valuation
 from ..services.subscription import get_active_subscriptions, update_notification_time
 from ..services.email import send_email
+from ..services.trade import process_pending_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,10 @@ def start_scheduler():
             try:
                 # 24/7 Monitoring
                 check_subscriptions()
+                # 待确认加仓/减仓：用当日已公布净值更新持仓
+                n = process_pending_transactions()
+                if n:
+                    logger.info(f"Applied {n} pending add/reduce transactions.")
             except Exception as e:
                 logger.error(f"Scheduler loop error: {e}")
             

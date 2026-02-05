@@ -333,14 +333,27 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
         df = df.sort_values(by="净值日期", ascending=True)
         results = []
         for _, row in df.iterrows():
+            d = row["净值日期"]
             results.append({
-                "date": str(row["净值日期"]),
+                "date": d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10],
                 "nav": float(row["单位净值"])
             })
         return results
     except Exception as e:
         print(f"History fetch error for {code}: {e}")
         return []
+
+
+def get_nav_on_date(code: str, date_str: str) -> float | None:
+    """
+    Get fund NAV on a specific date (YYYY-MM-DD). Used for T+1 confirm.
+    Returns None if that date's NAV is not yet available.
+    """
+    history = get_fund_history(code, limit=90)
+    for item in history:
+        if item["date"][:10] == date_str[:10]:
+            return item["nav"]
+    return None
 
 
 def _calculate_technical_indicators(history: List[Dict[str, Any]]) -> Dict[str, Any]:
