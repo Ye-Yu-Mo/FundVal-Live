@@ -2,6 +2,8 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -10,9 +12,16 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+          - os: ubuntu-latest
+            platform: Linux
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -43,7 +52,7 @@ jobs:
           uv pip install --system pyinstaller
 
       - name: Build backend with PyInstaller
-        run: pyinstaller backend.spec --clean
+        run: uv run pyinstaller backend.spec --clean
 
       - name: Install frontend dependencies
         working-directory: frontend
