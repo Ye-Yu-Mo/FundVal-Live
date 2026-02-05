@@ -317,6 +317,7 @@ export default function App() {
 
         {currentView === 'account' && (
            <Account
+                isActive={currentView === 'account'}
                 onSelectFund={handleCardClick}
                 onPositionChange={notifyPositionChange}
                 onSyncWatchlist={handleSyncWatchlist}

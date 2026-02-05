@@ -31,7 +31,7 @@ const SORT_OPTIONS = [
   { label: '当日预估收益率（从低到高）', key: 'est_rate', direction: 'asc' },
 ];
 
-const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading }) => {
+const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading, isActive }) => {
   const [data, setData] = useState({ summary: {}, positions: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -96,6 +96,18 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
     const timer = setTimeout(() => fetchData(), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  // 当页面切换回来时刷新数据（跳过首次渲染）
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (isActive) {
+      fetchData();
+    }
+  }, [isActive]);
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
