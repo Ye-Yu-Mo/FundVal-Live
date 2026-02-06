@@ -18,9 +18,22 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Initialize the database schema."""
+    """Initialize the database schema with migration support."""
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Check database version
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("SELECT MAX(version) FROM schema_version")
+    current_version = cursor.fetchone()[0] or 0
+
+    logger.info(f"Current database schema version: {current_version}")
 
     # Funds table - simplistic design, exactly what we need
     cursor.execute("""
@@ -122,6 +135,12 @@ def init_db():
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_fund_history_code ON fund_history(code);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_fund_history_date ON fund_history(date);")
+
+    # Migration: Drop old incompatible tables
+    if current_version < 1:
+        logger.info("Running migration: dropping old incompatible tables")
+        cursor.execute("DROP TABLE IF EXISTS valuation_accuracy")
+        cursor.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (1)")
 
     conn.commit()
     conn.close()

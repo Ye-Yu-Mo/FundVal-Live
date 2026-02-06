@@ -73,12 +73,26 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
   const lastFetchTimeRef = useRef(Date.now());
 
   const fetchData = async (retryCount = 0) => {
+    // 先尝试从 localStorage 读取缓存，立即显示
+    const cachedData = localStorage.getItem('account_data_cache');
+    if (cachedData && !data.positions.length) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setData(parsed);
+      } catch (e) {
+        console.error('Failed to parse cached data', e);
+      }
+    }
+
     setLoading(true);
     setError(null);
     try {
       const res = await getAccountPositions();
       setData(res);
       lastFetchTimeRef.current = Date.now(); // 更新缓存时间
+
+      // 保存到 localStorage
+      localStorage.setItem('account_data_cache', JSON.stringify(res));
     } catch (e) {
       console.error(e);
 
@@ -292,9 +306,21 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
       )}
 
       {/* 1. Portfolio Overview with Summary */}
-      <div className="w-full">
-        <PortfolioChart positions={positions} summary={summary} loading={loading} onRefresh={fetchData} />
-      </div>
+      {loading && !data.positions.length ? (
+        <div className="w-full bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-1/3 mb-4"></div>
+          <div className="h-32 bg-slate-200 rounded mb-4"></div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="h-20 bg-slate-200 rounded"></div>
+            <div className="h-20 bg-slate-200 rounded"></div>
+            <div className="h-20 bg-slate-200 rounded"></div>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full">
+          <PortfolioChart positions={positions} summary={summary} loading={loading} onRefresh={fetchData} />
+        </div>
+      )}
 
       {/* 2. Actions */}
       <div className="flex justify-between items-center">
