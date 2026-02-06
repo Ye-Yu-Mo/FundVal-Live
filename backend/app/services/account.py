@@ -1,11 +1,55 @@
 from typing import List, Dict, Any
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..db import get_db_connection
 from .fund import get_combined_valuation, MAJOR_CATEGORIES
 
 logger = logging.getLogger(__name__)
+
+# 表头/脏数据：估值接口可能返回表头行，在此过滤，前端不再重复过滤（DRY）
+HEADER_LIKE_NAMES = frozenset({
+    "基金", "净值 | 估值", "净值|估值", "份额 | 成本", "份额|成本",
+    "持有收益", "当日预估", "预估总值", "更新时间", "操作",
+})
+
+
+def _is_header_like_row(code: str, name: str) -> bool:
+    if not code or not (isinstance(code, str) and len(code) == 6 and code.isdigit()):
+        return True
+    n = (name or "").strip().replace("\uFF5C", "|")
+    if n in HEADER_LIKE_NAMES or len(n) <= 2:
+        return True
+    if len(n) <= 20 and n.startswith(("净值", "估值", "份额", "成本", "持有收益", "当日预估", "预估总值", "更新时间", "操作")):
+        return True
+    if len(n) <= 30 and all(c in "基金净值估值份额成本持有收益当日预估总值更新时间操作 \t|｜" for c in n):
+        return True
+    return False
+
+
+def _time_to_iso(raw: Any) -> str:
+    """将估值接口返回的时间统一为 ISO 8601，便于前端简单格式化。"""
+    if not raw:
+        return "--"
+    s = str(raw).strip()
+    if not s:
+        return "--"
+    # 已是 ISO 或 "YYYY-MM-DD HH:mm:ss"
+    if "T" in s:
+        return s.split(".")[0].replace("Z", "")[:19]
+    if " " in s:
+        date_part, time_part = s.split(None, 1)
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_part) and re.match(r"^\d{1,2}:\d{2}", time_part):
+            return f"{date_part}T{time_part[:8]}"
+    # "MM-DD HH:mm" -> 补年份
+    m = re.match(r"^(\d{1,2})-(\d{1,2})\s+(\d{1,2}:\d{2}(?::\d{2})?)$", s)
+    if m:
+        from datetime import datetime
+        y = datetime.now().year
+        return f"{y}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}T{m.group(3)}"
+    return s[:19]
+
 
 def classify_fund_simple(name: str) -> str:
     """
@@ -99,6 +143,9 @@ def get_all_positions() -> Dict[str, Any]:
                 total_income = accumulated_income + day_income
                 total_return_rate = (total_income / cost_basis * 100) if cost_basis > 0 else 0.0
                 
+                if _is_header_like_row(code, name):
+                    logger.debug("Skip header-like position: code=%r name=%r", code, name)
+                    continue
                 positions.append({
                     "code": code,
                     "name": name,
@@ -125,7 +172,7 @@ def get_all_positions() -> Dict[str, Any]:
                     "total_income": round(total_income, 2),
                     "total_return_rate": round(total_return_rate, 2),
                     
-                    "update_time": data.get("time", "--")
+                    "update_time": _time_to_iso(data.get("time"))
                 })
                 
                 total_market_value += est_market_value

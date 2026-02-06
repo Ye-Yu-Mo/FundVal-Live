@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Table } from 'antd';
 import { Plus, X, Edit2, Trash2, RefreshCw, ArrowUpDown, ChevronDown, TrendingUp, TrendingDown, History } from 'lucide-react';
 import { getAccountPositions, updatePosition, deletePosition, addPositionTrade, reducePositionTrade, getTransactions } from '../services/api';
 import { getRateColor } from '../components/StatCard';
@@ -17,19 +18,33 @@ function buildTradeTime(dateStr, cutoff) {
   const time = cutoff === 'after' ? '15:01:00' : '14:59:00';
   return `${dateStr}T${time}`;
 }
-// 格式化更新时间：API 可能返回 "2025-02-06 15:00:00" 或 "02-06 15:00" 等
-function formatUpdateTime(raw) {
-  if (!raw || typeof raw !== 'string') return '--';
-  const s = raw.trim();
-  if (!s) return '--';
-  const part = s.split(/[\sT]/)[0];
-  const timePart = s.includes(' ') ? s.split(/\s/)[1] : (s.includes('T') ? s.split('T')[1] : '');
-  if (/^\d{4}-\d{2}-\d{2}$/.test(part)) {
-    const [, m, d] = part.split('-');
-    return timePart ? `${m}-${d} ${timePart.slice(0, 8)}` : `${m}-${d}`;
-  }
-  if (/^\d{2}-\d{2}/.test(s)) return s.slice(0, 16);
-  return s.length > 16 ? s.slice(0, 16) : s;
+// 后端统一返回 ISO 8601（或 "--"），前端只做简单格式化
+function formatUpdateTime(isoString) {
+  if (!isoString || isoString === '--') return '--';
+  const [date, time] = String(isoString).split('T');
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return '--';
+  const [, month, day] = date.split('-');
+  return time ? `${month}-${day} ${time.slice(0, 5)}` : `${month}-${day}`;
+}
+
+// 表头行过滤（兜底：缓存/漏网数据）。与后端规则一致，仅此一处定义。
+const HEADER_LABELS = new Set([
+  '基金', '净值|估值', '净值 | 估值', '份额|成本', '份额 | 成本',
+  '持有收益', '当日预估', '预估总值', '更新时间', '操作'
+]);
+function normalizeName(s) {
+  return String(s ?? '').trim().replace(/\uFF5C/g, '|').replace(/[\u200B-\u200D\uFEFF]/g, '');
+}
+function isHeaderRow(pos) {
+  const code = String(pos?.code ?? '').trim();
+  if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
+  const name = normalizeName(pos?.name);
+  if (HEADER_LABELS.has(name) || name.length <= 2) return true;
+  if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
+  return false;
+}
+function filterDataRows(positions) {
+  return (positions || []).filter((p) => !isHeaderRow(p));
 }
 
 const SORT_OPTIONS = [
@@ -46,12 +61,16 @@ const SORT_OPTIONS = [
 ];
 
 const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading, isActive }) => {
-  // 初始化时从 localStorage 读取缓存
+  // 初始化时从 localStorage 读取缓存，并过滤表头行避免表头出现在数据行下
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem('account_data_cache');
       if (cached) {
-        return JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.positions)) {
+          return { ...parsed, positions: filterDataRows(parsed.positions) };
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Failed to load cached account data', e);
@@ -98,12 +117,16 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
   const lastFetchTimeRef = useRef(Date.now());
 
   const fetchData = async (retryCount = 0, silent = true) => {
-    // 先从 localStorage 读取缓存，立即显示
+    // 先从 localStorage 读取缓存并过滤表头行后显示
     const cachedData = localStorage.getItem('account_data_cache');
     if (cachedData) {
       try {
         const parsed = JSON.parse(cachedData);
-        setData(parsed);
+        if (parsed && Array.isArray(parsed.positions)) {
+          setData({ ...parsed, positions: filterDataRows(parsed.positions) });
+        } else {
+          setData(parsed);
+        }
       } catch (e) {
         console.error('Failed to parse cached data', e);
       }
@@ -113,22 +136,11 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
     setError(null);
     try {
       const res = await getAccountPositions();
-      setData(res);
-      lastFetchTimeRef.current = Date.now(); // 更新缓存时间
-
-      // 缓存时只保存过滤掉表头行后的 positions，避免下次从缓存恢复时再次出现“表头在行里”
-      const normalizeForCache = (s) => String(s ?? '').trim().replace(/\uFF5C/g, '|');
-      const headerLike = new Set(['基金', '净值 | 估值', '净值|估值', '份额 | 成本', '份额|成本', '持有收益', '当日预估', '预估总值', '更新时间', '操作']);
-      const isHeader = (pos) => {
-        const code = String(pos?.code ?? '');
-        if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
-        const name = normalizeForCache(pos?.name);
-        if (headerLike.has(name) || name.length <= 2) return true;
-        if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
-        return false;
-      };
-      const safePositions = (res.positions || []).filter((p) => !isHeader(p));
-      localStorage.setItem('account_data_cache', JSON.stringify({ ...res, positions: safePositions }));
+      const safePositions = filterDataRows(res.positions);
+      const clean = { ...res, positions: safePositions };
+      setData(clean);
+      lastFetchTimeRef.current = Date.now();
+      localStorage.setItem('account_data_cache', JSON.stringify(clean));
     } catch (e) {
       console.error(e);
 
@@ -300,32 +312,146 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
 
   const { summary, positions } = data;
 
-  // 规范化：去空格、全角竖线转半角，便于匹配表头脏数据
-  const normalize = (s) => String(s ?? '').trim().replace(/\uFF5C/g, '|');
-  const HEADER_LIKE_NAMES = new Set([
-    '基金', '净值 | 估值', '净值|估值', '份额 | 成本', '份额|成本',
-    '持有收益', '当日预估', '预估总值', '更新时间', '操作'
-  ]);
-  const isHeaderLikeRow = (pos) => {
-    const name = normalize(pos?.name);
-    const code = String(pos?.code ?? '');
-    if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
-    if (HEADER_LIKE_NAMES.has(name) || name.length <= 2) return true;
-    if (name.length <= 20 && /^(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)[\s|｜]*/.test(name)) return true;
-    if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
-    // 整行仅由表头关键词+竖线/空格组成（如 "净值|估值|份额|成本"）
-    if (name.length <= 30 && /^[基金净值估值份额成本持有收益当日预估总值更新时间操作\s|｜]+$/.test(name)) return true;
-    return false;
-  };
-  // 只保留非表头行；表头仅出现在 thead，不参与 tbody
-  const validPositions = (positions || []).filter((pos) => !isHeaderLikeRow(pos));
+  // 展示用：统一用 filterDataRows 过滤表头行（含缓存兜底）
+  const displayPositions = filterDataRows(positions);
 
   // 排序逻辑
-  const sortedPositions = [...validPositions].sort((a, b) => {
+  const sortedPositions = [...displayPositions].sort((a, b) => {
     const aValue = a[sortOption.key] || 0;
     const bValue = b[sortOption.key] || 0;
     return sortOption.direction === 'desc' ? bValue - aValue : aValue - bValue;
   });
+
+  // antd 表格列：表头与数据完全分离，表头在上、数据在下
+  const tableColumns = useMemo(() => [
+    {
+      title: '基金',
+      key: 'fund',
+      width: '21%',
+      render: (_, pos) => (
+        <div
+          className="cursor-pointer group"
+          onClick={() => onSelectFund?.(pos.code)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onSelectFund?.(pos.code)}
+        >
+          <div className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate" title={pos.name}>{pos.name}</div>
+          <div className="text-xs text-slate-400 font-mono">{pos.code}</div>
+        </div>
+      ),
+    },
+    {
+      title: '净值 | 估值',
+      key: 'nav_est',
+      width: '8%',
+      align: 'right',
+      render: (_, pos) => (
+        <div className="font-mono">
+          <div className="text-slate-500 text-xs" title="昨日净值">{pos.nav?.toFixed(4)}</div>
+          <div className={`font-medium ${getRateColor(pos.est_rate)}`} title="实时估值">
+            {pos.estimate > 0 ? pos.estimate?.toFixed(4) : '--'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '份额 | 成本',
+      key: 'shares_cost',
+      width: '9%',
+      align: 'right',
+      render: (_, pos) => (
+        <div className="font-mono text-slate-600">
+          <div>{pos.shares?.toLocaleString()}</div>
+          <div className="text-xs text-slate-400">{pos.cost?.toFixed(4)}</div>
+        </div>
+      ),
+    },
+    {
+      title: '持有收益',
+      key: 'accumulated',
+      width: '14%',
+      align: 'right',
+      render: (_, pos) => (
+        <div className="font-mono">
+          <div className="text-slate-800 font-medium text-xs" title="实际总额（按净值）">
+            {(pos.nav_market_value ?? 0).toLocaleString()}
+          </div>
+          <div className={`text-xs ${getRateColor(pos.accumulated_income)}`}>
+            {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income}
+            {' '}({pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate}%)
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '当日预估',
+      key: 'day_est',
+      width: '10%',
+      align: 'right',
+      render: (_, pos) => (
+        <div className="font-mono">
+          <div className={`font-medium ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.day_income)}`}>
+            {pos.is_est_valid ? (pos.day_income > 0 ? '+' : '') + pos.day_income : '--'}
+          </div>
+          <div className={`text-xs ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.est_rate)}`}>
+            {pos.is_est_valid ? (pos.est_rate > 0 ? '+' : '') + pos.est_rate + '%' : '--'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '预估总值',
+      key: 'est_value',
+      width: '12%',
+      align: 'right',
+      render: (_, pos) => (
+        <div className="font-mono">
+          <div className="text-slate-800 font-medium">{pos.est_market_value?.toLocaleString()}</div>
+          <div className={`text-xs ${getRateColor(pos.total_income)}`}>
+            {pos.total_income > 0 ? '+' : ''}{pos.total_income}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '更新时间',
+      key: 'update_time',
+      width: '11%',
+      align: 'right',
+      fixed: 'right',
+      render: (_, pos) => (
+        <span className="font-mono text-slate-500 text-sm">{formatUpdateTime(pos.update_time)}</span>
+      ),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 28,
+      fixed: 'right',
+      align: 'center',
+      render: (_, pos) => (
+        <div className="flex justify-center items-center gap-0">
+          <button
+            type="button"
+            onClick={() => handleOpenModal(pos)}
+            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="修改持仓"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(pos.code)}
+            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="删除"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ], [sortOption, onSelectFund]);
 
   return (
     <div className="space-y-6">
@@ -364,7 +490,7 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
         </div>
       ) : (
         <div className="w-full">
-          <PortfolioChart positions={validPositions} summary={summary} loading={loading} onRefresh={fetchData} />
+          <PortfolioChart positions={displayPositions} summary={summary} loading={loading} onRefresh={fetchData} />
         </div>
       )}
 
@@ -421,129 +547,18 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
         </div>
       </div>
 
-      {/* 3. Table：表头单独一表在上方，数据表仅 tbody，从 DOM 上保证表头不会出现在最下面 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full">
-        <div className="overflow-x-auto">
-          {/* 表头表：仅此一表有 thead，始终在顶部 */}
-          <table className="w-full text-base text-left border-collapse min-w-[1100px] table-fixed" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '21%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '28px' }} />
-            </colgroup>
-            <thead className="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider sticky top-[73px] z-30 shadow-sm">
-              <tr>
-                <th className="px-4 py-3 text-left border-b border-slate-100 bg-slate-50 rounded-tl-xl">基金</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">净值 | 估值</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">份额 | 成本</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">持有收益</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">当日预估</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">预估总值</th>
-                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50 sticky right-[28px] z-20 bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]">更新时间</th>
-                <th className="px-0 py-3 text-center border-b border-slate-100 bg-slate-50 sticky right-0 z-20 bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]" style={{ width: 28, minWidth: 28, maxWidth: 28 }}>操作</th>
-              </tr>
-            </thead>
-          </table>
-          {/* 数据表：仅 tbody，无 thead，避免任何“表头行”出现在底部 */}
-          <table className="w-full text-base text-left border-collapse min-w-[1100px] table-fixed" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '21%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '28px' }} />
-            </colgroup>
-            <tbody className="divide-y divide-slate-100 text-base">
-              {sortedPositions.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
-                    暂无持仓，快去记一笔吧
-                  </td>
-                </tr>
-              ) : sortedPositions.map((pos) => (
-                <tr key={pos.code} className="group/row hover:bg-slate-50 transition-colors">
-                  <td 
-                    className="px-4 py-3 cursor-pointer group"
-                    onClick={() => onSelectFund && onSelectFund(pos.code)}
-                  >
-                    <div className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate" title={pos.name}>{pos.name}</div>
-                    <div className="text-xs text-slate-400 font-mono">{pos.code}</div>
-                  </td>
-                  
-                  <td className="px-4 py-3 text-right font-mono">
-                    <div className="text-slate-500 text-xs" title="昨日净值">{pos.nav.toFixed(4)}</div>
-                    <div className={`font-medium ${getRateColor(pos.est_rate)}`} title="实时估值">
-                        {pos.estimate > 0 ? pos.estimate.toFixed(4) : '--'}
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    <div>{pos.shares.toLocaleString()}</div>
-                    <div className="text-xs text-slate-400">{pos.cost.toFixed(4)}</div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-mono">
-                    <div className="text-slate-800 font-medium text-xs" title="实际总额（按净值）">
-                        {(pos.nav_market_value ?? 0).toLocaleString()}
-                    </div>
-                    <div className={`text-xs ${getRateColor(pos.accumulated_income)}`}>
-                        {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income}
-                        {' '}
-                        ({pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate}%)
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-mono">
-                    <div className={`font-medium ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.day_income)}`}>
-                        {pos.is_est_valid ? (pos.day_income > 0 ? '+' : '') + pos.day_income : '--'}
-                    </div>
-                    <div className={`text-xs ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.est_rate)}`}>
-                        {pos.is_est_valid ? (pos.est_rate > 0 ? '+' : '') + pos.est_rate + '%' : '--'}
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-mono">
-                     <div className="text-slate-800 font-medium">{pos.est_market_value.toLocaleString()}</div>
-                     <div className={`text-xs ${getRateColor(pos.total_income)}`}>
-                        {pos.total_income > 0 ? '+' : ''}{pos.total_income}
-                     </div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-mono text-slate-500 text-sm sticky right-[28px] z-10 bg-white group-hover/row:bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]">
-                    {formatUpdateTime(pos.update_time)}
-                  </td>
-
-                  <td className="px-0 py-3 sticky right-0 z-10 bg-white group-hover/row:bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]" style={{ width: 28, minWidth: 28, maxWidth: 28 }}>
-                    <div className="flex justify-center items-center gap-0">
-                      <button 
-                        onClick={() => handleOpenModal(pos)}
-                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="修改持仓"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(pos.code)}
-                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* 3. 持仓明细表：antd Table，表头与数据分离，表头在上、数据在下 */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full overflow-hidden">
+        <Table
+          columns={tableColumns}
+          dataSource={sortedPositions}
+          rowKey="code"
+          pagination={false}
+          size="middle"
+          locale={{ emptyText: '暂无持仓，快去记一笔吧' }}
+          scroll={{ x: 1100 }}
+          className="account-positions-table text-base"
+        />
       </div>
 
       {/* Modal：新增/修改持仓 */}
