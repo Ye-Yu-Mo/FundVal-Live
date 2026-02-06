@@ -17,6 +17,20 @@ function buildTradeTime(dateStr, cutoff) {
   const time = cutoff === 'after' ? '15:01:00' : '14:59:00';
   return `${dateStr}T${time}`;
 }
+// 格式化更新时间：API 可能返回 "2025-02-06 15:00:00" 或 "02-06 15:00" 等
+function formatUpdateTime(raw) {
+  if (!raw || typeof raw !== 'string') return '--';
+  const s = raw.trim();
+  if (!s) return '--';
+  const part = s.split(/[\sT]/)[0];
+  const timePart = s.includes(' ') ? s.split(/\s/)[1] : (s.includes('T') ? s.split('T')[1] : '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(part)) {
+    const [, m, d] = part.split('-');
+    return timePart ? `${m}-${d} ${timePart.slice(0, 8)}` : `${m}-${d}`;
+  }
+  if (/^\d{2}-\d{2}/.test(s)) return s.slice(0, 16);
+  return s.length > 16 ? s.slice(0, 16) : s;
+}
 
 const SORT_OPTIONS = [
   { label: '预估总值（从高到低）', key: 'est_market_value', direction: 'desc' },
@@ -31,8 +45,19 @@ const SORT_OPTIONS = [
   { label: '当日预估收益率（从低到高）', key: 'est_rate', direction: 'asc' },
 ];
 
-const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading }) => {
-  const [data, setData] = useState({ summary: {}, positions: [] });
+const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading, isActive }) => {
+  // 初始化时从 localStorage 读取缓存
+  const [data, setData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('account_data_cache');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error('Failed to load cached account data', e);
+    }
+    return { summary: {}, positions: [] };
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,12 +94,41 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
   const [modalTransactionsPage, setModalTransactionsPage] = useState(1);
   const MODAL_TX_PAGE_SIZE = 10;
 
-  const fetchData = async (retryCount = 0) => {
-    setLoading(true);
+  // 缓存管理
+  const lastFetchTimeRef = useRef(Date.now());
+
+  const fetchData = async (retryCount = 0, silent = true) => {
+    // 先从 localStorage 读取缓存，立即显示
+    const cachedData = localStorage.getItem('account_data_cache');
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setData(parsed);
+      } catch (e) {
+        console.error('Failed to parse cached data', e);
+      }
+    }
+
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await getAccountPositions();
       setData(res);
+      lastFetchTimeRef.current = Date.now(); // 更新缓存时间
+
+      // 缓存时只保存过滤掉表头行后的 positions，避免下次从缓存恢复时再次出现“表头在行里”
+      const normalizeForCache = (s) => String(s ?? '').trim().replace(/\uFF5C/g, '|');
+      const headerLike = new Set(['基金', '净值 | 估值', '净值|估值', '份额 | 成本', '份额|成本', '持有收益', '当日预估', '预估总值', '更新时间', '操作']);
+      const isHeader = (pos) => {
+        const code = String(pos?.code ?? '');
+        if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
+        const name = normalizeForCache(pos?.name);
+        if (headerLike.has(name) || name.length <= 2) return true;
+        if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
+        return false;
+      };
+      const safePositions = (res.positions || []).filter((p) => !isHeader(p));
+      localStorage.setItem('account_data_cache', JSON.stringify({ ...res, positions: safePositions }));
     } catch (e) {
       console.error(e);
 
@@ -82,20 +136,30 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
       if (retryCount < 2) {
         const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
         console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/2)`);
-        setTimeout(() => fetchData(retryCount + 1), delay);
+        setTimeout(() => fetchData(retryCount + 1, silent), delay);
       } else {
         setError('加载账户数据失败，请检查后端服务是否启动');
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Delay initial fetch to give backend time to start
-    const timer = setTimeout(() => fetchData(), 500);
-    return () => clearTimeout(timer);
+    // 立即静默刷新一次
+    fetchData();
   }, []);
+
+  // 轮询机制：每 15 秒自动刷新数据（静默模式）
+  useEffect(() => {
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      fetchData(); // 静默刷新
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [isActive]);
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -236,8 +300,28 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
 
   const { summary, positions } = data;
 
+  // 规范化：去空格、全角竖线转半角，便于匹配表头脏数据
+  const normalize = (s) => String(s ?? '').trim().replace(/\uFF5C/g, '|');
+  const HEADER_LIKE_NAMES = new Set([
+    '基金', '净值 | 估值', '净值|估值', '份额 | 成本', '份额|成本',
+    '持有收益', '当日预估', '预估总值', '更新时间', '操作'
+  ]);
+  const isHeaderLikeRow = (pos) => {
+    const name = normalize(pos?.name);
+    const code = String(pos?.code ?? '');
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
+    if (HEADER_LIKE_NAMES.has(name) || name.length <= 2) return true;
+    if (name.length <= 20 && /^(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)[\s|｜]*/.test(name)) return true;
+    if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
+    // 整行仅由表头关键词+竖线/空格组成（如 "净值|估值|份额|成本"）
+    if (name.length <= 30 && /^[基金净值估值份额成本持有收益当日预估总值更新时间操作\s|｜]+$/.test(name)) return true;
+    return false;
+  };
+  // 只保留非表头行；表头仅出现在 thead，不参与 tbody
+  const validPositions = (positions || []).filter((pos) => !isHeaderLikeRow(pos));
+
   // 排序逻辑
-  const sortedPositions = [...positions].sort((a, b) => {
+  const sortedPositions = [...validPositions].sort((a, b) => {
     const aValue = a[sortOption.key] || 0;
     const bValue = b[sortOption.key] || 0;
     return sortOption.direction === 'desc' ? bValue - aValue : aValue - bValue;
@@ -268,9 +352,21 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
       )}
 
       {/* 1. Portfolio Overview with Summary */}
-      <div className="w-full">
-        <PortfolioChart positions={positions} summary={summary} loading={loading} onRefresh={fetchData} />
-      </div>
+      {loading && !data.positions.length ? (
+        <div className="w-full bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-1/3 mb-4"></div>
+          <div className="h-32 bg-slate-200 rounded mb-4"></div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="h-20 bg-slate-200 rounded"></div>
+            <div className="h-20 bg-slate-200 rounded"></div>
+            <div className="h-20 bg-slate-200 rounded"></div>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full">
+          <PortfolioChart positions={validPositions} summary={summary} loading={loading} onRefresh={fetchData} />
+        </div>
+      )}
 
       {/* 2. Actions */}
       <div className="flex justify-between items-center">
@@ -325,10 +421,21 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
         </div>
       </div>
 
-      {/* 3. Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div>
-          <table className="w-full text-base text-left border-collapse">
+      {/* 3. Table：表头单独一表在上方，数据表仅 tbody，从 DOM 上保证表头不会出现在最下面 */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full">
+        <div className="overflow-x-auto">
+          {/* 表头表：仅此一表有 thead，始终在顶部 */}
+          <table className="w-full text-base text-left border-collapse min-w-[1100px] table-fixed" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '21%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '28px' }} />
+            </colgroup>
             <thead className="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider sticky top-[73px] z-30 shadow-sm">
               <tr>
                 <th className="px-4 py-3 text-left border-b border-slate-100 bg-slate-50 rounded-tl-xl">基金</th>
@@ -337,27 +444,40 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
                 <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">持有收益</th>
                 <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">当日预估</th>
                 <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50">预估总值</th>
-                <th className="px-4 py-3 text-center border-b border-slate-100 bg-slate-50 rounded-tr-xl">操作</th>
+                <th className="px-4 py-3 text-right border-b border-slate-100 bg-slate-50 sticky right-[28px] z-20 bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]">更新时间</th>
+                <th className="px-0 py-3 text-center border-b border-slate-100 bg-slate-50 sticky right-0 z-20 bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]" style={{ width: 28, minWidth: 28, maxWidth: 28 }}>操作</th>
               </tr>
             </thead>
+          </table>
+          {/* 数据表：仅 tbody，无 thead，避免任何“表头行”出现在底部 */}
+          <table className="w-full text-base text-left border-collapse min-w-[1100px] table-fixed" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '21%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '28px' }} />
+            </colgroup>
             <tbody className="divide-y divide-slate-100 text-base">
               {sortedPositions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
                     暂无持仓，快去记一笔吧
                   </td>
                 </tr>
               ) : sortedPositions.map((pos) => (
-                <tr key={pos.code} className="hover:bg-slate-50 transition-colors">
+                <tr key={pos.code} className="group/row hover:bg-slate-50 transition-colors">
                   <td 
-                    className="px-4 py-3 cursor-pointer group max-w-[180px]"
+                    className="px-4 py-3 cursor-pointer group"
                     onClick={() => onSelectFund && onSelectFund(pos.code)}
                   >
                     <div className="font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate" title={pos.name}>{pos.name}</div>
                     <div className="text-xs text-slate-400 font-mono">{pos.code}</div>
                   </td>
                   
-                  {/* Price Column */}
                   <td className="px-4 py-3 text-right font-mono">
                     <div className="text-slate-500 text-xs" title="昨日净值">{pos.nav.toFixed(4)}</div>
                     <div className={`font-medium ${getRateColor(pos.est_rate)}`} title="实时估值">
@@ -365,23 +485,22 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
                     </div>
                   </td>
 
-                  {/* Position Column */}
                   <td className="px-4 py-3 text-right font-mono text-slate-600">
                     <div>{pos.shares.toLocaleString()}</div>
                     <div className="text-xs text-slate-400">{pos.cost.toFixed(4)}</div>
                   </td>
 
-                  {/* Accumulated Income (Historical) */}
                   <td className="px-4 py-3 text-right font-mono">
-                    <div className={`font-medium ${getRateColor(pos.accumulated_income)}`}>
-                        {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income}
+                    <div className="text-slate-800 font-medium text-xs" title="实际总额（按净值）">
+                        {(pos.nav_market_value ?? 0).toLocaleString()}
                     </div>
-                    <div className={`text-xs ${getRateColor(pos.accumulated_return_rate)}`}>
-                        {pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate}%
+                    <div className={`text-xs ${getRateColor(pos.accumulated_income)}`}>
+                        {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income}
+                        {' '}
+                        ({pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate}%)
                     </div>
                   </td>
 
-                  {/* Intraday Income (Real-time) */}
                   <td className="px-4 py-3 text-right font-mono">
                     <div className={`font-medium ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.day_income)}`}>
                         {pos.is_est_valid ? (pos.day_income > 0 ? '+' : '') + pos.day_income : '--'}
@@ -391,7 +510,6 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
                     </div>
                   </td>
 
-                  {/* Total Projected */}
                   <td className="px-4 py-3 text-right font-mono">
                      <div className="text-slate-800 font-medium">{pos.est_market_value.toLocaleString()}</div>
                      <div className={`text-xs ${getRateColor(pos.total_income)}`}>
@@ -399,21 +517,25 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading 
                      </div>
                   </td>
 
-                  <td className="px-4 py-3">
-                    <div className="flex justify-center gap-2">
+                  <td className="px-4 py-3 text-right font-mono text-slate-500 text-sm sticky right-[28px] z-10 bg-white group-hover/row:bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]">
+                    {formatUpdateTime(pos.update_time)}
+                  </td>
+
+                  <td className="px-0 py-3 sticky right-0 z-10 bg-white group-hover/row:bg-slate-50 shadow-[inset_8px_0_8px_-8px_rgba(0,0,0,0.08)]" style={{ width: 28, minWidth: 28, maxWidth: 28 }}>
+                    <div className="flex justify-center items-center gap-0">
                       <button 
                         onClick={() => handleOpenModal(pos)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                         title="修改持仓"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button 
                         onClick={() => handleDelete(pos.code)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="删除"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

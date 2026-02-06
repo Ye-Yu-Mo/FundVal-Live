@@ -1,10 +1,10 @@
 {
   "name": "fundval-live",
-  "version": "1.0.0",
+  "version": "1.0.9",
   "description": "盘中基金实时估值与逻辑审计系统",
   "main": "electron/main.js",
   "author": "Jasmine",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "homepage": "https://github.com/Ye-Yu-Mo/FundVal-Live",
   "repository": {
     "type": "git",
@@ -23,6 +23,7 @@
   "build": {
     "appId": "com.fundval.live",
     "productName": "FundVal Live",
+    "publish": null,
     "directories": {
       "output": "release"
     },
@@ -83,7 +84,5 @@
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
-  },
-  "author": "Jasmine",
-  "license": "MIT"
+  }
 }

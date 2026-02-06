@@ -35,3 +35,6 @@ build/
 
 # PyInstaller
 *.spec.backup
+features.json
+backend/data/fund.db-shm
+backend/data/fund.db-wal

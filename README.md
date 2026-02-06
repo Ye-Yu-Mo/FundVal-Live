@@ -9,6 +9,18 @@
 
 ---
 
+## 目录
+
+- [预览](#预览)
+- [快速开始](#快速开始)
+  - [方式一：桌面应用（推荐）](#方式一桌面应用推荐)
+  - [方式二：Docker 部署（推荐服务器部署）](#方式二docker-部署推荐服务器部署)
+  - [方式三：命令行运行](#方式三命令行运行)
+- [核心功能](#核心功能)
+- [技术架构](#技术架构)
+
+---
+
 ## 预览
 
 ### 资金看板
@@ -23,6 +35,14 @@
 ### AI 深度逻辑报告
 ![AI Analysis](docs/AI分析-持仓股明细.png)
 
+---
+
+## 加入讨论群组
+
+<div align="center">
+  <img src="docs/讨论群组.jpg" width="300" alt="讨论群组二维码" />
+  <p>扫码加入微信群，交流使用心得、反馈问题、提出建议</p>
+</div>
 
 ---
 
@@ -71,13 +91,82 @@ sudo dpkg -i fundval-live_*_amd64.deb
 #### 数据位置
 
 - **数据库**: `~/.fundval-live/data/fund.db`
+- **配置文件**: `~/.fundval-live/config.json`
 - **日志**: `~/.fundval-live/logs/`
   - `electron.log` - 应用日志
   - `backend.log` - 后端日志
 
+#### 修改端口
+
+如果默认端口 `21345` 被占用，可以修改配置文件：
+
+1. 打开配置文件：`~/.fundval-live/config.json`
+2. 修改端口号：
+   ```json
+   {
+     "port": 8080
+   }
+   ```
+3. 重启应用
+
+**配置文件位置**：
+- **macOS/Linux**: `~/.fundval-live/config.json`
+- **Windows**: `C:\Users\<用户名>\.fundval-live\config.json`
+
 ---
 
-### 方式二：命令行运行
+### 方式二：Docker 部署（推荐服务器部署）
+
+**一键部署，无需配置环境，适合服务器或 NAS**
+
+#### 1. 安装 Docker
+
+- **Linux**: `curl -fsSL https://get.docker.com | sh`
+- **macOS/Windows**: 下载 [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+#### 2. 启动服务
+
+```bash
+# 克隆项目
+git clone https://github.com/Ye-Yu-Mo/FundVal-Live.git
+cd FundVal-Live
+
+# （可选）配置环境变量
+cp .env.docker .env
+# 编辑 .env 填入 API Key 等配置
+
+# 启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
+
+#### 3. 访问
+
+打开浏览器访问 `http://localhost:21345`
+
+#### 4. 管理
+
+```bash
+# 停止服务
+docker-compose down
+
+# 更新服务
+git pull
+docker-compose up -d --build
+
+# 查看状态
+docker-compose ps
+```
+
+#### 数据持久化
+
+数据存储在 Docker volume `fundval-data` 中，即使删除容器也不会丢失。
+
+---
+
+### 方式三：命令行运行
 
 **适合开发者和需要自定义配置的用户**
 
@@ -197,6 +286,25 @@ flowchart TB
 
 ### 数学归因
 用夏普比率、最大回撤、年化波动率等硬指标替代主观的评分体系。
+
+---
+
+## 开源协议
+
+本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 开源协议。
+
+**这意味着**：
+- 你可以自由使用、修改、分发本软件
+- 个人使用无需开源你的修改
+- 如果你用本项目代码提供网络服务（SaaS），必须开源你的修改
+- 衍生作品必须使用相同协议
+
+**为什么选择 AGPL-3.0？**
+- 金融工具需要透明度，用户有权知道估值逻辑
+- 防止闭源商业化，确保改进回流社区
+- 保护开源生态，避免"拿来主义"
+
+详见 [LICENSE](LICENSE) 文件。
 
 ---
 

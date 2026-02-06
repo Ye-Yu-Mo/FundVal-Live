@@ -109,7 +109,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
 
@@ -117,22 +117,11 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Get version
-        id: version
-        run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "version=latest" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create or Update Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: FundVal Live ${{ steps.version.outputs.version }}
           body: |
-            ## 📦 安装包下载
+            ## 安装包下载
 
             ### macOS
             - **Apple Silicon (M1/M2/M3)**: `FundVal-Live-*-arm64.dmg`
@@ -145,29 +134,53 @@ jobs:
             - **AppImage**: `FundVal-Live-*.AppImage`
             - **Debian/Ubuntu**: `fundval-live_*_amd64.deb`
 
-            ## 🚀 使用说明
+            ## 本次更新
+
+            ### 用户体验优化
+            - 账户页面添加 localStorage 缓存，切换页面时立即显示数据
+            - 添加骨架屏加载动画，消除空白等待感
+            - 数据先显示缓存，后台刷新，体验更流畅
+
+            ### 关键修复
+            - 修复打包应用无法获取历史数据的问题（py_mini_racer native library 缺失）
+            - 修复历史走势图表无法显示的问题
+            - 修复 AI 分析技术指标缺失的问题
+
+            ### 数据库兼容性
+            - 添加数据库版本管理和自动迁移
+            - 自动清理旧版本不兼容的表
+            - 确保从旧版本无缝升级
+
+            ### 性能优化
+            - 历史净值数据缓存到数据库（24小时有效期）
+            - 账户页面30秒智能缓存
+            - 前端 localStorage 缓存，减少后端请求
+
+            ## 使用说明
 
             1. 下载对应平台的安装包
             2. 双击安装
             3. 启动应用即可使用
 
-            ## 📝 更新内容
+            数据存储位置：
+            - 数据库：`~/.fundval-live/data/fund.db`
+            - 日志：`~/.fundval-live/logs/`
 
-            - 完整的桌面应用支持
-            - 自动更新后端和前端
-            - 数据存储在 `~/.fundval-live/`
-            - 日志文件在 `~/.fundval-live/logs/`
-
-            ## ⚠️ 注意事项
+            ## 注意事项
 
             - macOS 首次打开可能提示"无法验证开发者"，请在系统偏好设置 → 安全性与隐私中允许
             - Windows 可能提示 SmartScreen，点击"更多信息"→"仍要运行"
             - Linux AppImage 需要添加执行权限：`chmod +x FundVal-Live-*.AppImage`
+
+            ## 开源协议
+
+            本项目采用 AGPL-3.0 协议开源。如果你使用本项目代码提供网络服务，必须开源你的修改。
+            详见：https://github.com/Ye-Yu-Mo/FundVal-Live/blob/main/LICENSE
           files: |
             macos-build/*
             windows-build/*
             linux-build/*
           draft: false
-          prerelease: ${{ steps.version.outputs.version == 'latest' }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,10 +5,33 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import os
 import sys
+import json
 
 from .routers import funds, ai, account, settings
 from .db import init_db
 from .services.scheduler import start_scheduler
+
+# 读取版本号
+def get_version():
+    """从 package.json 读取版本号"""
+    try:
+        if getattr(sys, 'frozen', False):
+            # 打包后的应用
+            base_path = sys._MEIPASS
+        else:
+            # 开发模式
+            base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+        package_json_path = os.path.join(base_path, "package.json")
+        if os.path.exists(package_json_path):
+            with open(package_json_path, 'r', encoding='utf-8') as f:
+                package_data = json.load(f)
+                return package_data.get('version', '1.0.0')
+    except Exception as e:
+        print(f"Failed to read version from package.json: {e}")
+    return '1.0.0'
+
+APP_VERSION = get_version()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,6 +58,19 @@ app.include_router(funds.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(account.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+
+# Project info endpoint
+@app.get("/api/info")
+async def get_project_info():
+    """返回项目信息"""
+    return {
+        "name": "FundVal Live",
+        "version": APP_VERSION,
+        "description": "盘中基金实时估值与逻辑审计系统",
+        "github": "https://github.com/Ye-Yu-Mo/FundVal-Live",
+        "issues": "https://github.com/Ye-Yu-Mo/FundVal-Live/issues",
+        "releases": "https://github.com/Ye-Yu-Mo/FundVal-Live/releases"
+    }
 
 # 静态文件服务（前端）
 # 判断是否为打包后的应用

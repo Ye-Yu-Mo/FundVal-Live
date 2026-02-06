@@ -323,24 +323,86 @@ def _fetch_stock_spots_sina(codes: List[str]) -> Dict[str, float]:
 
 def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
     """
-    Get historical NAV data.
+    Get historical NAV data with database caching.
+    If limit >= 9999, fetch all available history.
     """
+    from ..db import get_db_connection
+    import time
+
+    # 1. Try to get from database cache first
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # If limit is very large, get all data
+    if limit >= 9999:
+        cursor.execute("""
+            SELECT date, nav, updated_at FROM fund_history
+            WHERE code = ?
+            ORDER BY date DESC
+        """, (code,))
+    else:
+        cursor.execute("""
+            SELECT date, nav, updated_at FROM fund_history
+            WHERE code = ?
+            ORDER BY date DESC
+            LIMIT ?
+        """, (code, limit))
+
+    rows = cursor.fetchall()
+
+    # Check if cache is fresh (less than 24 hours old)
+    cache_valid = False
+    if rows:
+        latest_update = rows[0]["updated_at"]
+        # Parse timestamp
+        try:
+            from datetime import datetime
+            update_time = datetime.fromisoformat(latest_update)
+            age_hours = (datetime.now() - update_time).total_seconds() / 3600
+            # For "all history" requests, require more data to consider cache valid
+            min_rows = 10 if limit < 9999 else 100
+            cache_valid = age_hours < 24 and len(rows) >= min(limit, min_rows)
+        except:
+            pass
+
+    if cache_valid:
+        conn.close()
+        # Reverse to ascending order (oldest to newest) for chart display
+        return [{"date": row["date"], "nav": float(row["nav"])} for row in reversed(rows)]
+
+    # 2. Cache miss or stale, fetch from API
     try:
         df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
         if df is None or df.empty:
+            conn.close()
             return []
-        df = df.sort_values(by="净值日期", ascending=False).head(limit)
+
+        # If limit < 9999, take only the most recent N records
+        if limit < 9999:
+            df = df.sort_values(by="净值日期", ascending=False).head(limit)
+
+        # Sort ascending for chart display
         df = df.sort_values(by="净值日期", ascending=True)
+
         results = []
         for _, row in df.iterrows():
             d = row["净值日期"]
-            results.append({
-                "date": d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10],
-                "nav": float(row["单位净值"])
-            })
+            date_str = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
+            nav_value = float(row["单位净值"])
+            results.append({"date": date_str, "nav": nav_value})
+
+            # 3. Save to database cache
+            cursor.execute("""
+                INSERT OR REPLACE INTO fund_history (code, date, nav, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """, (code, date_str, nav_value))
+
+        conn.commit()
+        conn.close()
         return results
     except Exception as e:
         print(f"History fetch error for {code}: {e}")
+        conn.close()
         return []
 
 
