@@ -108,6 +108,31 @@ class AIService:
         # Calculate technical indicators (Sharpe, Volatility, Max Drawdown)
         technical_indicators = _calculate_technical_indicators(history)
 
+        # 1.5 Data Consistency Check
+        consistency_note = ""
+        try:
+            sharpe = technical_indicators.get("sharpe")
+            annual_return_str = technical_indicators.get("annual_return", "")
+            volatility_str = technical_indicators.get("volatility", "")
+
+            if sharpe != "--" and annual_return_str != "--" and volatility_str != "--":
+                # Parse percentage strings
+                annual_return = float(annual_return_str.rstrip('%')) / 100.0
+                volatility = float(volatility_str.rstrip('%')) / 100.0
+                sharpe_val = float(sharpe)
+
+                # Expected Sharpe = (annual_return - rf) / volatility
+                rf = 0.02
+                expected_sharpe = (annual_return - rf) / volatility if volatility > 0 else 0
+                sharpe_diff = abs(expected_sharpe - sharpe_val)
+
+                if sharpe_diff > 0.3:
+                    consistency_note = f"\n⚠️ 数据一致性警告：夏普比率 {sharpe_val} 与计算值 {expected_sharpe:.2f} 偏差 {sharpe_diff:.2f}，可能存在数据异常。"
+                else:
+                    consistency_note = f"\n✓ 数据自洽性验证通过：夏普比率与年化回报/波动率数学一致（偏差 {sharpe_diff:.2f}）。"
+        except:
+            pass
+
         history_summary = "暂无历史数据"
         if history:
             recent_history = history[:30]
@@ -123,6 +148,9 @@ class AIService:
             "update_time": fund_info.get("time")
         }
 
+        # Append consistency note to technical indicators
+        technical_indicators_with_note = str(technical_indicators) + consistency_note
+
         # 2. Invoke LLM with Linus Prompt
         chain = LINUS_FINANCIAL_ANALYSIS_PROMPT | llm | StrOutputParser()
 
@@ -130,25 +158,25 @@ class AIService:
             raw_result = await chain.ainvoke({
                 "fund_info": str(fund_summary),
                 "history_summary": history_summary,
-                "technical_indicators": str(technical_indicators)
+                "technical_indicators": technical_indicators_with_note
             })
-            
+
             # 3. Parse Result
             clean_json = raw_result.strip()
             if "```json" in clean_json:
                 clean_json = clean_json.split("```json")[1].split("```")[0]
             elif "```" in clean_json:
                 clean_json = clean_json.split("```")[1].split("```")[0]
-            
+
             import json
             result = json.loads(clean_json)
-            
+
             # Enrich with indicators for frontend display
             result["indicators"] = indicators
             result["timestamp"] = datetime.datetime.now().strftime("%H:%M:%S")
-            
+
             return result
-            
+
         except Exception as e:
             print(f"AI Analysis Error: {e}")
             return {
