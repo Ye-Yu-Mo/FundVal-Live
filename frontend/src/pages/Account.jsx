@@ -61,16 +61,12 @@ const SORT_OPTIONS = [
 ];
 
 const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading, isActive }) => {
-  // 初始化时从 localStorage 读取缓存，并过滤表头行避免表头出现在数据行下
+  // 初始化时从 localStorage 读取缓存
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem('account_data_cache');
       if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.positions)) {
-          return { ...parsed, positions: filterDataRows(parsed.positions) };
-        }
-        return parsed;
+        return JSON.parse(cached);
       }
     } catch (e) {
       console.error('Failed to load cached account data', e);
@@ -117,16 +113,11 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
   const lastFetchTimeRef = useRef(Date.now());
 
   const fetchData = async (retryCount = 0, silent = true) => {
-    // 先从 localStorage 读取缓存并过滤表头行后显示
+    // 先从 localStorage 读取缓存，立即显示
     const cachedData = localStorage.getItem('account_data_cache');
     if (cachedData) {
       try {
-        const parsed = JSON.parse(cachedData);
-        if (parsed && Array.isArray(parsed.positions)) {
-          setData({ ...parsed, positions: filterDataRows(parsed.positions) });
-        } else {
-          setData(parsed);
-        }
+        setData(JSON.parse(cachedData) || {});
       } catch (e) {
         console.error('Failed to parse cached data', e);
       }
@@ -136,11 +127,11 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
     setError(null);
     try {
       const res = await getAccountPositions();
-      const safePositions = filterDataRows(res.positions);
-      const clean = { ...res, positions: safePositions };
-      setData(clean);
-      lastFetchTimeRef.current = Date.now();
-      localStorage.setItem('account_data_cache', JSON.stringify(clean));
+      setData(res);
+      lastFetchTimeRef.current = Date.now(); // 更新缓存时间
+
+      // 保存到 localStorage
+      localStorage.setItem('account_data_cache', JSON.stringify(res));
     } catch (e) {
       console.error(e);
 
