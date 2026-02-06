@@ -15,9 +15,11 @@ from .fund import get_fund_history, _calculate_technical_indicators
 
 class AIService:
     def __init__(self):
-        self.llm = self._init_llm()
+        # 不在初始化时创建 LLM，而是每次调用时动态创建
+        pass
 
     def _init_llm(self, fast_mode=True):
+        # 每次调用时重新读取配置，支持热重载
         api_base = Config.OPENAI_API_BASE
         api_key = Config.OPENAI_API_KEY
         model = Config.AI_MODEL_NAME
@@ -84,11 +86,14 @@ class AIService:
         }
 
     async def analyze_fund(self, fund_info: Dict[str, Any]) -> Dict[str, Any]:
-        if not self.llm:
+        # 每次调用时重新初始化 LLM，支持配置热重载
+        llm = self._init_llm()
+
+        if not llm:
             return {
                 "summary": "未配置 LLM API Key，无法进行分析。",
                 "risk_level": "未知",
-                "analysis_report": "请在后台配置 .env 文件以启用 AI 分析功能。",
+                "analysis_report": "请在设置页面配置 OpenAI API Key 以启用 AI 分析功能。",
                 "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
             }
 
@@ -119,7 +124,7 @@ class AIService:
         }
 
         # 2. Invoke LLM with Linus Prompt
-        chain = LINUS_FINANCIAL_ANALYSIS_PROMPT | self.llm | StrOutputParser()
+        chain = LINUS_FINANCIAL_ANALYSIS_PROMPT | llm | StrOutputParser()
 
         try:
             raw_result = await chain.ainvoke({

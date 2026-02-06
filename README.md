@@ -35,6 +35,14 @@
 ### AI 深度逻辑报告
 ![AI Analysis](docs/AI分析-持仓股明细.png)
 
+---
+
+## 加入讨论群组
+
+<div align="center">
+  <img src="docs/讨论群组.jpg" width="300" alt="讨论群组二维码" />
+  <p>扫码加入微信群，交流使用心得、反馈问题、提出建议</p>
+</div>
 
 ---
 

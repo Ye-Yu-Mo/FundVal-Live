@@ -69,12 +69,16 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
   const [modalTransactionsPage, setModalTransactionsPage] = useState(1);
   const MODAL_TX_PAGE_SIZE = 10;
 
+  // 缓存管理
+  const lastFetchTimeRef = useRef(Date.now());
+
   const fetchData = async (retryCount = 0) => {
     setLoading(true);
     setError(null);
     try {
       const res = await getAccountPositions();
       setData(res);
+      lastFetchTimeRef.current = Date.now(); // 更新缓存时间
     } catch (e) {
       console.error(e);
 
@@ -97,15 +101,23 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
     return () => clearTimeout(timer);
   }, []);
 
-  // 当页面切换回来时刷新数据（跳过首次渲染）
+  // 当页面切换回来时智能刷新数据
   const isFirstRender = useRef(true);
+  const CACHE_DURATION = 30000; // 30秒缓存
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
     if (isActive) {
-      fetchData();
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastFetchTimeRef.current;
+
+      // 只有超过缓存时间才刷新
+      if (timeSinceLastFetch > CACHE_DURATION) {
+        fetchData();
+      }
     }
   }, [isActive]);
 
