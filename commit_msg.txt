@@ -1,6 +1,0 @@
-fix(account): 持仓表用 antd Table，表头在上数据在下
-
-- 后端：表头行过滤、update_time 统一为 ISO 8601
-- 前端：用 antd Table 替代原生 table，表头在上数据在下
-- 前端：filterDataRows 统一过滤，写缓存与读缓存时均过滤表头行
-- 前端：index.css 增加持仓表样式覆盖
