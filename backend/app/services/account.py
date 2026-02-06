@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 import logging
-import re
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..db import get_db_connection
@@ -9,25 +9,22 @@ from .fund import get_combined_valuation, MAJOR_CATEGORIES
 logger = logging.getLogger(__name__)
 
 def _time_to_iso(raw: Any) -> str:
-    """将估值接口返回的时间统一为 ISO 8601，便于前端简单格式化。"""
+    """将估值接口返回的时间统一为 ISO 8601，便于前端 dayjs 格式化。"""
     if not raw:
         return "--"
     s = str(raw).strip()
     if not s:
         return "--"
-    # 已是 ISO 或 "YYYY-MM-DD HH:mm:ss"
     if "T" in s:
         return s.split(".")[0].replace("Z", "")[:19]
-    if " " in s:
-        date_part, time_part = s.split(None, 1)
-        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_part) and re.match(r"^\d{1,2}:\d{2}", time_part):
-            return f"{date_part}T{time_part[:8]}"
-    # "MM-DD HH:mm" -> 补年份
-    m = re.match(r"^(\d{1,2})-(\d{1,2})\s+(\d{1,2}:\d{2}(?::\d{2})?)$", s)
-    if m:
-        from datetime import datetime
-        y = datetime.now().year
-        return f"{y}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}T{m.group(3)}"
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%m-%d %H:%M:%S", "%m-%d %H:%M"):
+        try:
+            dt = datetime.strptime(s[:19].strip(), fmt)
+            if fmt.startswith("%m-"):
+                dt = dt.replace(year=datetime.now().year)
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")[:19]
+        except ValueError:
+            continue
     return s[:19]
 
 

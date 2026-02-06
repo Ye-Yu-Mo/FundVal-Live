@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Table } from 'antd';
+import { ConfigProvider, Table } from 'antd';
+import dayjs from 'dayjs';
 import { Plus, X, Edit2, Trash2, RefreshCw, ArrowUpDown, ChevronDown, TrendingUp, TrendingDown, History } from 'lucide-react';
 import { getAccountPositions, updatePosition, deletePosition, addPositionTrade, reducePositionTrade, getTransactions } from '../services/api';
 import { getRateColor } from '../components/StatCard';
@@ -18,13 +19,11 @@ function buildTradeTime(dateStr, cutoff) {
   const time = cutoff === 'after' ? '15:01:00' : '14:59:00';
   return `${dateStr}T${time}`;
 }
-// 后端统一返回 ISO 8601（或 "--"），前端只做简单格式化
+// 后端统一返回 ISO 8601（或 "--"），用 dayjs 格式化
 function formatUpdateTime(isoString) {
   if (!isoString || isoString === '--') return '--';
-  const [date, time] = String(isoString).split('T');
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return '--';
-  const [, month, day] = date.split('-');
-  return time ? `${month}-${day} ${time.slice(0, 5)}` : `${month}-${day}`;
+  const d = dayjs(isoString);
+  return d.isValid() ? d.format('MM-DD HH:mm') : '--';
 }
 
 const SORT_OPTIONS = [
@@ -516,18 +515,30 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
         </div>
       </div>
 
-      {/* 3. 持仓明细表：antd Table，表头与数据分离，表头在上、数据在下 */}
+      {/* 3. 持仓明细表：antd Table，表头与数据分离；ConfigProvider 统一表头/行悬停样式 */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full overflow-hidden">
-        <Table
-          columns={tableColumns}
-          dataSource={sortedPositions}
-          rowKey="code"
-          pagination={false}
-          size="middle"
-          locale={{ emptyText: '暂无持仓，快去记一笔吧' }}
-          scroll={{ x: 1100 }}
-          className="account-positions-table text-base"
-        />
+        <ConfigProvider
+          theme={{
+            components: {
+              Table: {
+                headerBg: '#f8fafc',
+                headerColor: '#64748b',
+                rowHoverBg: '#f8fafc',
+              },
+            },
+          }}
+        >
+          <Table
+            columns={tableColumns}
+            dataSource={sortedPositions}
+            rowKey="code"
+            pagination={false}
+            size="middle"
+            locale={{ emptyText: '暂无持仓，快去记一笔吧' }}
+            scroll={{ x: 1100 }}
+            className="account-positions-table text-base"
+          />
+        </ConfigProvider>
       </div>
 
       {/* Modal：新增/修改持仓 */}
