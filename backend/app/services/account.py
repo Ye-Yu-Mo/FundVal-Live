@@ -7,24 +7,6 @@ from .fund import get_combined_valuation, MAJOR_CATEGORIES
 
 logger = logging.getLogger(__name__)
 
-# 表头/脏数据：接口或估值可能返回这类 name，不加入 positions，避免前端“表头跑到行里”
-HEADER_LIKE_NAMES = frozenset({
-    "基金", "净值 | 估值", "净值|估值", "份额 | 成本", "份额|成本",
-    "持有收益", "当日预估", "预估总值", "更新时间", "操作",
-})
-
-def _is_header_like_row(code: str, name: str) -> bool:
-    if not code or not (isinstance(code, str) and len(code) == 6 and code.isdigit()):
-        return True
-    n = (name or "").strip().replace("\uFF5C", "|")
-    if n in HEADER_LIKE_NAMES or len(n) <= 2:
-        return True
-    if len(n) <= 20 and n.startswith(("净值", "估值", "份额", "成本", "持有收益", "当日预估", "预估总值", "更新时间", "操作")):
-        return True
-    if len(n) <= 30 and all(c in "基金净值估值份额成本持有收益当日预估总值更新时间操作 \t|｜" for c in n):
-        return True
-    return False
-
 def classify_fund_simple(name: str) -> str:
     """
     Fast classification based on name keywords.
@@ -117,9 +99,6 @@ def get_all_positions() -> Dict[str, Any]:
                 total_income = accumulated_income + day_income
                 total_return_rate = (total_income / cost_basis * 100) if cost_basis > 0 else 0.0
                 
-                if _is_header_like_row(code, name):
-                    logger.warning("Skip header-like position: code=%r name=%r", code, name)
-                    continue
                 positions.append({
                     "code": code,
                     "name": name,
