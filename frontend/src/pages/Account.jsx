@@ -27,26 +27,6 @@ function formatUpdateTime(isoString) {
   return time ? `${month}-${day} ${time.slice(0, 5)}` : `${month}-${day}`;
 }
 
-// 表头行过滤（兜底：缓存/漏网数据）。与后端规则一致，仅此一处定义。
-const HEADER_LABELS = new Set([
-  '基金', '净值|估值', '净值 | 估值', '份额|成本', '份额 | 成本',
-  '持有收益', '当日预估', '预估总值', '更新时间', '操作'
-]);
-function normalizeName(s) {
-  return String(s ?? '').trim().replace(/\uFF5C/g, '|').replace(/[\u200B-\u200D\uFEFF]/g, '');
-}
-function isHeaderRow(pos) {
-  const code = String(pos?.code ?? '').trim();
-  if (code.length !== 6 || !/^\d{6}$/.test(code)) return true;
-  const name = normalizeName(pos?.name);
-  if (HEADER_LABELS.has(name) || name.length <= 2) return true;
-  if (name.length <= 25 && /[|｜]/.test(name) && /(净值|估值|份额|成本|持有收益|当日预估|预估总值|更新时间|操作)/.test(name)) return true;
-  return false;
-}
-function filterDataRows(positions) {
-  return (positions || []).filter((p) => !isHeaderRow(p));
-}
-
 const SORT_OPTIONS = [
   { label: '预估总值（从高到低）', key: 'est_market_value', direction: 'desc' },
   { label: '预估总值（从低到高）', key: 'est_market_value', direction: 'asc' },
@@ -302,11 +282,9 @@ const Account = ({ onSelectFund, onPositionChange, onSyncWatchlist, syncLoading,
   }, [modalOpen, editingPos?.code]);
 
   const { summary, positions } = data;
+  const displayPositions = positions ?? [];
 
-  // 展示用：统一用 filterDataRows 过滤表头行（含缓存兜底）
-  const displayPositions = filterDataRows(positions);
-
-  // 排序逻辑
+  // 排序
   const sortedPositions = [...displayPositions].sort((a, b) => {
     const aValue = a[sortOption.key] || 0;
     const bValue = b[sortOption.key] || 0;
