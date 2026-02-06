@@ -126,6 +126,25 @@ sudo dpkg -i fundval-live_*_amd64.deb
 
 #### 2. 启动服务
 
+**方式 A：使用预构建镜像（推荐）**
+
+```bash
+# 直接运行（无需克隆代码）
+docker run -d \
+  --name fundval-live \
+  -p 21345:21345 \
+  -v fundval-data:/app/backend/data \
+  -e OPENAI_API_KEY=your_api_key \
+  -e OPENAI_API_BASE=https://api.openai.com/v1 \
+  ghcr.io/ye-yu-mo/fundval-live:latest
+
+# 或使用 docker-compose
+wget https://raw.githubusercontent.com/Ye-Yu-Mo/FundVal-Live/main/docker-compose.yml
+docker-compose up -d
+```
+
+**方式 B：本地构建**
+
 ```bash
 # 克隆项目
 git clone https://github.com/Ye-Yu-Mo/FundVal-Live.git
@@ -135,7 +154,7 @@ cd FundVal-Live
 cp .env.docker .env
 # 编辑 .env 填入 API Key 等配置
 
-# 启动服务
+# 启动服务（自动构建）
 docker-compose up -d
 
 # 查看日志
@@ -152,12 +171,15 @@ docker-compose logs -f
 # 停止服务
 docker-compose down
 
-# 更新服务
-git pull
-docker-compose up -d --build
+# 更新到最新版本
+docker-compose pull
+docker-compose up -d
 
 # 查看状态
 docker-compose ps
+
+# 查看日志
+docker-compose logs -f
 ```
 
 #### 数据持久化

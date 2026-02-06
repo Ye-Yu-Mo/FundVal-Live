@@ -1,6 +1,11 @@
 services:
   fundval:
-    build: .
+    # 使用 GitHub Container Registry 镜像（推荐）
+    image: ghcr.io/ye-yu-mo/fundval-live:latest
+
+    # 或本地构建
+    # build: .
+
     ports:
       - "21345:21345"
     volumes:

@@ -12,16 +12,18 @@ RUN cd frontend && npm run build
 FROM python:3.13-slim
 
 # Install uv
-RUN pip install uv
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# Copy backend
-COPY backend/ ./backend/
-COPY pyproject.toml ./
+# Copy dependency files first (for layer caching)
+COPY pyproject.toml uv.lock ./
 
 # Install backend dependencies
-RUN cd backend && uv pip install --system -r requirements.txt
+RUN uv pip install --system --no-cache .
+
+# Copy backend code
+COPY backend/ ./backend/
 
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
