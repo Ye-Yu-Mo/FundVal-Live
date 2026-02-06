@@ -324,6 +324,7 @@ def _fetch_stock_spots_sina(codes: List[str]) -> Dict[str, float]:
 def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
     """
     Get historical NAV data with database caching.
+    If limit >= 9999, fetch all available history.
     """
     from ..db import get_db_connection
     import time
@@ -331,12 +332,22 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
     # 1. Try to get from database cache first
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT date, nav, updated_at FROM fund_history
-        WHERE code = ?
-        ORDER BY date DESC
-        LIMIT ?
-    """, (code, limit))
+
+    # If limit is very large, get all data
+    if limit >= 9999:
+        cursor.execute("""
+            SELECT date, nav, updated_at FROM fund_history
+            WHERE code = ?
+            ORDER BY date DESC
+        """, (code,))
+    else:
+        cursor.execute("""
+            SELECT date, nav, updated_at FROM fund_history
+            WHERE code = ?
+            ORDER BY date DESC
+            LIMIT ?
+        """, (code, limit))
+
     rows = cursor.fetchall()
 
     # Check if cache is fresh (less than 24 hours old)
@@ -348,7 +359,9 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
             from datetime import datetime
             update_time = datetime.fromisoformat(latest_update)
             age_hours = (datetime.now() - update_time).total_seconds() / 3600
-            cache_valid = age_hours < 24 and len(rows) >= min(limit, 10)
+            # For "all history" requests, require more data to consider cache valid
+            min_rows = 10 if limit < 9999 else 100
+            cache_valid = age_hours < 24 and len(rows) >= min(limit, min_rows)
         except:
             pass
 
@@ -364,7 +377,11 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
             conn.close()
             return []
 
-        df = df.sort_values(by="净值日期", ascending=False).head(limit)
+        # If limit < 9999, take only the most recent N records
+        if limit < 9999:
+            df = df.sort_values(by="净值日期", ascending=False).head(limit)
+
+        # Sort ascending for chart display
         df = df.sort_values(by="净值日期", ascending=True)
 
         results = []

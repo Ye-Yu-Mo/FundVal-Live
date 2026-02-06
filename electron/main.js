@@ -8,15 +8,42 @@ const os = require('os');
 let mainWindow = null;
 let backendProcess = null;
 let tray = null;
+let backendPort = 21345; // 默认端口
+
+// 配置文件路径
+const configDir = path.join(os.homedir(), '.fundval-live');
+const configPath = path.join(configDir, 'config.json');
 
 // 日志文件路径
-const logDir = path.join(os.homedir(), '.fundval-live', 'logs');
+const logDir = path.join(configDir, 'logs');
 const backendLogPath = path.join(logDir, 'backend.log');
 const electronLogPath = path.join(logDir, 'electron.log');
 
-// 确保日志目录存在
+// 确保配置和日志目录存在
+if (!fs.existsSync(configDir)) {
+  fs.mkdirSync(configDir, { recursive: true });
+}
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
+}
+
+// 读取配置文件
+function loadConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      backendPort = config.port || 21345;
+      log(`📝 Loaded config: port=${backendPort}`);
+    } else {
+      // 创建默认配置文件
+      const defaultConfig = { port: 21345 };
+      fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+      log(`📝 Created default config at ${configPath}`);
+    }
+  } catch (error) {
+    log(`⚠️ Failed to load config: ${error.message}, using default port 21345`);
+    backendPort = 21345;
+  }
 }
 
 // 日志函数
@@ -31,7 +58,7 @@ function log(message) {
 function checkBackendHealth(retries = 30) {
   return new Promise((resolve, reject) => {
     const check = (attempt) => {
-      http.get('http://127.0.0.1:21345/api/health', (res) => {
+      http.get(`http://127.0.0.1:${backendPort}/api/health`, (res) => {
         if (res.statusCode === 200) {
           log('✅ Backend is ready');
           resolve();
@@ -74,7 +101,7 @@ function startBackend() {
       backendArgs = ['run', 'python', path.join(__dirname, '..', 'backend', 'run.py')];
       backendProcess = spawn(backendPath, backendArgs, {
         cwd: path.join(__dirname, '..'),
-        env: { ...process.env }
+        env: { ...process.env, PORT: backendPort.toString() }
       });
     } else {
       // 生产模式：使用打包的可执行文件
@@ -91,7 +118,7 @@ function startBackend() {
 
       backendProcess = spawn(backendPath, [], {
         cwd: path.dirname(backendPath),
-        env: { ...process.env }
+        env: { ...process.env, PORT: backendPort.toString() }
       });
     }
 
@@ -149,6 +176,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'icon.png'),
     title: 'FundVal Live',
@@ -160,7 +188,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // 生产模式：加载后端提供的前端
-    mainWindow.loadURL('http://127.0.0.1:21345');
+    mainWindow.loadURL(`http://127.0.0.1:${backendPort}`);
   }
 
   mainWindow.on('close', (event) => {
@@ -211,6 +239,9 @@ function createTray() {
 app.whenReady().then(async () => {
   try {
     log('🚀 Starting FundVal Live...');
+
+    // 加载配置
+    loadConfig();
 
     // 启动后端
     await startBackend();

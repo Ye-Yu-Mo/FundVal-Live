@@ -91,9 +91,27 @@ sudo dpkg -i fundval-live_*_amd64.deb
 #### 数据位置
 
 - **数据库**: `~/.fundval-live/data/fund.db`
+- **配置文件**: `~/.fundval-live/config.json`
 - **日志**: `~/.fundval-live/logs/`
   - `electron.log` - 应用日志
   - `backend.log` - 后端日志
+
+#### 修改端口
+
+如果默认端口 `21345` 被占用，可以修改配置文件：
+
+1. 打开配置文件：`~/.fundval-live/config.json`
+2. 修改端口号：
+   ```json
+   {
+     "port": 8080
+   }
+   ```
+3. 重启应用
+
+**配置文件位置**：
+- **macOS/Linux**: `~/.fundval-live/config.json`
+- **Windows**: `C:\Users\<用户名>\.fundval-live\config.json`
 
 ---
 
