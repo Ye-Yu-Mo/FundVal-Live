@@ -89,6 +89,7 @@ jobs:
         with:
           name: macos-build
           path: release/*.dmg
+          if-no-files-found: error
 
       - name: Upload artifacts (Windows)
         if: runner.os == 'Windows'
@@ -124,8 +125,9 @@ jobs:
             ## 安装包下载
 
             ### macOS
-            - **Apple Silicon (M1/M2/M3)**: `FundVal-Live-*-arm64.dmg`
-            - **Intel**: `FundVal-Live-*-x64.dmg`
+            - **Universal Binary (通用版本)**: `FundVal-Live-*.dmg`
+              - 同时支持 Apple Silicon (M1/M2/M3) 和 Intel 芯片
+              - 推荐下载此版本，无需区分架构
 
             ### Windows
             - **64位**: `FundVal-Live-Setup-*.exe`
