@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 import os
 import sys
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 
 from .routers import funds, ai, account, settings, data
 from .db import init_db
@@ -15,6 +17,57 @@ from .services.scheduler import start_scheduler
 
 # Request size limit (10MB)
 MAX_REQUEST_SIZE = 10 * 1024 * 1024
+
+# 配置日志系统
+def setup_logging():
+    """配置日志：控制台 INFO，文件 WARNING+"""
+    # 获取根 logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # 根 logger 接收所有级别
+
+    # 清除已有的 handlers（避免重复）
+    root_logger.handlers.clear()
+
+    # 控制台 handler：INFO 及以上
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+    # 文件 handler：WARNING 及以上
+    # 日志文件路径：与数据库同目录
+    if getattr(sys, 'frozen', False):
+        # 打包后：用户目录
+        log_dir = os.path.expanduser("~/.fundval-live")
+    else:
+        # 开发模式：项目根目录
+        log_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "fundval.log")
+
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(logging.WARNING)  # 只记录 WARNING 及以上
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(file_formatter)
+    root_logger.addHandler(file_handler)
+
+    logging.info(f"日志系统已初始化，文件路径: {log_file}")
+
+# 初始化日志
+setup_logging()
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
