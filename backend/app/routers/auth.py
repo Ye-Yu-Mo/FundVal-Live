@@ -43,14 +43,19 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class EnableMultiUserRequest(BaseModel):
+    admin_username: str
+    admin_password: str
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
 
-@router.get("/system/mode")
-def get_system_mode():
+@router.get("/mode")
+def get_auth_mode():
     """
-    获取系统模式（不需要认证）
+    获取认证模式（不需要认证）
 
     Returns:
         dict: { multi_user_mode: bool }
@@ -384,16 +389,28 @@ def delete_user(user_id: int, admin: User = Depends(require_admin)):
                 )
 
         # 级联删除用户的所有数据
-        # 1. 删除用户的账户
+        # 1. 删除持仓（通过 account_id）
+        cursor.execute("""
+            DELETE FROM positions
+            WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
+        """, (user_id,))
+
+        # 2. 删除交易记录（通过 account_id）
+        cursor.execute("""
+            DELETE FROM transactions
+            WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
+        """, (user_id,))
+
+        # 3. 删除用户的账户
         cursor.execute("DELETE FROM accounts WHERE user_id = ?", (user_id,))
 
-        # 2. 删除用户的配置
+        # 4. 删除用户的配置
         cursor.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
 
-        # 3. 删除用户的订阅
+        # 5. 删除用户的订阅
         cursor.execute("DELETE FROM subscriptions WHERE user_id = ?", (user_id,))
 
-        # 4. 删除用户
+        # 6. 删除用户
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
         conn.commit()
@@ -431,6 +448,92 @@ def set_allow_registration(
             "message": "注册开关已更新",
             "allow_registration": request.allow
         }
+    finally:
+        conn.close()
+
+
+@router.post("/admin/enable-multi-user")
+def enable_multi_user(request: EnableMultiUserRequest):
+    """
+    开启多用户模式（单用户模式 → 多用户模式）
+
+    Args:
+        request: 开启多用户模式请求（admin_username, admin_password）
+
+    Returns:
+        dict: 成功消息
+
+    Raises:
+        HTTPException: 400 已开启多用户模式
+    """
+    # 检查是否已开启
+    if is_multi_user_mode():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="多用户模式已开启"
+        )
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+
+        # 1. 创建管理员用户（id=1, is_admin=1）
+        password_hash = hash_password(request.admin_password)
+        cursor.execute("""
+            INSERT INTO users (username, password_hash, is_admin)
+            VALUES (?, ?, 1)
+        """, (request.admin_username, password_hash))
+        admin_user_id = cursor.lastrowid
+
+        # 2. 迁移数据：更新所有 accounts.user_id = admin_user_id
+        cursor.execute("""
+            UPDATE accounts SET user_id = ? WHERE user_id IS NULL
+        """, (admin_user_id,))
+
+        # 3. 迁移数据：更新所有 subscriptions.user_id = admin_user_id
+        cursor.execute("""
+            UPDATE subscriptions SET user_id = ? WHERE user_id IS NULL
+        """, (admin_user_id,))
+
+        # 4. 迁移数据：复制 settings → user_settings (user_id=admin_user_id)
+        # 获取所有用户级配置（排除系统级配置）
+        cursor.execute("""
+            SELECT key, value, encrypted FROM settings
+            WHERE key NOT IN ('multi_user_mode', 'allow_registration')
+        """)
+        settings_rows = cursor.fetchall()
+
+        # 复制到 user_settings
+        for row in settings_rows:
+            cursor.execute("""
+                INSERT OR REPLACE INTO user_settings (user_id, key, value, encrypted)
+                VALUES (?, ?, ?, ?)
+            """, (admin_user_id, row[0], row[1], row[2]))
+
+        # 5. 删除 settings 表中的用户级配置（保留 multi_user_mode, allow_registration）
+        cursor.execute("""
+            DELETE FROM settings
+            WHERE key NOT IN ('multi_user_mode', 'allow_registration')
+        """)
+
+        # 6. 设置 multi_user_mode = 1
+        cursor.execute("""
+            UPDATE settings SET value = '1' WHERE key = 'multi_user_mode'
+        """)
+
+        conn.commit()
+
+        return {
+            "message": "多用户模式已开启",
+            "admin_user_id": admin_user_id,
+            "admin_username": request.admin_username
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"开启多用户模式失败: {str(e)}"
+        )
     finally:
         conn.close()
 
