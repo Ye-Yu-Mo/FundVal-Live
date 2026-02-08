@@ -24,6 +24,50 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+def get_user_default_account_id(user_id: int) -> Optional[int]:
+    """
+    获取用户的默认账户 ID
+
+    优先级：
+    1. user_settings 中的 default_account_id
+    2. 用户的第一个账户
+    3. None（如果用户没有账户）
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+
+        # 1. 尝试从 user_settings 获取
+        cursor.execute(
+            "SELECT value FROM user_settings WHERE user_id = ? AND key = 'default_account_id'",
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        if row:
+            try:
+                return int(row[0])
+            except (ValueError, TypeError):
+                pass
+
+        # 2. 获取用户的第一个账户
+        cursor.execute(
+            "SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1",
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+        # 3. 没有账户
+        return None
+    finally:
+        conn.close()
+
+
+# ============================================================================
 # Request/Response Models
 # ============================================================================
 
@@ -36,6 +80,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     is_admin: bool
+    default_account_id: Optional[int] = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -127,10 +172,14 @@ def login(request: LoginRequest, response: Response):
             samesite="lax"
         )
 
+        # 获取默认账户 ID
+        default_account_id = get_user_default_account_id(user_id)
+
         return UserResponse(
             id=user_id,
             username=username,
-            is_admin=bool(is_admin)
+            is_admin=bool(is_admin),
+            default_account_id=default_account_id
         )
     finally:
         conn.close()
@@ -173,12 +222,15 @@ def get_me(user: User = Depends(require_auth)):
         user: 当前用户（通过 require_auth 获取）
 
     Returns:
-        UserResponse: 用户信息
+        UserResponse: 用户信息（包含默认账户 ID）
     """
+    default_account_id = get_user_default_account_id(user.id)
+
     return UserResponse(
         id=user.id,
         username=user.username,
-        is_admin=user.is_admin
+        is_admin=user.is_admin,
+        default_account_id=default_account_id
     )
 
 
@@ -296,12 +348,27 @@ def create_user(request: CreateUserRequest, admin: User = Depends(require_admin)
             (request.username, password_hash, int(request.is_admin))
         )
         user_id = cursor.lastrowid
+
+        # 为新用户创建默认账户
+        cursor.execute(
+            "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
+            (f"{request.username} 的账户", "系统自动创建的默认账户", user_id)
+        )
+        account_id = cursor.lastrowid
+
+        # 设置默认账户 ID
+        cursor.execute(
+            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
+            (user_id, "default_account_id", str(account_id))
+        )
+
         conn.commit()
 
         return UserResponse(
             id=user_id,
             username=request.username,
-            is_admin=request.is_admin
+            is_admin=request.is_admin,
+            default_account_id=account_id
         )
     finally:
         conn.close()
@@ -316,7 +383,7 @@ def list_users(admin: User = Depends(require_admin)):
         admin: 当前管理员（通过 require_admin 获取）
 
     Returns:
-        list[UserResponse]: 用户列表
+        list[UserResponse]: 用户列表（包含默认账户 ID）
     """
     conn = get_db_connection()
     try:
@@ -330,7 +397,8 @@ def list_users(admin: User = Depends(require_admin)):
             UserResponse(
                 id=row[0],
                 username=row[1],
-                is_admin=bool(row[2])
+                is_admin=bool(row[2]),
+                default_account_id=get_user_default_account_id(row[0])
             )
             for row in rows
         ]
@@ -416,6 +484,33 @@ def delete_user(user_id: int, admin: User = Depends(require_admin)):
         conn.commit()
 
         return {"message": "用户已删除"}
+    finally:
+        conn.close()
+
+
+@router.get("/admin/settings/allow-registration")
+def get_allow_registration(admin: User = Depends(require_admin)):
+    """
+    获取注册开关状态（需要管理员权限）
+
+    Args:
+        admin: 当前管理员（通过 require_admin 获取）
+
+    Returns:
+        dict: 注册开关状态
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT value FROM settings WHERE key = 'allow_registration'"
+        )
+        row = cursor.fetchone()
+        allow = row[0] == '1' if row else False
+
+        return {
+            "allow_registration": allow
+        }
     finally:
         conn.close()
 

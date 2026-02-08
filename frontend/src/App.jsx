@@ -5,23 +5,50 @@ import {
   Wallet,
   LayoutGrid,
   Settings as SettingsIcon,
-  Users
+  Users,
+  LogOut,
+  UserCog
 } from 'lucide-react';
 import { FundList } from './pages/FundList';
 import { FundDetail } from './pages/FundDetail';
 import Account from './pages/Account';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
+import UserManagement from './pages/UserManagement';
 import { SubscribeModal } from './components/SubscribeModal';
 import { AccountModal } from './components/AccountModal';
 import { searchFunds, getFundDetail, getAccountPositions, subscribeFund, getAccounts, getPreferences, updatePreferences } from './services/api';
+import { useAuth } from './contexts/AuthContext';
 import packageJson from '../../package.json';
 
 const APP_VERSION = packageJson.version;
 
 export default function App() {
+  const { currentUser, isMultiUserMode, loading: authLoading, logout } = useAuth();
+
+  // 路由守卫：多用户模式下未登录显示登录页
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMultiUserMode && !currentUser) {
+    return <Login />;
+  }
+
+  return <AppContent currentUser={currentUser} isMultiUserMode={isMultiUserMode} isAdmin={currentUser?.is_admin || false} logout={logout} />;
+}
+
+function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
   // --- State ---
-  const [currentView, setCurrentView] = useState('list'); // 'list' | 'detail' | 'account' | 'settings'
-  const [currentAccount, setCurrentAccount] = useState(1);
+  const [currentView, setCurrentView] = useState('list'); // 'list' | 'detail' | 'account' | 'settings' | 'users'
+  const [currentAccount, setCurrentAccount] = useState(currentUser?.default_account_id || 1);
   const [accounts, setAccounts] = useState([]);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
@@ -76,8 +103,14 @@ export default function App() {
           setWatchlist(deduped);
         }
 
-        // Set current account (migrate if needed)
-        if (!prefs.currentAccount || prefs.currentAccount === 1) {
+        // Set current account
+        // 优先级：preferences.currentAccount > currentUser.default_account_id > 1
+        if (prefs.currentAccount && prefs.currentAccount !== 1) {
+          setCurrentAccount(prefs.currentAccount);
+        } else if (currentUser?.default_account_id) {
+          setCurrentAccount(currentUser.default_account_id);
+        } else {
+          // 尝试从 localStorage 迁移
           const savedAccount = localStorage.getItem('fundval_current_account');
           if (savedAccount) {
             const accountId = parseInt(savedAccount);
@@ -85,10 +118,8 @@ export default function App() {
             await updatePreferences({ currentAccount: accountId });
             console.log('Migrated current account from localStorage to backend');
           } else {
-            setCurrentAccount(prefs.currentAccount || 1);
+            setCurrentAccount(1);
           }
-        } else {
-          setCurrentAccount(prefs.currentAccount);
         }
 
         setPreferencesLoaded(true);
@@ -112,6 +143,8 @@ export default function App() {
 
           if (savedAccount) {
             setCurrentAccount(parseInt(savedAccount));
+          } else if (currentUser?.default_account_id) {
+            setCurrentAccount(currentUser.default_account_id);
           }
         } catch (migrationError) {
           console.error('Migration from localStorage failed', migrationError);
@@ -122,7 +155,7 @@ export default function App() {
     };
 
     loadPreferences();
-  }, []);
+  }, [currentUser?.default_account_id]); // 依赖 currentUser.default_account_id
 
   // Sync watchlist to backend whenever it changes
   useEffect(() => {
@@ -158,6 +191,20 @@ export default function App() {
   const loadAccounts = async () => {
     const accs = await getAccounts();
     setAccounts(accs);
+
+    // 如果当前账户不在账户列表中，设置为用户的默认账户或第一个账户
+    if (accs.length > 0) {
+      const accountIds = accs.map(acc => acc.id);
+      if (!accountIds.includes(currentAccount) && currentAccount !== 0) {
+        // 优先使用用户的默认账户
+        const defaultAccountId = currentUser?.default_account_id;
+        if (defaultAccountId && accountIds.includes(defaultAccountId)) {
+          setCurrentAccount(defaultAccountId);
+        } else {
+          setCurrentAccount(accs[0].id);
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -362,6 +409,16 @@ export default function App() {
                    >
                       <Wallet className="w-6 h-6" />
                    </button>
+                   {/* 管理员：显示用户管理按钮 */}
+                   {isMultiUserMode && isAdmin && (
+                     <button
+                        onClick={() => setCurrentView('users')}
+                        className={`p-2 rounded-lg transition-colors ${currentView === 'users' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`}
+                        title="用户管理"
+                     >
+                        <UserCog className="w-6 h-6" />
+                     </button>
+                   )}
                    <button
                       onClick={() => setCurrentView('settings')}
                       className={`p-2 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`}
@@ -409,8 +466,8 @@ export default function App() {
               <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="输入基金代码 (如: 005827)" 
                     className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                     value={searchQuery}
@@ -429,6 +486,27 @@ export default function App() {
 
             {/* User / Status */}
             <div className="hidden md:flex items-center gap-4 text-xs text-slate-500">
+              {/* 多用户模式：显示用户信息和登出按钮 */}
+              {isMultiUserMode && currentUser && (
+                <>
+                  <span className="flex items-center gap-1.5 text-slate-700">
+                    <Users className="w-4 h-4" />
+                    {currentUser.username}
+                    {currentUser.is_admin && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded">管理员</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={logout}
+                    className="flex items-center gap-1.5 hover:text-red-600 transition-colors"
+                    title="登出"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    登出
+                  </button>
+                </>
+              )}
+
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                 API 正常
@@ -476,6 +554,10 @@ export default function App() {
 
         {currentView === 'settings' && (
           <Settings />
+        )}
+
+        {currentView === 'users' && (
+          <UserManagement />
         )}
 
         {currentView === 'detail' && (

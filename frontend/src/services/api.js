@@ -77,9 +77,15 @@ export const deleteAccount = async (accountId) => {
     return api.delete(`/accounts/${accountId}`);
 };
 
-// Position management (with account_id)
-export const getAccountPositions = async (accountId = 1) => {
+// Position management
+export const getAccountPositions = async (accountId) => {
     try {
+        // 如果 accountId 为 0，调用聚合端点
+        if (accountId === 0) {
+            const response = await api.get('/positions/aggregate');
+            return response.data;
+        }
+
         const response = await api.get('/account/positions', { params: { account_id: accountId } });
         return response.data;
     } catch (error) {
@@ -88,32 +94,32 @@ export const getAccountPositions = async (accountId = 1) => {
     }
 };
 
-export const updatePosition = async (data, accountId = 1) => {
+export const updatePosition = async (data, accountId) => {
     return api.post('/account/positions', data, { params: { account_id: accountId } });
 };
 
-export const deletePosition = async (code, accountId = 1) => {
+export const deletePosition = async (code, accountId) => {
     return api.delete(`/account/positions/${code}`, { params: { account_id: accountId } });
 };
 
-export const addPositionTrade = async (code, data, accountId = 1) => {
+export const addPositionTrade = async (code, data, accountId) => {
     const response = await api.post(`/account/positions/${code}/add`, data, { params: { account_id: accountId } });
     return response.data;
 };
 
-export const reducePositionTrade = async (code, data, accountId = 1) => {
+export const reducePositionTrade = async (code, data, accountId) => {
     const response = await api.post(`/account/positions/${code}/reduce`, data, { params: { account_id: accountId } });
     return response.data;
 };
 
-export const getTransactions = async (accountId = 1, code = null, limit = 100) => {
+export const getTransactions = async (accountId, code = null, limit = 100) => {
     const params = { account_id: accountId, limit };
     if (code) params.code = code;
     const response = await api.get('/account/transactions', { params });
     return response.data.transactions || [];
 };
 
-export const updatePositionsNav = async (accountId = 1) => {
+export const updatePositionsNav = async (accountId) => {
     return api.post('/account/positions/update-nav', null, { params: { account_id: accountId } });
 };
 
