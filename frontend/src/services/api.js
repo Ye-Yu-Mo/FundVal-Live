@@ -179,3 +179,18 @@ export const exportData = async (modules) => {
 export const importData = async (data, modules, mode) => {
     return api.post('/data/import', { data, modules, mode });
 };
+
+// User preferences (watchlist, current account, sort option)
+export const getPreferences = async () => {
+    try {
+        const response = await api.get('/preferences');
+        return response.data;
+    } catch (error) {
+        console.error('Get preferences failed', error);
+        return { watchlist: '[]', currentAccount: 1, sortOption: null };
+    }
+};
+
+export const updatePreferences = async (data) => {
+    return api.post('/preferences', data);
+};

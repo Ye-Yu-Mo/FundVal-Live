@@ -130,3 +130,78 @@ def update_settings(data: dict = Body(...)):
     except Exception as e:
         logger.error(f"Failed to update settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/preferences")
+def get_preferences():
+    """获取用户偏好（自选列表、当前账户、排序选项）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 获取自选列表
+        cursor.execute("SELECT value FROM settings WHERE key = 'user_watchlist'")
+        watchlist_row = cursor.fetchone()
+        watchlist = watchlist_row["value"] if watchlist_row else "[]"
+
+        # 获取当前账户
+        cursor.execute("SELECT value FROM settings WHERE key = 'user_current_account'")
+        account_row = cursor.fetchone()
+        current_account = int(account_row["value"]) if account_row else 1
+
+        # 获取排序选项
+        cursor.execute("SELECT value FROM settings WHERE key = 'user_sort_option'")
+        sort_row = cursor.fetchone()
+        sort_option = sort_row["value"] if sort_row else None
+
+        conn.close()
+
+        return {
+            "watchlist": watchlist,
+            "currentAccount": current_account,
+            "sortOption": sort_option
+        }
+    except Exception as e:
+        logger.error(f"Failed to get preferences: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/preferences")
+def update_preferences(data: dict = Body(...)):
+    """更新用户偏好"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        if "watchlist" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, updated_at)
+                VALUES ('user_watchlist', ?, 0, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (data["watchlist"],))
+
+        if "currentAccount" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, updated_at)
+                VALUES ('user_current_account', ?, 0, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (str(data["currentAccount"]),))
+
+        if "sortOption" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, updated_at)
+                VALUES ('user_sort_option', ?, 0, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (data["sortOption"],))
+
+        conn.commit()
+        conn.close()
+
+        return {"message": "偏好已保存"}
+    except Exception as e:
+        logger.error(f"Failed to update preferences: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

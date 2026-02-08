@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Edit2, Trash2, RefreshCw, ArrowUpDown, ChevronDown, TrendingUp, TrendingDown, History, Download, CheckCircle, Clock } from 'lucide-react';
-import { getAccountPositions, updatePosition, deletePosition, addPositionTrade, reducePositionTrade, getTransactions, updatePositionsNav } from '../services/api';
+import { getAccountPositions, updatePosition, deletePosition, addPositionTrade, reducePositionTrade, getTransactions, updatePositionsNav, getPreferences, updatePreferences } from '../services/api';
 import { getRateColor } from '../components/StatCard';
 import { PortfolioChart } from '../components/PortfolioChart';
 
@@ -40,11 +40,48 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
   const [editingPos, setEditingPos] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [sortOption, setSortOption] = useState(() => {
-    // 从 localStorage 读取上次的排序选项
-    const saved = localStorage.getItem('account_sort_option');
-    return saved ? JSON.parse(saved) : SORT_OPTIONS[0];
-  });
+  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0]);
+  const [sortLoaded, setSortLoaded] = useState(false);
+
+  // Load sort preference from backend on mount
+  useEffect(() => {
+    const loadSortPreference = async () => {
+      try {
+        const prefs = await getPreferences();
+        if (prefs.sortOption) {
+          setSortOption(JSON.parse(prefs.sortOption));
+        } else {
+          // Migrate from localStorage if exists
+          const saved = localStorage.getItem('account_sort_option');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setSortOption(parsed);
+            await updatePreferences({ sortOption: saved });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load sort preference', e);
+      }
+      setSortLoaded(true);
+    };
+
+    loadSortPreference();
+  }, []);
+
+  // Sync sort option to backend whenever it changes
+  useEffect(() => {
+    if (!sortLoaded) return;
+
+    const syncSortOption = async () => {
+      try {
+        await updatePreferences({ sortOption: JSON.stringify(sortOption) });
+      } catch (e) {
+        console.error('Failed to sync sort option to backend', e);
+      }
+    };
+
+    syncSortOption();
+  }, [sortOption, sortLoaded]);
 
   // Check if this is the aggregated view (all accounts)
   const isAggregatedView = currentAccount === 0;
@@ -206,7 +243,6 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
 
   const handleSortChange = (option) => {
     setSortOption(option);
-    localStorage.setItem('account_sort_option', JSON.stringify(option));
     setSortDropdownOpen(false);
   };
 

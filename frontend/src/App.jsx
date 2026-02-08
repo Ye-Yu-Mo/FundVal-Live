@@ -13,7 +13,7 @@ import Account from './pages/Account';
 import Settings from './pages/Settings';
 import { SubscribeModal } from './components/SubscribeModal';
 import { AccountModal } from './components/AccountModal';
-import { searchFunds, getFundDetail, getAccountPositions, subscribeFund, getAccounts } from './services/api';
+import { searchFunds, getFundDetail, getAccountPositions, subscribeFund, getAccounts, getPreferences, updatePreferences } from './services/api';
 import packageJson from '../../package.json';
 
 const APP_VERSION = packageJson.version;
@@ -21,51 +21,105 @@ const APP_VERSION = packageJson.version;
 export default function App() {
   // --- State ---
   const [currentView, setCurrentView] = useState('list'); // 'list' | 'detail' | 'account' | 'settings'
-  const [currentAccount, setCurrentAccount] = useState(() => {
-    const saved = localStorage.getItem('fundval_current_account');
-    return saved ? parseInt(saved) : 1;
-  });
+  const [currentAccount, setCurrentAccount] = useState(1);
   const [accounts, setAccounts] = useState([]);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  
-  // Initialize from localStorage
-  const [watchlist, setWatchlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem('fundval_watchlist');
-      if (!saved) return [];
-
-      const parsed = JSON.parse(saved);
-      // Deduplicate by id
-      const seen = new Set();
-      const deduped = parsed.filter(fund => {
-        if (seen.has(fund.id)) return false;
-        seen.add(fund.id);
-        return true;
-      });
-
-      return deduped;
-    } catch (e) {
-      console.error("Failed to load watchlist", e);
-      return [];
-    }
-  });
+  const [watchlist, setWatchlist] = useState([]);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedFund, setSelectedFund] = useState(null); 
-  const [detailFundId, setDetailFundId] = useState(null); 
+  const [selectedFund, setSelectedFund] = useState(null);
+  const [detailFundId, setDetailFundId] = useState(null);
   const [accountCodes, setAccountCodes] = useState(new Set());
-  
-  // Persist to localStorage whenever watchlist changes
-  useEffect(() => {
-    localStorage.setItem('fundval_watchlist', JSON.stringify(watchlist));
-  }, [watchlist]);
 
-  // Persist current account
+  // Load preferences from backend on mount
   useEffect(() => {
-    localStorage.setItem('fundval_current_account', currentAccount.toString());
-  }, [currentAccount]);
+    const loadPreferences = async () => {
+      try {
+        const prefs = await getPreferences();
+
+        // Parse watchlist
+        const watchlistData = JSON.parse(prefs.watchlist || '[]');
+        const seen = new Set();
+        const deduped = watchlistData.filter(fund => {
+          if (seen.has(fund.id)) return false;
+          seen.add(fund.id);
+          return true;
+        });
+        setWatchlist(deduped);
+
+        // Set current account
+        setCurrentAccount(prefs.currentAccount || 1);
+
+        setPreferencesLoaded(true);
+      } catch (e) {
+        console.error('Failed to load preferences from backend', e);
+        // Fallback to localStorage for migration
+        try {
+          const savedWatchlist = localStorage.getItem('fundval_watchlist');
+          const savedAccount = localStorage.getItem('fundval_current_account');
+
+          if (savedWatchlist) {
+            const parsed = JSON.parse(savedWatchlist);
+            const seen = new Set();
+            const deduped = parsed.filter(fund => {
+              if (seen.has(fund.id)) return false;
+              seen.add(fund.id);
+              return true;
+            });
+            setWatchlist(deduped);
+
+            // Migrate to backend
+            await updatePreferences({ watchlist: savedWatchlist });
+          }
+
+          if (savedAccount) {
+            const accountId = parseInt(savedAccount);
+            setCurrentAccount(accountId);
+            await updatePreferences({ currentAccount: accountId });
+          }
+        } catch (migrationError) {
+          console.error('Migration from localStorage failed', migrationError);
+        }
+
+        setPreferencesLoaded(true);
+      }
+    };
+
+    loadPreferences();
+  }, []);
+
+  // Sync watchlist to backend whenever it changes
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+
+    const syncWatchlist = async () => {
+      try {
+        await updatePreferences({ watchlist: JSON.stringify(watchlist) });
+      } catch (e) {
+        console.error('Failed to sync watchlist to backend', e);
+      }
+    };
+
+    syncWatchlist();
+  }, [watchlist, preferencesLoaded]);
+
+  // Sync current account to backend whenever it changes
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+
+    const syncAccount = async () => {
+      try {
+        await updatePreferences({ currentAccount });
+      } catch (e) {
+        console.error('Failed to sync current account to backend', e);
+      }
+    };
+
+    syncAccount();
+  }, [currentAccount, preferencesLoaded]);
 
   // Load accounts
   const loadAccounts = async () => {
