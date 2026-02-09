@@ -427,6 +427,17 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
   };
 
   const currentDetailFund = detailFundId ? watchlist.find(f => f.id === detailFundId) : null;
+  const currentDetailIndex = detailFundId ? watchlist.findIndex(f => f.id === detailFundId) : -1;
+
+  // Navigate between funds in detail view
+  const navigateFund = (direction) => {
+    if (currentDetailIndex === -1) return;
+
+    const newIndex = direction === 'prev' ? currentDetailIndex - 1 : currentDetailIndex + 1;
+    if (newIndex >= 0 && newIndex < watchlist.length) {
+      handleCardClick(watchlist[newIndex].id);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100">
@@ -615,6 +626,11 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
             fund={currentDetailFund}
             onSubscribe={openSubscribeModal}
             accountId={currentAccount}
+            onNavigate={navigateFund}
+            hasPrev={currentDetailIndex > 0}
+            hasNext={currentDetailIndex < watchlist.length - 1}
+            currentIndex={currentDetailIndex + 1}
+            totalCount={watchlist.length}
           />
         )}
       </main>

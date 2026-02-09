@@ -49,6 +49,50 @@ def get_fund_type(code: str, name: str) -> str:
     return "未知"
 
 
+def get_fund_category(fund_type: str) -> str:
+    """
+    Map official fund type to 4 major categories.
+
+    Args:
+        fund_type: Official type from AkShare
+
+    Returns:
+        One of: 货币类, 偏债类, 偏股类, 商品类, 未分类
+    """
+    if not fund_type:
+        return "未分类"
+
+    # 货币类
+    if fund_type.startswith("货币型") or fund_type == "货币":
+        return "货币类"
+
+    # 偏债类
+    debt_keywords = [
+        "债券型-", "混合型-偏债", "混合型-绝对收益",
+        "QDII-纯债", "QDII-混合债", "指数型-固收"
+    ]
+    if any(fund_type.startswith(k) for k in debt_keywords) or fund_type == "债券":
+        return "偏债类"
+
+    # 商品类
+    commodity_keywords = ["商品", "QDII-商品", "REITs", "Reits", "QDII-REITs"]
+    if any(k in fund_type for k in commodity_keywords):
+        return "商品类"
+
+    # 偏股类（最宽泛，放最后）
+    equity_keywords = [
+        "股票型", "混合型-偏股", "混合型-平衡", "混合型-灵活",
+        "指数型-股票", "指数型-海外股票", "指数型-其他",
+        "QDII-普通股票", "QDII-混合偏股", "QDII-混合平衡", "QDII-混合灵活",
+        "FOF-", "QDII-FOF"
+    ]
+    if any(fund_type.startswith(k) or k in fund_type for k in equity_keywords):
+        return "偏股类"
+
+    # 兜底
+    return "未分类"
+
+
 def get_eastmoney_valuation(code: str) -> Dict[str, Any]:
     """
     Fetch real-time valuation from Tiantian Jijin (Eastmoney) API.

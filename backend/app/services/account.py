@@ -3,7 +3,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..db import get_db_connection
-from .fund import get_combined_valuation, get_fund_type
+from .fund import get_combined_valuation, get_fund_type, get_fund_category
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,7 @@ def get_all_positions(account_id: int, user_id: Optional[int] = None) -> Dict[st
                     "code": code,
                     "name": name,
                     "type": fund_type,
+                    "category": get_fund_category(fund_type),
                     "cost": cost,
                     "shares": shares,
                     "nav": nav,
@@ -141,21 +142,21 @@ def get_all_positions(account_id: int, user_id: Optional[int] = None) -> Dict[st
                     "estimate": estimate,
                     "est_rate": est_rate,
                     "is_est_valid": is_est_valid,
-                    
+
                     # Values
                     "cost_basis": round(cost_basis, 2),
                     "nav_market_value": round(nav_market_value, 2),
                     "est_market_value": round(est_market_value, 2),
-                    
+
                     # PnL
                     "accumulated_income": round(accumulated_income, 2),
                     "accumulated_return_rate": round(accumulated_return_rate, 2),
-                    
+
                     "day_income": round(day_income, 2),
-                    
+
                     "total_income": round(total_income, 2),
                     "total_return_rate": round(total_return_rate, 2),
-                    
+
                     "update_time": data.get("time", "--")
                 })
                 

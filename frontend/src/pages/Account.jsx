@@ -28,6 +28,7 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
 
   // UI 状态
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('全部');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPos, setEditingPos] = useState(null);
   const [addModalPos, setAddModalPos] = useState(null);
@@ -40,7 +41,22 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
 
   const { summary, positions } = data;
   const displayPositions = positions || [];
-  const sortedPositions = sortPositions(displayPositions);
+
+  // 分类筛选
+  const CATEGORIES = ['全部', '货币类', '偏债类', '偏股类', '商品类', '未分类'];
+
+  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
+    acc[cat] = cat === '全部'
+      ? displayPositions.length
+      : displayPositions.filter(p => p.category === cat).length;
+    return acc;
+  }, {});
+
+  const filteredPositions = selectedCategory === '全部'
+    ? displayPositions
+    : displayPositions.filter(p => p.category === selectedCategory);
+
+  const sortedPositions = sortPositions(filteredPositions);
 
   // Modal 操作
   const handleOpenModal = (pos = null) => {
@@ -133,6 +149,23 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
           {isAggregatedView ? '全部账户持仓汇总' : '持仓明细'}
         </h2>
         <div className="flex gap-2">
+          {/* 分类筛选 */}
+          <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  selectedCategory === cat
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white hover:text-blue-600'
+                }`}
+              >
+                {cat} ({categoryCounts[cat]})
+              </button>
+            ))}
+          </div>
+
           {/* 排序下拉菜单 */}
           <div className="relative" ref={sortDropdownRef}>
             <button
@@ -249,28 +282,28 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
                   {/* Accumulated Income */}
                   <td className="px-4 py-3 text-right font-mono">
                     <div className={`font-medium ${getRateColor(pos.accumulated_income)}`}>
-                        {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income}
+                        {pos.accumulated_income > 0 ? '+' : ''}{pos.accumulated_income.toFixed(2)}
                     </div>
                     <div className={`text-xs ${getRateColor(pos.accumulated_return_rate)}`}>
-                        {pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate}%
+                        {pos.accumulated_return_rate > 0 ? '+' : ''}{pos.accumulated_return_rate.toFixed(2)}%
                     </div>
                   </td>
 
                   {/* Intraday Income */}
                   <td className="px-4 py-3 text-right font-mono">
                     <div className={`font-medium ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.day_income)}`}>
-                        {pos.is_est_valid ? (pos.day_income > 0 ? '+' : '') + pos.day_income : '--'}
+                        {pos.is_est_valid ? (pos.day_income > 0 ? '+' : '') + pos.day_income.toFixed(2) : '--'}
                     </div>
                     <div className={`text-xs ${!pos.is_est_valid ? 'text-slate-300' : getRateColor(pos.est_rate)}`}>
-                        {pos.is_est_valid ? (pos.est_rate > 0 ? '+' : '') + pos.est_rate + '%' : '--'}
+                        {pos.is_est_valid ? (pos.est_rate > 0 ? '+' : '') + pos.est_rate.toFixed(2) + '%' : '--'}
                     </div>
                   </td>
 
                   {/* Total Projected */}
                   <td className="px-4 py-3 text-right font-mono">
-                     <div className="text-slate-800 font-medium">{pos.est_market_value.toLocaleString()}</div>
+                     <div className="text-slate-800 font-medium">{pos.est_market_value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                      <div className={`text-xs ${getRateColor(pos.total_income)}`}>
-                        {pos.total_income > 0 ? '+' : ''}{pos.total_income}
+                        {pos.total_income > 0 ? '+' : ''}{pos.total_income.toFixed(2)}
                      </div>
                   </td>
 

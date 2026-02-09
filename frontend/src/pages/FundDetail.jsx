@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User, Bell, BarChart3 } from 'lucide-react';
+import { User, Bell, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 import { AiAnalysis } from '../components/AiAnalysis';
 import { HoldingsTable } from '../components/HoldingsTable';
@@ -7,7 +7,7 @@ import { HistoryChart } from '../components/HistoryChart';
 import { IntradayChart } from '../components/IntradayChart';
 import { IndicatorsCard } from '../components/IndicatorsCard';
 
-export const FundDetail = ({ fund, onSubscribe, accountId }) => {
+export const FundDetail = ({ fund, onSubscribe, accountId, onNavigate, hasPrev, hasNext, currentIndex, totalCount }) => {
   const [chartType, setChartType] = useState('history'); // 'history' | 'intraday'
 
   if (!fund) return null;
@@ -17,6 +17,33 @@ export const FundDetail = ({ fund, onSubscribe, accountId }) => {
 
       {/* 1. Detail Header Card */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        {/* Navigation arrows */}
+        {onNavigate && totalCount > 1 && (
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+            <button
+              onClick={() => onNavigate('prev')}
+              disabled={!hasPrev}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 text-slate-600"
+              title="上一个基金"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              上一个
+            </button>
+            <span className="text-xs text-slate-400">
+              {currentIndex} / {totalCount}
+            </span>
+            <button
+              onClick={() => onNavigate('next')}
+              disabled={!hasNext}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 text-slate-600"
+              title="下一个基金"
+            >
+              下一个
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
