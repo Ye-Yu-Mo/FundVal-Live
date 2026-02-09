@@ -178,9 +178,6 @@ class AIService:
                 "indicators": {"status": "未知", "desc": "无法分析"},
                 "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
             }
-                "analysis_report": "请在设置页面配置 OpenAI API Key 以启用 AI 分析功能。",
-                "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
-            }
 
         fund_id = fund_info.get("id")
         fund_name = fund_info.get("name", "未知基金")
