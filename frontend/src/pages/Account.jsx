@@ -144,85 +144,88 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
       )}
 
       {/* Actions */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-slate-800">
-          {isAggregatedView ? '全部账户持仓汇总' : '持仓明细'}
-        </h2>
-        <div className="flex gap-2">
-          {/* 分类筛选 */}
-          <div className="flex gap-1 bg-slate-50 p-1 rounded-lg">
-            {CATEGORIES.map(cat => (
+      <div className="space-y-4">
+        {/* 第一行：标题 + 操作按钮 */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-slate-800">
+            {isAggregatedView ? '全部账户持仓汇总' : '持仓明细'}
+          </h2>
+          <div className="flex gap-2">
+            {/* 排序下拉菜单 */}
+            <div className="relative" ref={sortDropdownRef}>
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  selectedCategory === cat
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-white hover:text-blue-600'
-                }`}
+                onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
               >
-                {cat} ({categoryCounts[cat]})
+                <ArrowUpDown className="w-4 h-4" />
+                排序
+                <ChevronDown className={`w-3 h-3 transition-transform ${sortDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            ))}
-          </div>
 
-          {/* 排序下拉菜单 */}
-          <div className="relative" ref={sortDropdownRef}>
+              {sortDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
+                  {SORT_OPTIONS.map((option, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSortChange(option)}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        sortOption.label === option.label
+                          ? 'bg-blue-50 text-blue-600 font-medium'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
-              onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
-              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              onClick={handleSync}
+              disabled={syncLoading || positionSyncLoading}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              title="将持仓基金添加到关注列表"
             >
-              <ArrowUpDown className="w-4 h-4" />
-              排序
-              <ChevronDown className={`w-3 h-3 transition-transform ${sortDropdownOpen ? 'rotate-180' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${(syncLoading || positionSyncLoading) ? 'animate-spin' : ''}`} />
+              {(syncLoading || positionSyncLoading) ? '同步中...' : '同步关注'}
             </button>
-
-            {sortDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
-                {SORT_OPTIONS.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSortChange(option)}
-                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                      sortOption.label === option.label
-                        ? 'bg-blue-50 text-blue-600 font-medium'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+            <button
+              onClick={handleUpdateNav}
+              disabled={navUpdating}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-green-600 hover:border-green-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              title="手动更新所有持仓基金的净值"
+            >
+              <Download className={`w-4 h-4 ${navUpdating ? 'animate-spin' : ''}`} />
+              {navUpdating ? '更新中...' : '更新净值'}
+            </button>
+            {!isAggregatedView && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                记一笔
+              </button>
             )}
           </div>
+        </div>
 
-          <button
-            onClick={handleSync}
-            disabled={syncLoading || positionSyncLoading}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            title="将持仓基金添加到关注列表"
-          >
-            <RefreshCw className={`w-4 h-4 ${(syncLoading || positionSyncLoading) ? 'animate-spin' : ''}`} />
-            {(syncLoading || positionSyncLoading) ? '同步中...' : '同步关注'}
-          </button>
-          <button
-            onClick={handleUpdateNav}
-            disabled={navUpdating}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:text-green-600 hover:border-green-200 px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            title="手动更新所有持仓基金的净值"
-          >
-            <Download className={`w-4 h-4 ${navUpdating ? 'animate-spin' : ''}`} />
-            {navUpdating ? '更新中...' : '更新净值'}
-          </button>
-          {!isAggregatedView && (
+        {/* 第二行：分类筛选器 */}
+        <div className="flex gap-1 bg-slate-50 p-1 rounded-lg w-fit">
+          {CATEGORIES.map(cat => (
             <button
-              onClick={() => handleOpenModal()}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                selectedCategory === cat
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white hover:text-blue-600'
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              记一笔
+              {cat} ({categoryCounts[cat]})
             </button>
-          )}
+          ))}
         </div>
       </div>
 
