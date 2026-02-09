@@ -16,10 +16,26 @@ export const IntradayChart = ({ fundId }) => {
       const response = await fetch(url, {
         credentials: 'include', // 携带认证 cookie
       });
+
+      if (!response.ok) {
+        console.error(`Intraday API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        setData({ snapshots: [] });
+        return;
+      }
+
       const json = await response.json();
+      console.log('Intraday data loaded:', {
+        date: json.date,
+        prevNav: json.prevNav,
+        snapshotsCount: json.snapshots?.length || 0,
+        lastCollectedAt: json.lastCollectedAt
+      });
       setData(json);
     } catch (e) {
       console.error("Failed to load intraday data", e);
+      setData({ snapshots: [] });
     } finally {
       setLoading(false);
     }
@@ -31,7 +47,7 @@ export const IntradayChart = ({ fundId }) => {
   }, [fundId, selectedDate]);
 
   if (loading) return <div className="h-64 flex items-center justify-center text-slate-400">加载分时数据中...</div>;
-  if (!data || data.snapshots.length === 0) {
+  if (!data || !data.snapshots || data.snapshots.length === 0) {
     return <div className="h-64 flex items-center justify-center text-slate-400">暂无分时数据（仅持仓基金在交易时间采集）</div>;
   }
 
