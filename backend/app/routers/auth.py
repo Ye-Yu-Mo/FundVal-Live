@@ -40,9 +40,9 @@ def get_user_default_account_id(user_id: int) -> Optional[int]:
     try:
         cursor = conn.cursor()
 
-        # 1. 尝试从 user_settings 获取
+        # 1. 尝试从 settings 获取
         cursor.execute(
-            "SELECT value FROM user_settings WHERE user_id = ? AND key = 'default_account_id'",
+            "SELECT value FROM settings WHERE user_id = ? AND key = 'default_account_id'",
             (user_id,)
         )
         row = cursor.fetchone()
@@ -303,8 +303,8 @@ def register(request: LoginRequest, response: Response):
 
         # 设置默认账户 ID
         cursor.execute(
-            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
-            (user_id, "default_account_id", str(account_id))
+            "INSERT INTO settings (key, value, user_id) VALUES (?, ?, ?)",
+            ("default_account_id", str(account_id), user_id)
         )
 
         conn.commit()
@@ -476,8 +476,8 @@ def create_user(request: CreateUserRequest, admin: User = Depends(require_admin)
 
         # 设置默认账户 ID
         cursor.execute(
-            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
-            (user_id, "default_account_id", str(account_id))
+            "INSERT INTO settings (key, value, user_id) VALUES (?, ?, ?)",
+            ("default_account_id", str(account_id), user_id)
         )
 
         conn.commit()
@@ -591,7 +591,7 @@ def delete_user(user_id: int, admin: User = Depends(require_admin)):
         cursor.execute("DELETE FROM accounts WHERE user_id = ?", (user_id,))
 
         # 4. 删除用户的配置
-        cursor.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM settings WHERE user_id = ?", (user_id,))
 
         # 5. 删除用户的订阅
         cursor.execute("DELETE FROM subscriptions WHERE user_id = ?", (user_id,))
@@ -655,7 +655,7 @@ def set_allow_registration(
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE settings SET value = ? WHERE key = 'allow_registration'",
+            "UPDATE settings SET value = ? WHERE key = 'allow_registration' AND user_id IS NULL",
             ('1' if request.allow else '0',)
         )
         conn.commit()
@@ -711,30 +711,17 @@ def enable_multi_user(request: EnableMultiUserRequest):
             UPDATE subscriptions SET user_id = ? WHERE user_id IS NULL
         """, (admin_user_id,))
 
-        # 4. 迁移数据：复制 settings → user_settings (user_id=admin_user_id)
-        # 获取所有用户级配置（排除系统级配置，只迁移 user_id IS NULL 的）
+        # 4. 迁移数据：更新 settings 表的 user_id (NULL → admin_user_id)
+        # 将所有用户级配置（排除系统级配置）分配给管理员
         cursor.execute("""
-            SELECT key, value, encrypted FROM settings
+            UPDATE settings
+            SET user_id = ?
             WHERE user_id IS NULL AND key NOT IN ('multi_user_mode', 'allow_registration')
-        """)
-        settings_rows = cursor.fetchall()
+        """, (admin_user_id,))
 
-        # 复制到 user_settings
-        for row in settings_rows:
-            cursor.execute("""
-                INSERT OR REPLACE INTO user_settings (user_id, key, value, encrypted)
-                VALUES (?, ?, ?, ?)
-            """, (admin_user_id, row[0], row[1], row[2]))
-
-        # 5. 删除 settings 表中的用户级配置（保留 multi_user_mode, allow_registration）
+        # 5. 设置 multi_user_mode = 1
         cursor.execute("""
-            DELETE FROM settings
-            WHERE key NOT IN ('multi_user_mode', 'allow_registration')
-        """)
-
-        # 6. 设置 multi_user_mode = 1
-        cursor.execute("""
-            UPDATE settings SET value = '1' WHERE key = 'multi_user_mode'
+            UPDATE settings SET value = '1' WHERE key = 'multi_user_mode' AND user_id IS NULL
         """)
 
         conn.commit()

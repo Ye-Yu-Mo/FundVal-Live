@@ -163,8 +163,8 @@ def _export_settings(user_id: Optional[int]) -> Dict[str, str]:
     """
     Export settings (mask sensitive fields)
 
-    单用户模式：导出 settings 表
-    多用户模式：导出 user_settings 表
+    单用户模式：导出 settings 表 (user_id IS NULL)
+    多用户模式：导出 settings 表 (user_id = ?)
     """
     conn = get_db_connection()
     try:
@@ -174,9 +174,9 @@ def _export_settings(user_id: Optional[int]) -> Dict[str, str]:
             # 单用户模式：从 settings 表读取（user_id IS NULL）
             cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id IS NULL")
         else:
-            # 多用户模式：从 user_settings 表读取
+            # 多用户模式：从 settings 表读取
             cursor.execute(
-                "SELECT key, value, encrypted FROM user_settings WHERE user_id = ?",
+                "SELECT key, value, encrypted FROM settings WHERE user_id = ?",
                 (user_id,)
             )
 
@@ -435,8 +435,8 @@ def _import_settings(conn, data: Dict[str, str], mode: str, user_id: Optional[in
     """
     Import settings
 
-    单用户模式：导入到 settings 表
-    多用户模式：导入到 user_settings 表
+    单用户模式：导入到 settings 表 (user_id = NULL)
+    多用户模式：导入到 settings 表 (user_id = ?)
     """
     cursor = conn.cursor()
     result = {"total": len(data), "imported": 0, "skipped": 0, "failed": 0, "deleted": 0, "errors": []}
@@ -459,14 +459,14 @@ def _import_settings(conn, data: Dict[str, str], mode: str, user_id: Optional[in
                         updated_at = CURRENT_TIMESTAMP
                 """, (key, value))
             else:
-                # 多用户模式：导入到 user_settings 表
+                # 多用户模式：导入到 settings 表
                 cursor.execute("""
-                    INSERT INTO user_settings (user_id, key, value, encrypted, updated_at)
-                    VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-                    ON CONFLICT(user_id, key) DO UPDATE SET
+                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                    VALUES (?, ?, 0, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key, user_id) DO UPDATE SET
                         value = excluded.value,
                         updated_at = CURRENT_TIMESTAMP
-                """, (user_id, key, value))
+                """, (key, value, user_id))
 
             result["imported"] += 1
         except Exception as e:

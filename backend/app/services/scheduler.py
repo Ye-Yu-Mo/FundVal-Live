@@ -42,21 +42,34 @@ def fetch_and_update_funds():
         
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Use transaction for speed and safety
-        conn.execute("BEGIN")
-        
-        # Upsert logic (Replace is easier here since we just want the latest list)
-        # Using executemany is much faster than looping
-        cursor.executemany("""
-            INSERT OR REPLACE INTO funds (code, name, type, updated_at)
-            VALUES (:code, :name, :type, CURRENT_TIMESTAMP)
-        """, data_to_insert)
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Fund list updated. Total funds: {len(data_to_insert)}")
+
+        # Split into smaller batches to avoid long locks
+        batch_size = 1000
+        total = len(data_to_insert)
+
+        for i in range(0, total, batch_size):
+            batch = data_to_insert[i:i+batch_size]
+
+            try:
+                # Use IMMEDIATE to acquire write lock immediately
+                conn.execute("BEGIN IMMEDIATE")
+
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO funds (code, name, type, updated_at)
+                    VALUES (:code, :name, :type, CURRENT_TIMESTAMP)
+                """, batch)
+
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Batch insert failed at offset {i}: {e}")
+                raise
+
+            # Give other threads a chance between batches
+            if i + batch_size < total:
+                time.sleep(0.01)
+
+        logger.info(f"Fund list updated. Total funds: {total}")
         
     except Exception as e:
         logger.error(f"Failed to update fund list: {e}")
@@ -99,21 +112,31 @@ def collect_intraday_snapshots():
     if watchlist_row and watchlist_row["value"]:
         try:
             watchlist_codes = json.loads(watchlist_row["value"])
-            codes.extend(watchlist_codes)
+            if isinstance(watchlist_codes, list):
+                # Handle both ["000001"] and [{"code": "000001"}] formats
+                codes.extend([
+                    str(c) if not isinstance(c, dict) else c.get("code", "")
+                    for c in watchlist_codes
+                ])
         except:
             pass
 
     # Multi-user mode watchlist
-    cursor.execute("SELECT value FROM user_settings WHERE key = 'user_watchlist'")
+    cursor.execute("SELECT value FROM settings WHERE key = 'user_watchlist' AND user_id IS NOT NULL")
     for row in cursor.fetchall():
         if row["value"]:
             try:
                 watchlist_codes = json.loads(row["value"])
-                codes.extend(watchlist_codes)
+                if isinstance(watchlist_codes, list):
+                    codes.extend([
+                        str(c) if not isinstance(c, dict) else c.get("code", "")
+                        for c in watchlist_codes
+                    ])
             except:
                 pass
 
-    codes = list(set(codes))  # Remove duplicates
+    # Remove duplicates and filter out empty strings
+    codes = list(set([c for c in codes if c and isinstance(c, str)]))
 
     if not codes:
         conn.close()

@@ -87,9 +87,9 @@ class AIService:
                 WHERE user_id IS NULL
             """)
         else:
-            # 多用户模式：读取 user_settings 表中当前用户的配置
+            # 多用户模式：读取 settings 表中当前用户的配置
             cursor.execute("""
-                SELECT key, value, encrypted FROM user_settings
+                SELECT key, value, encrypted FROM settings
                 WHERE user_id = ?
             """, (user_id,))
 
@@ -228,9 +228,9 @@ class AIService:
                 for h in fund_info["holdings"][:10]
             ])
 
-        # Prepare variables for prompt template (flat structure for compatibility)
+        # Prepare variables for prompt template (support both flat and nested structure)
         variables = {
-            # Basic info
+            # Flat structure (for backward compatibility)
             "fund_code": fund_id,
             "fund_name": fund_name,
             "fund_type": fund_info.get("type", "未知"),
@@ -240,15 +240,32 @@ class AIService:
             "est_rate": f"{fund_info.get('estRate', 0)}%",
             "concentration": fund_info.get("indicators", {}).get("concentration", "--"),
             "holdings": holdings_str or "暂无持仓数据",
-
-            # Technical indicators
             "sharpe": technical_indicators.get("sharpe", "--"),
             "volatility": technical_indicators.get("volatility", "--"),
             "max_drawdown": technical_indicators.get("max_drawdown", "--"),
             "annual_return": technical_indicators.get("annual_return", "--"),
-
-            # History
             "history_summary": history_summary,
+
+            # Nested structure (for new prompts)
+            "fund_info": {
+                "code": fund_id,
+                "name": fund_name,
+                "type": fund_info.get("type", "未知"),
+                "manager": fund_info.get("manager", "未知"),
+                "nav": fund_info.get("nav", "--"),
+                "estimate": fund_info.get("estimate", "--"),
+                "est_rate": f"{fund_info.get('estRate', 0)}%",
+            },
+            "technical_indicators": {
+                "sharpe": technical_indicators.get("sharpe", "--"),
+                "volatility": technical_indicators.get("volatility", "--"),
+                "max_drawdown": technical_indicators.get("max_drawdown", "--"),
+                "annual_return": technical_indicators.get("annual_return", "--"),
+            },
+            "holdings_info": {
+                "concentration": fund_info.get("indicators", {}).get("concentration", "--"),
+                "top_holdings": holdings_str or "暂无持仓数据",
+            }
         }
 
         # 2. Get prompt template and replace variables (with user_id filtering)

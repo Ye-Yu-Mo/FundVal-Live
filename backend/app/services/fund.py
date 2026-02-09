@@ -361,21 +361,29 @@ def get_eastmoney_pingzhong_data(code: str) -> Dict[str, Any]:
 
             # Extract Full History (Data_netWorthTrend)
             # var Data_netWorthTrend = [{"x":1536076800000,"y":1.0,...},...];
-            history_match = re.search(r'Data_netWorthTrend\s*=\s*(\[.+?\])\s*;\s*/\*', text)
+            # Relaxed regex: allow various endings (;/* or ; or ;\n)
+            history_match = re.search(r'Data_netWorthTrend\s*=\s*(\[.+?\])\s*;', text, re.DOTALL)
             if history_match:
                 try:
                     raw_hist = json.loads(history_match.group(1))
-                    # Convert to standard format: [{"date": "YYYY-MM-DD", "nav": 1.23}, ...]
-                    # x is ms timestamp
-                    data["history"] = [
-                        {
-                            "date": time.strftime('%Y-%m-%d', time.localtime(item['x']/1000)),
-                            "nav": float(item['y'])
-                        }
-                        for item in raw_hist
-                    ]
-                except:
-                    pass
+                    if not raw_hist:
+                        logger.warning(f"Empty Data_netWorthTrend for {code}")
+                    else:
+                        # Convert to standard format: [{"date": "YYYY-MM-DD", "nav": 1.23}, ...]
+                        # x is ms timestamp
+                        data["history"] = [
+                            {
+                                "date": time.strftime('%Y-%m-%d', time.localtime(item['x']/1000)),
+                                "nav": float(item['y'])
+                            }
+                            for item in raw_hist
+                            if 'x' in item and 'y' in item  # Validate data structure
+                        ]
+                except Exception as e:
+                    logger.error(f"Failed to parse Data_netWorthTrend for {code}: {e}")
+            else:
+                # Data_netWorthTrend not found - may be 货币基金 or new page structure
+                logger.warning(f"Data_netWorthTrend not found for {code}")
 
             return data
     except Exception as e:
