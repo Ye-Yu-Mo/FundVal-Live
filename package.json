@@ -1,6 +1,6 @@
 {
   "name": "fundval-live",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "盘中基金实时估值与逻辑审计系统",
   "main": "electron/main.js",
   "author": "Jasmine",
