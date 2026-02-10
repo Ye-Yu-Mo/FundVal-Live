@@ -1,7 +1,74 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, AlertTriangle, TrendingUp, TrendingDown, RefreshCcw } from 'lucide-react';
+import { Bot, Sparkles, AlertTriangle, TrendingUp, TrendingDown, RefreshCcw, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { api, getPrompts } from '../services/api';
 import ReactMarkdown from 'react-markdown';
+
+// Parse markdown content and extract <think> blocks
+const parseThinkBlocks = (markdown) => {
+  if (!markdown) return [{ type: 'markdown', content: '' }];
+
+  const blocks = [];
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = thinkRegex.exec(markdown)) !== null) {
+    // Add markdown content before this think block
+    if (match.index > lastIndex) {
+      const markdownContent = markdown.slice(lastIndex, match.index).trim();
+      if (markdownContent) {
+        blocks.push({ type: 'markdown', content: markdownContent });
+      }
+    }
+
+    // Add think block
+    blocks.push({ type: 'think', content: match[1].trim() });
+    lastIndex = thinkRegex.lastIndex;
+  }
+
+  // Add remaining markdown content
+  if (lastIndex < markdown.length) {
+    const markdownContent = markdown.slice(lastIndex).trim();
+    if (markdownContent) {
+      blocks.push({ type: 'markdown', content: markdownContent });
+    }
+  }
+
+  return blocks.length > 0 ? blocks : [{ type: 'markdown', content: markdown }];
+};
+
+// ThinkBlock component with collapse/expand functionality
+const ThinkBlock = ({ content }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="my-4 border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-600">
+          <Brain className="w-4 h-4" />
+          <span className="text-sm font-medium">AI 思考过程</span>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="w-4 h-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 py-3 border-t border-slate-200 bg-white">
+          <div className="prose prose-sm max-w-none text-slate-600 text-xs">
+            <ReactMarkdown>{content}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 export const AiAnalysis = ({ fund }) => {
   const [analysis, setAnalysis] = useState(null);
@@ -149,10 +216,16 @@ export const AiAnalysis = ({ fund }) => {
         </div>
       )}
 
-      {/* Main Content - Markdown */}
+      {/* Main Content - Markdown with Think Block Support */}
       {analysis?.markdown ? (
         <div className="prose prose-sm max-w-none text-slate-700">
-          <ReactMarkdown>{analysis.markdown}</ReactMarkdown>
+          {parseThinkBlocks(analysis.markdown).map((block, index) => {
+            if (block.type === 'think') {
+              return <ThinkBlock key={index} content={block.content} />;
+            } else {
+              return <ReactMarkdown key={index}>{block.content}</ReactMarkdown>;
+            }
+          })}
         </div>
       ) : analysis ? (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   ChevronLeft,
@@ -55,6 +55,10 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedFund, setSelectedFund] = useState(null);
@@ -255,41 +259,68 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
 
   // --- Handlers ---
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery) return;
+  // Search funds with debounce
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
 
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const results = await searchFunds(searchQuery);
+        setSearchResults(results || []);
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  const handleSelectFund = async (fund) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
     setLoading(true);
 
     try {
-        const results = await searchFunds(searchQuery);
-        if (results && results.length > 0) {
-           const fundMeta = results[0];
+      const detail = await getFundDetail(fund.id);
+      const newFund = { ...fund, ...detail, trusted: true };
 
-           // Fetch initial detail
-           try {
-             const detail = await getFundDetail(fundMeta.id);
-             const newFund = { ...fundMeta, ...detail, trusted: true };
-
-             setWatchlist(prev => {
-               // 检查是否已存在
-               if (prev.find(f => f.id === newFund.id)) {
-                 return prev; // 已存在，不添加
-               }
-               return [...prev, newFund];
-             });
-             setSearchQuery('');
-           } catch(e) {
-             alert(`无法获取基金 ${fundMeta.name} 的详情数据`);
-           }
-        } else {
-            alert('未找到相关基金');
+      setWatchlist(prev => {
+        // 检查是否已存在
+        if (prev.find(f => f.id === newFund.id)) {
+          return prev; // 已存在，不添加
         }
-    } catch (err) {
-        alert('查询失败，请重试');
+        return [...prev, newFund];
+      });
+    } catch(e) {
+      alert(`无法获取基金 ${fund.name} 的详情数据`);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery || searchResults.length === 0) return;
+
+    // Select first result
+    await handleSelectFund(searchResults[0]);
   };
 
   const removeFund = (id) => {
@@ -526,21 +557,56 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
             {currentView === 'list' && (
               <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 z-10" />
                   <input
                     type="text"
-                    placeholder="输入基金代码 (如: 005827)" 
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+                    placeholder="输入基金代码或名称 (如: 005827 或 易方达蓝筹)"
+                    className="w-full pl-10 pr-20 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => searchQuery && setShowSearchResults(true)}
                   />
-                  <button 
+                  <button
                     type="submit"
-                    disabled={loading || !searchQuery}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading || !searchQuery || searchResults.length === 0}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                   >
-                    {loading ? '查询中...' : '添加'}
+                    {loading ? '添加中...' : '添加'}
                   </button>
+
+                  {/* Search Results Dropdown */}
+                  {showSearchResults && searchResults.length > 0 && (
+                    <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-80 overflow-y-auto">
+                      {searchResults.map((fund) => (
+                        <button
+                          key={fund.id}
+                          type="button"
+                          onClick={() => handleSelectFund(fund)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-slate-800 truncate">{fund.name}</div>
+                              <div className="text-xs text-slate-500 font-mono mt-0.5">{fund.id}</div>
+                            </div>
+                            <div className="text-xs text-slate-400 shrink-0 bg-slate-100 px-2 py-1 rounded">{fund.type}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {showSearchResults && searchResults.length === 0 && !searchLoading && searchQuery && (
+                    <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-sm text-slate-500 text-center">
+                      未找到匹配的基金
+                    </div>
+                  )}
+
+                  {searchLoading && (
+                    <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-sm text-slate-500 text-center">
+                      搜索中...
+                    </div>
+                  )}
                 </div>
               </form>
             )}

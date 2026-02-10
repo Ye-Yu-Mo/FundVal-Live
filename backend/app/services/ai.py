@@ -59,7 +59,7 @@ class AIService:
                 """, (user_id,))
 
         row = cursor.fetchone()
-        conn.close()
+        
 
         if not row:
             # Fallback to hardcoded prompt
@@ -87,14 +87,14 @@ class AIService:
                 WHERE user_id IS NULL
             """)
         else:
-            # 多用户模式：读取 user_settings 表中当前用户的配置
+            # 多用户模式：读取 settings 表中当前用户的配置
             cursor.execute("""
-                SELECT key, value, encrypted FROM user_settings
+                SELECT key, value, encrypted FROM settings
                 WHERE user_id = ?
             """, (user_id,))
 
         rows = cursor.fetchall()
-        conn.close()
+        
 
         settings = {}
         for row in rows:
@@ -182,13 +182,24 @@ class AIService:
         fund_id = fund_info.get("id")
         fund_name = fund_info.get("name", "未知基金")
 
-        # 1. Gather Data
-        # History (Last 250 days for technical indicators)
+        # 1. Gather Data - Use same data source as frontend for consistency
+        # Get complete fund data including technical indicators (same as frontend display)
+        from ..services.fund import get_fund_intraday
+        fund_detail = get_fund_intraday(fund_id)
+
+        # Extract technical indicators (already calculated by get_fund_intraday)
+        # IMPORTANT: Technical indicators are nested in indicators.technical, not at top level
+        tech_data = fund_detail.get("indicators", {}).get("technical", {})
+        technical_indicators = {
+            "sharpe": tech_data.get("sharpe", "--"),
+            "volatility": tech_data.get("volatility", "--"),
+            "max_drawdown": tech_data.get("max_drawdown", "--"),
+            "annual_return": tech_data.get("annual_return", "--"),
+        }
+
+        # Get history for trend analysis (use same source as technical indicators)
         history = get_fund_history(fund_id, limit=250)
         indicators = self._calculate_indicators(history[:30] if len(history) >= 30 else history)
-
-        # Calculate technical indicators (Sharpe, Volatility, Max Drawdown)
-        technical_indicators = _calculate_technical_indicators(history)
 
         # 1.5 Data Consistency Check
         consistency_note = ""
@@ -222,37 +233,50 @@ class AIService:
 
         # Prepare variables for template replacement
         holdings_str = ""
-        if fund_info.get("holdings"):
+        if fund_detail.get("holdings"):
             holdings_str = "\n".join([
                 f"- {h['name']}: {h['percent']}% (涨跌: {h['change']:+.2f}%)"
-                for h in fund_info["holdings"][:10]
+                for h in fund_detail["holdings"][:10]
             ])
 
-        # Prepare fund_info dict for prompt
-        fund_info_dict = {
-            "代码": fund_id,
-            "名称": fund_name,
-            "类型": fund_info.get("type", "未知"),
-            "基金经理": fund_info.get("manager", "未知"),
-            "最新净值": fund_info.get("nav", "--"),
-            "实时估值": fund_info.get("estimate", "--"),
-            "估值涨跌": f"{fund_info.get('estRate', 0)}%",
-            "持仓集中度": fund_info.get("indicators", {}).get("concentration", "--"),
-            "前十持仓": holdings_str or "暂无持仓数据"
-        }
-
-        # Prepare technical_indicators dict for prompt
-        technical_indicators_dict = {
-            "夏普比率": technical_indicators.get("sharpe", "--"),
-            "年化波动率": technical_indicators.get("volatility", "--"),
-            "最大回撤": technical_indicators.get("max_drawdown", "--"),
-            "年化回报": technical_indicators.get("annual_return", "--")
-        }
-
+        # Prepare variables for prompt template (support both flat and nested structure)
         variables = {
-            "fund_info": str(fund_info_dict),
+            # Flat structure (for backward compatibility)
+            "fund_code": fund_id,
+            "fund_name": fund_name,
+            "fund_type": fund_detail.get("type", "未知"),
+            "manager": fund_detail.get("manager", "未知"),
+            "nav": fund_detail.get("nav", "--"),
+            "estimate": fund_detail.get("estimate", "--"),
+            "est_rate": f"{fund_detail.get('estRate', 0)}%",
+            "concentration": fund_detail.get("indicators", {}).get("concentration", "--"),
+            "holdings": holdings_str or "暂无持仓数据",
+            "sharpe": technical_indicators.get("sharpe", "--"),
+            "volatility": technical_indicators.get("volatility", "--"),
+            "max_drawdown": technical_indicators.get("max_drawdown", "--"),
+            "annual_return": technical_indicators.get("annual_return", "--"),
             "history_summary": history_summary,
-            "technical_indicators": str(technical_indicators_dict)
+
+            # Nested structure (for new prompts)
+            "fund_info": {
+                "code": fund_id,
+                "name": fund_name,
+                "type": fund_detail.get("type", "未知"),
+                "manager": fund_detail.get("manager", "未知"),
+                "nav": fund_detail.get("nav", "--"),
+                "estimate": fund_detail.get("estimate", "--"),
+                "est_rate": f"{fund_detail.get('estRate', 0)}%",
+            },
+            "technical_indicators": {
+                "sharpe": technical_indicators.get("sharpe", "--"),
+                "volatility": technical_indicators.get("volatility", "--"),
+                "max_drawdown": technical_indicators.get("max_drawdown", "--"),
+                "annual_return": technical_indicators.get("annual_return", "--"),
+            },
+            "holdings_info": {
+                "concentration": fund_detail.get("indicators", {}).get("concentration", "--"),
+                "top_holdings": holdings_str or "暂无持仓数据",
+            }
         }
 
         # 2. Get prompt template and replace variables (with user_id filtering)

@@ -37,32 +37,27 @@ def get_prompts(current_user: Optional[User] = Depends(get_current_user)):
     user_id = get_user_id_for_query(current_user)
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：查询系统级 prompts
-            cursor.execute("""
-                SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
-                FROM ai_prompts
-                WHERE user_id IS NULL
-                ORDER BY is_default DESC, id ASC
-            """)
-        else:
-            # 多用户模式：查询当前用户的 prompts
-            cursor.execute("""
-                SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
-                FROM ai_prompts
-                WHERE user_id = ?
-                ORDER BY is_default DESC, id ASC
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：查询系统级 prompts
+        cursor.execute("""
+            SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
+            FROM ai_prompts
+            WHERE user_id IS NULL
+            ORDER BY is_default DESC, id ASC
+        """)
+    else:
+        # 多用户模式：查询当前用户的 prompts
+        cursor.execute("""
+            SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
+            FROM ai_prompts
+            WHERE user_id = ?
+            ORDER BY is_default DESC, id ASC
+        """, (user_id,))
 
-        prompts = [dict(row) for row in cursor.fetchall()]
-        return {"prompts": prompts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
+    prompts = [dict(row) for row in cursor.fetchall()]
+    return {"prompts": prompts}
 
 @router.post("/ai/prompts")
 def create_prompt(
@@ -75,31 +70,25 @@ def create_prompt(
     user_id = get_user_id_for_query(current_user)
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # If this is set as default, unset other defaults for this user
-        if data.is_default:
-            if user_id is None:
-                cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id IS NULL")
-            else:
-                cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id = ?", (user_id,))
+    # If this is set as default, unset other defaults for this user
+    if data.is_default:
+        if user_id is None:
+            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id IS NULL")
+        else:
+            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id = ?", (user_id,))
 
-        # Insert with user_id
-        cursor.execute("""
-            INSERT INTO ai_prompts (name, system_prompt, user_prompt, user_id, is_default)
-            VALUES (?, ?, ?, ?, ?)
-        """, (data.name, data.system_prompt, data.user_prompt, user_id, 1 if data.is_default else 0))
+    # Insert with user_id
+    cursor.execute("""
+        INSERT INTO ai_prompts (name, system_prompt, user_prompt, user_id, is_default)
+        VALUES (?, ?, ?, ?, ?)
+    """, (data.name, data.system_prompt, data.user_prompt, user_id, 1 if data.is_default else 0))
 
-        prompt_id = cursor.lastrowid
-        conn.commit()
+    prompt_id = cursor.lastrowid
+    conn.commit()
 
-        return {"ok": True, "id": prompt_id}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
+    return {"ok": True, "id": prompt_id}
 
 @router.put("/ai/prompts/{prompt_id}")
 def update_prompt(
@@ -113,41 +102,33 @@ def update_prompt(
     user_id = get_user_id_for_query(current_user)
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # Check if prompt exists and belongs to user
+    # Check if prompt exists and belongs to user
+    if user_id is None:
+        cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
+    else:
+        cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
+
+    if not cursor.fetchone():
+        raise HTTPException(status_code=404, detail="Prompt not found or access denied")
+
+    # If this is set as default, unset other defaults for this user
+    if data.is_default:
         if user_id is None:
-            cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
+            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id IS NULL", (prompt_id,))
         else:
-            cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
+            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id = ?", (prompt_id, user_id))
 
-        if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Prompt not found or access denied")
+    cursor.execute("""
+        UPDATE ai_prompts
+        SET name = ?, system_prompt = ?, user_prompt = ?, is_default = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (data.name, data.system_prompt, data.user_prompt, 1 if data.is_default else 0, prompt_id))
 
-        # If this is set as default, unset other defaults for this user
-        if data.is_default:
-            if user_id is None:
-                cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id IS NULL", (prompt_id,))
-            else:
-                cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id = ?", (prompt_id, user_id))
+    conn.commit()
 
-        cursor.execute("""
-            UPDATE ai_prompts
-            SET name = ?, system_prompt = ?, user_prompt = ?, is_default = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (data.name, data.system_prompt, data.user_prompt, 1 if data.is_default else 0, prompt_id))
-
-        conn.commit()
-
-        return {"ok": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
+    return {"ok": True}
 
 @router.delete("/ai/prompts/{prompt_id}")
 def delete_prompt(
@@ -160,32 +141,23 @@ def delete_prompt(
     user_id = get_user_id_for_query(current_user)
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # Check if prompt exists and belongs to user
-        if user_id is None:
-            cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
-        else:
-            cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
+    # Check if prompt exists and belongs to user
+    if user_id is None:
+        cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
+    else:
+        cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
 
-        row = cursor.fetchone()
+    row = cursor.fetchone()
 
-        if not row:
-            raise HTTPException(status_code=404, detail="Prompt not found or access denied")
+    if not row:
+        raise HTTPException(status_code=404, detail="Prompt not found or access denied")
 
-        if row["is_default"]:
-            raise HTTPException(status_code=400, detail="不能删除默认模板")
+    if row["is_default"]:
+        raise HTTPException(status_code=400, detail="不能删除默认模板")
 
-        cursor.execute("DELETE FROM ai_prompts WHERE id = ?", (prompt_id,))
-        conn.commit()
+    cursor.execute("DELETE FROM ai_prompts WHERE id = ?", (prompt_id,))
+    conn.commit()
 
-        return {"ok": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
+    return {"ok": True}

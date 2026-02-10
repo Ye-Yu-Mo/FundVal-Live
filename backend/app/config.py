@@ -31,7 +31,7 @@ def _load_settings_from_db():
         cursor = conn.cursor()
         cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id IS NULL")
         rows = cursor.fetchall()
-        conn.close()
+        # Note: Connection will be closed by garbage collector
 
         settings = {}
         for row in rows:

@@ -105,54 +105,45 @@ def import_data(data: Dict[str, Any], modules: List[str], mode: str, current_use
     }
 
     conn = get_db_connection()
-    try:
-        # Import modules in dependency order
-        ordered_modules = [m for m in IMPORT_ORDER if m in modules]
+    # Import modules in dependency order
+    ordered_modules = [m for m in IMPORT_ORDER if m in modules]
 
-        for module in ordered_modules:
-            if module not in data.get("modules", {}):
-                continue
+    for module in ordered_modules:
+        if module not in data.get("modules", {}):
+            continue
 
-            module_data = data["modules"][module]
+        module_data = data["modules"][module]
 
-            # Skip empty modules
-            if not module_data:
-                continue
+        # Skip empty modules
+        if not module_data:
+            continue
 
-            # Import module
-            if module == "settings":
-                module_result = _import_settings(conn, module_data, mode, user_id)
-            elif module == "ai_prompts":
-                module_result = _import_ai_prompts(conn, module_data, mode, user_id)
-            elif module == "accounts":
-                module_result = _import_accounts(conn, module_data, mode, user_id)
-            elif module == "positions":
-                module_result = _import_positions(conn, module_data, mode, user_id)
-            elif module == "transactions":
-                module_result = _import_transactions(conn, module_data, mode, user_id)
-            elif module == "subscriptions":
-                module_result = _import_subscriptions(conn, module_data, mode, user_id)
-            else:
-                continue
+        # Import module
+        if module == "settings":
+            module_result = _import_settings(conn, module_data, mode, user_id)
+        elif module == "ai_prompts":
+            module_result = _import_ai_prompts(conn, module_data, mode, user_id)
+        elif module == "accounts":
+            module_result = _import_accounts(conn, module_data, mode, user_id)
+        elif module == "positions":
+            module_result = _import_positions(conn, module_data, mode, user_id)
+        elif module == "transactions":
+            module_result = _import_transactions(conn, module_data, mode, user_id)
+        elif module == "subscriptions":
+            module_result = _import_subscriptions(conn, module_data, mode, user_id)
+        else:
+            continue
 
-            # Aggregate results
-            result["details"][module] = module_result
-            result["total_records"] += module_result.get("total", 0)
-            result["imported"] += module_result.get("imported", 0)
-            result["skipped"] += module_result.get("skipped", 0)
-            result["failed"] += module_result.get("failed", 0)
-            result["deleted"] += module_result.get("deleted", 0)
+        # Aggregate results
+        result["details"][module] = module_result
+        result["total_records"] += module_result.get("total", 0)
+        result["imported"] += module_result.get("imported", 0)
+        result["skipped"] += module_result.get("skipped", 0)
+        result["failed"] += module_result.get("failed", 0)
+        result["deleted"] += module_result.get("deleted", 0)
 
-        conn.commit()
+    conn.commit()
 
-    except Exception as e:
-        conn.rollback()
-        result["success"] = False
-        result["error"] = str(e)
-        logger.error(f"Import failed: {e}")
-        raise
-    finally:
-        conn.close()
 
     return result
 
@@ -163,38 +154,35 @@ def _export_settings(user_id: Optional[int]) -> Dict[str, str]:
     """
     Export settings (mask sensitive fields)
 
-    单用户模式：导出 settings 表
-    多用户模式：导出 user_settings 表
+    单用户模式：导出 settings 表 (user_id IS NULL)
+    多用户模式：导出 settings 表 (user_id = ?)
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：从 settings 表读取（user_id IS NULL）
-            cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id IS NULL")
+    if user_id is None:
+        # 单用户模式：从 settings 表读取（user_id IS NULL）
+        cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id IS NULL")
+    else:
+        # 多用户模式：从 settings 表读取
+        cursor.execute(
+            "SELECT key, value, encrypted FROM settings WHERE user_id = ?",
+            (user_id,)
+        )
+
+    settings = {}
+    for row in cursor.fetchall():
+        key = row["key"]
+        value = row["value"]
+        encrypted = row["encrypted"]
+
+        # Mask sensitive fields
+        if encrypted:
+            settings[key] = SENSITIVE_MASK
         else:
-            # 多用户模式：从 user_settings 表读取
-            cursor.execute(
-                "SELECT key, value, encrypted FROM user_settings WHERE user_id = ?",
-                (user_id,)
-            )
+            settings[key] = value
 
-        settings = {}
-        for row in cursor.fetchall():
-            key = row["key"]
-            value = row["value"]
-            encrypted = row["encrypted"]
-
-            # Mask sensitive fields
-            if encrypted:
-                settings[key] = SENSITIVE_MASK
-            else:
-                settings[key] = value
-
-        return settings
-    finally:
-        conn.close()
+    return settings
 
 
 def _export_ai_prompts(user_id: Optional[int]) -> List[Dict[str, Any]]:
@@ -205,40 +193,38 @@ def _export_ai_prompts(user_id: Optional[int]) -> List[Dict[str, Any]]:
     多用户模式：导出当前用户的 prompts
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：导出系统级 prompts
-            cursor.execute("""
-                SELECT name, system_prompt, user_prompt, is_default, created_at, updated_at
-                FROM ai_prompts
-                WHERE user_id IS NULL
-                ORDER BY id
-            """)
-        else:
-            # 多用户模式：导出当前用户的 prompts
-            cursor.execute("""
-                SELECT name, system_prompt, user_prompt, is_default, created_at, updated_at
-                FROM ai_prompts
-                WHERE user_id = ?
-                ORDER BY id
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：导出系统级 prompts
+        cursor.execute("""
+            SELECT name, system_prompt, user_prompt, is_default, created_at, updated_at
+            FROM ai_prompts
+            WHERE user_id IS NULL
+            ORDER BY id
+        """)
+    else:
+        # 多用户模式：导出当前用户的 prompts
+        cursor.execute("""
+            SELECT name, system_prompt, user_prompt, is_default, created_at, updated_at
+            FROM ai_prompts
+            WHERE user_id = ?
+            ORDER BY id
+        """, (user_id,))
 
-        prompts = []
-        for row in cursor.fetchall():
-            prompts.append({
-                "name": row["name"],
-                "system_prompt": row["system_prompt"],
-                "user_prompt": row["user_prompt"],
-                "is_default": bool(row["is_default"]),
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"]
-            })
+    prompts = []
+    for row in cursor.fetchall():
+        prompts.append({
+            "name": row["name"],
+            "system_prompt": row["system_prompt"],
+            "user_prompt": row["user_prompt"],
+            "is_default": bool(row["is_default"]),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"]
+        })
 
-        return prompts
-    finally:
-        conn.close()
+    return prompts
+
 
 
 def _export_accounts(user_id: Optional[int]) -> List[Dict[str, Any]]:
@@ -246,39 +232,36 @@ def _export_accounts(user_id: Optional[int]) -> List[Dict[str, Any]]:
     Export accounts (filtered by user_id)
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：导出所有账户
-            cursor.execute("""
-                SELECT id, name, description, created_at, updated_at
-                FROM accounts
-                WHERE user_id IS NULL
-                ORDER BY id
-            """)
-        else:
-            # 多用户模式：只导出当前用户的账户
-            cursor.execute("""
-                SELECT id, name, description, created_at, updated_at
-                FROM accounts
-                WHERE user_id = ?
-                ORDER BY id
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：导出所有账户
+        cursor.execute("""
+            SELECT id, name, description, created_at, updated_at
+            FROM accounts
+            WHERE user_id IS NULL
+            ORDER BY id
+        """)
+    else:
+        # 多用户模式：只导出当前用户的账户
+        cursor.execute("""
+            SELECT id, name, description, created_at, updated_at
+            FROM accounts
+            WHERE user_id = ?
+            ORDER BY id
+        """, (user_id,))
 
-        accounts = []
-        for row in cursor.fetchall():
-            accounts.append({
-                "id": row["id"],
-                "name": row["name"],
-                "description": row["description"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"]
-            })
+    accounts = []
+    for row in cursor.fetchall():
+        accounts.append({
+            "id": row["id"],
+            "name": row["name"],
+            "description": row["description"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"]
+        })
 
-        return accounts
-    finally:
-        conn.close()
+    return accounts
 
 
 def _export_positions(user_id: Optional[int]) -> List[Dict[str, Any]]:
@@ -286,144 +269,134 @@ def _export_positions(user_id: Optional[int]) -> List[Dict[str, Any]]:
     Export positions (filtered by user's accounts)
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：导出所有持仓
-            cursor.execute("""
-                SELECT p.account_id, p.code, p.cost, p.shares, p.updated_at
-                FROM positions p
-                JOIN accounts a ON p.account_id = a.id
-                WHERE a.user_id IS NULL
-                ORDER BY p.account_id, p.code
-            """)
-        else:
-            # 多用户模式：只导出当前用户的持仓
-            cursor.execute("""
-                SELECT p.account_id, p.code, p.cost, p.shares, p.updated_at
-                FROM positions p
-                JOIN accounts a ON p.account_id = a.id
-                WHERE a.user_id = ?
-                ORDER BY p.account_id, p.code
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：导出所有持仓
+        cursor.execute("""
+            SELECT p.account_id, p.code, p.cost, p.shares, p.updated_at
+            FROM positions p
+            JOIN accounts a ON p.account_id = a.id
+            WHERE a.user_id IS NULL
+            ORDER BY p.account_id, p.code
+        """)
+    else:
+        # 多用户模式：只导出当前用户的持仓
+        cursor.execute("""
+            SELECT p.account_id, p.code, p.cost, p.shares, p.updated_at
+            FROM positions p
+            JOIN accounts a ON p.account_id = a.id
+            WHERE a.user_id = ?
+            ORDER BY p.account_id, p.code
+        """, (user_id,))
 
-        positions = []
-        for row in cursor.fetchall():
-            positions.append({
-                "account_id": row["account_id"],
-                "code": row["code"],
-                "cost": row["cost"],
-                "shares": row["shares"],
-                "updated_at": row["updated_at"]
-            })
+    positions = []
+    for row in cursor.fetchall():
+        positions.append({
+            "account_id": row["account_id"],
+            "code": row["code"],
+            "cost": row["cost"],
+            "shares": row["shares"],
+            "updated_at": row["updated_at"]
+        })
 
-        return positions
-    finally:
-        conn.close()
-
+    return positions
 
 def _export_transactions(user_id: Optional[int]) -> List[Dict[str, Any]]:
     """
     Export transactions (filtered by user's accounts)
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：导出所有交易记录
-            cursor.execute("""
-                SELECT t.id, t.account_id, t.code, t.op_type, t.amount_cny, t.shares_redeemed,
-                       t.confirm_date, t.confirm_nav, t.shares_added, t.cost_after,
-                       t.created_at, t.applied_at
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.id
-                WHERE a.user_id IS NULL
-                ORDER BY t.id
-            """)
-        else:
-            # 多用户模式：只导出当前用户的交易记录
-            cursor.execute("""
-                SELECT t.id, t.account_id, t.code, t.op_type, t.amount_cny, t.shares_redeemed,
-                       t.confirm_date, t.confirm_nav, t.shares_added, t.cost_after,
-                       t.created_at, t.applied_at
-                FROM transactions t
-                JOIN accounts a ON t.account_id = a.id
-                WHERE a.user_id = ?
-                ORDER BY t.id
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：导出所有交易记录
+        cursor.execute("""
+            SELECT t.id, t.account_id, t.code, t.op_type, t.amount_cny, t.shares_redeemed,
+                    t.confirm_date, t.confirm_nav, t.shares_added, t.cost_after,
+                    t.created_at, t.applied_at
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.user_id IS NULL
+            ORDER BY t.id
+        """)
+    else:
+        # 多用户模式：只导出当前用户的交易记录
+        cursor.execute("""
+            SELECT t.id, t.account_id, t.code, t.op_type, t.amount_cny, t.shares_redeemed,
+                    t.confirm_date, t.confirm_nav, t.shares_added, t.cost_after,
+                    t.created_at, t.applied_at
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.user_id = ?
+            ORDER BY t.id
+        """, (user_id,))
 
-        transactions = []
-        for row in cursor.fetchall():
-            transactions.append({
-                "id": row["id"],
-                "account_id": row["account_id"],
-                "code": row["code"],
-                "op_type": row["op_type"],
-                "amount_cny": row["amount_cny"],
-                "shares_redeemed": row["shares_redeemed"],
-                "confirm_date": row["confirm_date"],
-                "confirm_nav": row["confirm_nav"],
-                "shares_added": row["shares_added"],
-                "cost_after": row["cost_after"],
-                "created_at": row["created_at"],
-                "applied_at": row["applied_at"]
-            })
+    transactions = []
+    for row in cursor.fetchall():
+        transactions.append({
+            "id": row["id"],
+            "account_id": row["account_id"],
+            "code": row["code"],
+            "op_type": row["op_type"],
+            "amount_cny": row["amount_cny"],
+            "shares_redeemed": row["shares_redeemed"],
+            "confirm_date": row["confirm_date"],
+            "confirm_nav": row["confirm_nav"],
+            "shares_added": row["shares_added"],
+            "cost_after": row["cost_after"],
+            "created_at": row["created_at"],
+            "applied_at": row["applied_at"]
+        })
 
-        return transactions
-    finally:
-        conn.close()
-
+    return transactions
 
 def _export_subscriptions(user_id: Optional[int]) -> List[Dict[str, Any]]:
     """
     Export subscriptions (filtered by user_id)
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：导出所有订阅
-            cursor.execute("""
-                SELECT id, code, email, threshold_up, threshold_down,
-                       enable_digest, digest_time, enable_volatility,
-                       last_notified_at, last_digest_at, created_at
-                FROM subscriptions
-                WHERE user_id IS NULL
-                ORDER BY id
-            """)
-        else:
-            # 多用户模式：只导出当前用户的订阅
-            cursor.execute("""
-                SELECT id, code, email, threshold_up, threshold_down,
-                       enable_digest, digest_time, enable_volatility,
-                       last_notified_at, last_digest_at, created_at
-                FROM subscriptions
-                WHERE user_id = ?
-                ORDER BY id
-            """, (user_id,))
+    if user_id is None:
+        # 单用户模式：导出所有订阅
+        cursor.execute("""
+            SELECT id, code, email, threshold_up, threshold_down,
+                    enable_digest, digest_time, enable_volatility,
+                    last_notified_at, last_digest_at, created_at
+            FROM subscriptions
+            WHERE user_id IS NULL
+            ORDER BY id
+        """)
+    else:
+        # 多用户模式：只导出当前用户的订阅
+        cursor.execute("""
+            SELECT id, code, email, threshold_up, threshold_down,
+                    enable_digest, digest_time, enable_volatility,
+                    last_notified_at, last_digest_at, created_at
+            FROM subscriptions
+            WHERE user_id = ?
+            ORDER BY id
+        """, (user_id,))
 
-        subscriptions = []
-        for row in cursor.fetchall():
-            subscriptions.append({
-                "id": row["id"],
-                "code": row["code"],
-                "email": row["email"],
-                "threshold_up": row["threshold_up"],
-                "threshold_down": row["threshold_down"],
-                "enable_digest": bool(row["enable_digest"]),
-                "digest_time": row["digest_time"],
-                "enable_volatility": bool(row["enable_volatility"]),
-                "last_notified_at": row["last_notified_at"],
-                "last_digest_at": row["last_digest_at"],
-                "created_at": row["created_at"]
-            })
+    subscriptions = []
+    for row in cursor.fetchall():
+        subscriptions.append({
+            "id": row["id"],
+            "code": row["code"],
+            "email": row["email"],
+            "threshold_up": row["threshold_up"],
+            "threshold_down": row["threshold_down"],
+            "enable_digest": bool(row["enable_digest"]),
+            "digest_time": row["digest_time"],
+            "enable_volatility": bool(row["enable_volatility"]),
+            "last_notified_at": row["last_notified_at"],
+            "last_digest_at": row["last_digest_at"],
+            "created_at": row["created_at"]
+        })
 
-        return subscriptions
-    finally:
-        conn.close()
+    return subscriptions
+
 
 
 # Import functions (to be continued in next chunk)
@@ -435,8 +408,8 @@ def _import_settings(conn, data: Dict[str, str], mode: str, user_id: Optional[in
     """
     Import settings
 
-    单用户模式：导入到 settings 表
-    多用户模式：导入到 user_settings 表
+    单用户模式：导入到 settings 表 (user_id = NULL)
+    多用户模式：导入到 settings 表 (user_id = ?)
     """
     cursor = conn.cursor()
     result = {"total": len(data), "imported": 0, "skipped": 0, "failed": 0, "deleted": 0, "errors": []}
@@ -459,14 +432,14 @@ def _import_settings(conn, data: Dict[str, str], mode: str, user_id: Optional[in
                         updated_at = CURRENT_TIMESTAMP
                 """, (key, value))
             else:
-                # 多用户模式：导入到 user_settings 表
+                # 多用户模式：导入到 settings 表
                 cursor.execute("""
-                    INSERT INTO user_settings (user_id, key, value, encrypted, updated_at)
-                    VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-                    ON CONFLICT(user_id, key) DO UPDATE SET
+                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                    VALUES (?, ?, 0, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key, user_id) DO UPDATE SET
                         value = excluded.value,
                         updated_at = CURRENT_TIMESTAMP
-                """, (user_id, key, value))
+                """, (key, value, user_id))
 
             result["imported"] += 1
         except Exception as e:

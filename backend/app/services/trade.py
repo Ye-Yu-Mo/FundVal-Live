@@ -19,7 +19,7 @@ def _get_position(account_id: int, code: str) -> Optional[Dict[str, Any]]:
     cursor = conn.cursor()
     cursor.execute("SELECT code, cost, shares FROM positions WHERE account_id = ? AND code = ?", (account_id, code))
     row = cursor.fetchone()
-    conn.close()
+    
     if not row:
         return None
     return {"code": row["code"], "cost": float(row["cost"]), "shares": float(row["shares"])}
@@ -65,7 +65,7 @@ def add_position_trade(account_id: int, code: str, amount_cny: float, trade_ts: 
             (account_id, code, amount_cny, confirm_date_str, nav, shares_added, new_cost),
         )
         conn.commit()
-        conn.close()
+        
         return {
             "ok": True,
             "confirm_date": confirm_date_str,
@@ -83,7 +83,7 @@ def add_position_trade(account_id: int, code: str, amount_cny: float, trade_ts: 
             (account_id, code, amount_cny, confirm_date_str),
         )
         conn.commit()
-        conn.close()
+        
         return {
             "ok": True,
             "pending": True,
@@ -136,7 +136,7 @@ def reduce_position_trade(account_id: int, code: str, shares_redeemed: float, tr
             (account_id, code, amount_cny, shares_redeemed, confirm_date_str, nav, cost_after),
         )
         conn.commit()
-        conn.close()
+        
         return {
             "ok": True,
             "confirm_date": confirm_date_str,
@@ -153,7 +153,7 @@ def reduce_position_trade(account_id: int, code: str, shares_redeemed: float, tr
             (account_id, code, shares_redeemed, confirm_date_str),
         )
         conn.commit()
-        conn.close()
+        
         return {
             "ok": True,
             "pending": True,
@@ -194,7 +194,7 @@ def list_transactions(account_id: int, code: Optional[str] = None, limit: int = 
             (account_id, limit),
         )
     rows = cursor.fetchall()
-    conn.close()
+    
     out = []
     for r in rows:
         out.append({
@@ -221,7 +221,7 @@ def process_pending_transactions() -> int:
         "SELECT id, account_id, code, op_type, amount_cny, shares_redeemed, confirm_date FROM transactions WHERE applied_at IS NULL AND confirm_nav IS NULL"
     )
     pending = cursor.fetchall()
-    conn.close()
+    
     applied = 0
     for row in pending:
         tid, account_id, code, op_type, amount_cny, shares_redeemed, confirm_date = (
@@ -250,7 +250,7 @@ def process_pending_transactions() -> int:
         elif op_type == "reduce" and shares_redeemed:
             pos = _get_position(account_id, code)
             if not pos:
-                conn.close()
+                
                 continue
             amount_cny = round(shares_redeemed * nav, 2)
             new_shares = round(pos["shares"] - shares_redeemed, 4)
@@ -264,9 +264,9 @@ def process_pending_transactions() -> int:
                 (nav, amount_cny, cost_after, tid),
             )
         else:
-            conn.close()
+            
             continue
         conn.commit()
-        conn.close()
+        
         applied += 1
     return applied

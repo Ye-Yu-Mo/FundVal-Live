@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, History } from 'lucide-react';
-import { getTransactions } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, History, Search } from 'lucide-react';
+import { getTransactions, searchFunds } from '../services/api';
 import { getDefaultTradeDate, buildTradeTime } from '../utils/date';
 
 /**
@@ -13,18 +13,69 @@ export function PositionModal({ isOpen, onClose, onSubmit, editingPos, submittin
   const [profitData, setProfitData] = useState({ invest: '', profit: '', currentNav: '' });
   const [fetchingNav, setFetchingNav] = useState(false);
 
+  // Fund search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeoutRef = useRef(null);
+  const searchInputRef = useRef(null);
+
   useEffect(() => {
     if (isOpen) {
       if (editingPos) {
         setFormData({ code: editingPos.code, cost: editingPos.cost, shares: editingPos.shares });
+        setSearchQuery('');
       } else {
         setFormData({ code: '', cost: '', shares: '' });
+        setSearchQuery('');
       }
       setShowTransactions(false);
       setInputMode('manual');
       setProfitData({ invest: '', profit: '', currentNav: '' });
+      setSearchResults([]);
+      setShowSearchResults(false);
     }
   }, [isOpen, editingPos]);
+
+  // Search funds when query changes
+  useEffect(() => {
+    if (!searchQuery || editingPos) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const results = await searchFunds(searchQuery);
+        setSearchResults(results);
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, editingPos]);
+
+  const handleSelectFund = (fund) => {
+    setFormData({ ...formData, code: fund.id });
+    setSearchQuery(`${fund.id} ${fund.name}`);
+    setShowSearchResults(false);
+  };
 
   // Fetch current NAV when code changes in profit mode
   useEffect(() => {
@@ -92,16 +143,57 @@ export function PositionModal({ isOpen, onClose, onSubmit, editingPos, submittin
         <div className="p-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">基金代码</label>
-              <input
-                type="text"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                disabled={!!editingPos}
-                placeholder="如: 005827"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono disabled:opacity-60"
-                required
-              />
+              <label className="block text-sm font-medium text-slate-700 mb-1">基金代码或名称</label>
+              <div className="relative">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={editingPos ? formData.code : searchQuery}
+                    onChange={(e) => {
+                      if (!editingPos) {
+                        setSearchQuery(e.target.value);
+                        setFormData({ ...formData, code: '' });
+                      }
+                    }}
+                    disabled={!!editingPos}
+                    placeholder="输入代码或名称搜索，如: 005827 或 易方达蓝筹"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-60"
+                    required={!!editingPos}
+                  />
+                </div>
+                {showSearchResults && searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {searchResults.map((fund) => (
+                      <button
+                        key={fund.id}
+                        type="button"
+                        onClick={() => handleSelectFund(fund)}
+                        className="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-slate-800 truncate">{fund.name}</div>
+                            <div className="text-xs text-slate-500 font-mono">{fund.id}</div>
+                          </div>
+                          <div className="text-xs text-slate-400 shrink-0">{fund.type}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showSearchResults && searchResults.length === 0 && !searchLoading && searchQuery && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm text-slate-500 text-center">
+                    未找到匹配的基金
+                  </div>
+                )}
+              </div>
+              {!editingPos && formData.code && (
+                <div className="mt-1 text-xs text-emerald-600">
+                  ✓ 已选择: {formData.code}
+                </div>
+              )}
             </div>
 
             {!editingPos && (
@@ -454,27 +546,49 @@ function TransactionsView({ code, currentAccount }) {
             <tr>
               <th className="px-3 py-2 text-left font-medium text-slate-500">日期</th>
               <th className="px-3 py-2 text-left font-medium text-slate-500">类型</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-500">状态</th>
               <th className="px-3 py-2 text-right font-medium text-slate-500">金额</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {paginatedTransactions.map((t) => (
-              <tr key={t.id}>
-                <td className="px-3 py-2 text-slate-600">
-                  {(t.created_at || '').slice(0, 10)}
-                </td>
-                <td className="px-3 py-2">
-                  <span className={t.op_type === 'add' ? 'text-emerald-600' : 'text-amber-600'}>
-                    {t.op_type === 'add' ? '加仓' : '减仓'}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {t.op_type === 'add'
-                    ? (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : '--')
-                    : (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : (t.shares_redeemed != null ? `${Number(t.shares_redeemed).toLocaleString()} 份` : '--'))}
-                </td>
-              </tr>
-            ))}
+            {paginatedTransactions.map((t) => {
+              const isPending = !t.applied_at || !t.confirm_nav;
+              return (
+                <tr key={t.id} className={isPending ? 'bg-amber-50/30' : ''}>
+                  <td className="px-3 py-2 text-slate-600">
+                    {(t.created_at || '').slice(0, 10)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={t.op_type === 'add' ? 'text-emerald-600' : 'text-amber-600'}>
+                      {t.op_type === 'add' ? '加仓' : '减仓'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {isPending ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 border border-amber-200">
+                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        待确认
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        已确认
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {t.op_type === 'add'
+                      ? (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : '--')
+                      : (t.amount_cny != null ? `¥${Number(t.amount_cny).toFixed(2)}` : (t.shares_redeemed != null ? `${Number(t.shares_redeemed).toLocaleString()} 份` : '--'))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -1,39 +1,68 @@
 import sqlite3
 import logging
 import os
+import threading
 from pathlib import Path
 from contextlib import contextmanager
 from .config import Config
 
 logger = logging.getLogger(__name__)
 
+# Thread-local storage for connection pooling
+_thread_local = threading.local()
+
 def get_db_connection():
+    # Reuse connection within same thread to reduce lock contention
+    if hasattr(_thread_local, 'conn') and _thread_local.conn:
+        try:
+            # Test if connection is still alive
+            _thread_local.conn.execute("SELECT 1")
+            return _thread_local.conn
+        except:
+            # Connection is dead, create new one
+            _thread_local.conn = None
+
     # 确保数据库目录存在
     db_dir = Path(Config.DB_PATH).parent
     db_dir.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(Config.DB_PATH, check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
-    # Enable WAL mode for better concurrency
+
+    # Performance optimizations for concurrent access
+    # WAL mode is persistent, only needs to be set once (already enabled)
+    # But we set it here to ensure it's enabled even if DB is recreated
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")  # Faster writes, still safe with WAL
+    conn.execute("PRAGMA cache_size=-64000")   # 64MB cache
+    conn.execute("PRAGMA temp_store=MEMORY")   # Use memory for temp tables
+    conn.execute("PRAGMA busy_timeout=30000")  # 30s timeout for lock contention
+
+    _thread_local.conn = conn
     return conn
 
 
 @contextmanager
 def db_connection():
     """
-    Context manager for database connections to prevent leaks.
+    Context manager for database transactions with thread-local connection pooling.
+
+    This context manager reuses the thread-local connection and only commits/rollbacks
+    transactions, without closing the connection (which would break the pooling).
 
     Usage:
         with db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(...)
+            # Auto-commits on success, auto-rollbacks on exception
     """
     conn = get_db_connection()
     try:
         yield conn
-    finally:
-        conn.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def init_db():
@@ -694,6 +723,29 @@ def init_db():
 
         cursor.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (9)")
         logger.info("Migration 9 completed: settings table now supports multi-user")
+
+    # Migration 10: Merge user_settings into settings and drop user_settings table
+    if current_version < 10:
+        logger.info("Running migration 10: Merging user_settings into settings")
+
+        # 1. Check if user_settings table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'")
+        if cursor.fetchone():
+            # 2. Migrate data from user_settings to settings
+            cursor.execute("""
+                INSERT OR REPLACE INTO settings (key, value, encrypted, user_id, updated_at)
+                SELECT key, value, encrypted, user_id, updated_at
+                FROM user_settings
+            """)
+
+            # 3. Drop user_settings table
+            cursor.execute("DROP TABLE user_settings")
+            logger.info("Migration 10: user_settings table merged and dropped")
+        else:
+            logger.info("Migration 10: user_settings table does not exist, skipping")
+
+        cursor.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (10)")
+        logger.info("Migration 10 completed: user_settings merged into settings")
 
     conn.commit()
     conn.close()

@@ -183,6 +183,97 @@ def fund_intraday(fund_id: str, date: str = None):
         "lastCollectedAt": snapshots[-1]["time"] if snapshots else None
     }
 
+@router.get("/fund/{fund_id}/backtest")
+def fund_backtest(fund_id: str, days: int = 20):
+    """
+    回测基金估值算法准确率
+
+    Args:
+        fund_id: 基金代码
+        days: 回测天数（默认20天）
+
+    Returns:
+        回测结果，包括平均误差率、方向准确率等
+    """
+    from ..services.fund import get_fund_history
+    from ..services.estimate import estimate_with_weighted_ma, estimate_with_simple_ma
+    import statistics
+
+    try:
+        # 获取历史数据（需要额外的数据用于训练）
+        history = get_fund_history(fund_id, limit=days + 30)
+
+        if not history or len(history) < days + 10:
+            raise HTTPException(
+                status_code=400,
+                detail=f"历史数据不足（需要至少 {days + 10} 天）"
+            )
+
+        results = []
+
+        # 从倒数第 days 天开始，逐日预测并对比实际值
+        for i in range(days, 0, -1):
+            train_data = history[:-i]
+            actual_nav = float(history[-i]["nav"])
+            actual_date = history[-i]["date"]
+
+            # 使用加权移动平均预测
+            pred = estimate_with_weighted_ma(train_data)
+            if pred:
+                error = abs(pred["estimate"] - actual_nav)
+                error_rate = (error / actual_nav) * 100
+
+                # 计算实际涨跌幅
+                prev_nav = float(train_data[-1]["nav"])
+                actual_change = ((actual_nav - prev_nav) / prev_nav) * 100
+
+                # 判断方向是否正确
+                direction_correct = (
+                    (pred["est_rate"] > 0 and actual_change > 0) or
+                    (pred["est_rate"] < 0 and actual_change < 0) or
+                    (pred["est_rate"] == 0 and actual_change == 0)
+                )
+
+                results.append({
+                    "date": actual_date,
+                    "actual": actual_nav,
+                    "predicted": pred["estimate"],
+                    "error_rate": round(error_rate, 3),
+                    "direction_correct": direction_correct
+                })
+
+        if not results:
+            raise HTTPException(status_code=500, detail="回测失败")
+
+        # 统计结果
+        error_rates = [r["error_rate"] for r in results]
+        direction_correct_count = sum(1 for r in results if r["direction_correct"])
+
+        within_05 = sum(1 for e in error_rates if e <= 0.5)
+        within_10 = sum(1 for e in error_rates if e <= 1.0)
+        within_20 = sum(1 for e in error_rates if e <= 2.0)
+
+        return {
+            "fund_id": fund_id,
+            "test_days": len(results),
+            "avg_error_rate": round(statistics.mean(error_rates), 3),
+            "median_error_rate": round(statistics.median(error_rates), 3),
+            "max_error_rate": round(max(error_rates), 3),
+            "min_error_rate": round(min(error_rates), 3),
+            "direction_accuracy": round((direction_correct_count / len(results)) * 100, 1),
+            "error_distribution": {
+                "within_0_5": round((within_05 / len(results)) * 100, 1),
+                "within_1_0": round((within_10 / len(results)) * 100, 1),
+                "within_2_0": round((within_20 / len(results)) * 100, 1)
+            },
+            "method": "weighted_ma"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/fund/{fund_id}/subscribe")
 def subscribe_fund(
     fund_id: str,

@@ -37,35 +37,31 @@ def get_user_default_account_id(user_id: int) -> Optional[int]:
     3. None（如果用户没有账户）
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # 1. 尝试从 user_settings 获取
-        cursor.execute(
-            "SELECT value FROM user_settings WHERE user_id = ? AND key = 'default_account_id'",
-            (user_id,)
-        )
-        row = cursor.fetchone()
-        if row:
-            try:
-                return int(row[0])
-            except (ValueError, TypeError):
-                pass
+    # 1. 尝试从 settings 获取
+    cursor.execute(
+        "SELECT value FROM settings WHERE user_id = ? AND key = 'default_account_id'",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    if row:
+        try:
+            return int(row[0])
+        except (ValueError, TypeError):
+            pass
 
-        # 2. 获取用户的第一个账户
-        cursor.execute(
-            "SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1",
-            (user_id,)
-        )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
+    # 2. 获取用户的第一个账户
+    cursor.execute(
+        "SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    if row:
+        return row[0]
 
-        # 3. 没有账户
-        return None
-    finally:
-        conn.close()
-
+    # 3. 没有账户
+    return None
 
 # ============================================================================
 # Request/Response Models
@@ -119,19 +115,16 @@ def get_registration_enabled():
         dict: { registration_enabled: bool }
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL"
-        )
-        row = cursor.fetchone()
-        enabled = row and row[0] == '1'
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL"
+    )
+    row = cursor.fetchone()
+    enabled = row and row[0] == '1'
 
-        return {
-            "registration_enabled": enabled
-        }
-    finally:
-        conn.close()
+    return {
+        "registration_enabled": enabled
+    }
 
 
 @router.post("/login", response_model=UserResponse)
@@ -158,56 +151,52 @@ def login(request: LoginRequest, response: Response):
 
     # 查询用户
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, username, password_hash, is_admin FROM users WHERE username = ?",
-            (request.username,)
-        )
-        row = cursor.fetchone()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, username, password_hash, is_admin FROM users WHERE username = ?",
+        (request.username,)
+    )
+    row = cursor.fetchone()
 
-        if row is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户名或密码错误"
-            )
-
-        user_id = row[0]
-        username = row[1]
-        password_hash = row[2]
-        is_admin = row[3]
-
-        # 验证密码
-        if not verify_password(request.password, password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户名或密码错误"
-            )
-
-        # 创建 session
-        session_id = create_session(user_id)
-
-        # 设置 cookie
-        response.set_cookie(
-            key=SESSION_COOKIE_NAME,
-            value=session_id,
-            max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60,  # 秒
-            httponly=True,
-            samesite="lax"
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误"
         )
 
-        # 获取默认账户 ID
-        default_account_id = get_user_default_account_id(user_id)
+    user_id = row[0]
+    username = row[1]
+    password_hash = row[2]
+    is_admin = row[3]
 
-        return UserResponse(
-            id=user_id,
-            username=username,
-            is_admin=bool(is_admin),
-            default_account_id=default_account_id
+    # 验证密码
+    if not verify_password(request.password, password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误"
         )
-    finally:
-        conn.close()
 
+    # 创建 session
+    session_id = create_session(user_id)
+
+    # 设置 cookie
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60,  # 秒
+        httponly=True,
+        samesite="lax"
+    )
+
+    # 获取默认账户 ID
+    default_account_id = get_user_default_account_id(user_id)
+
+    return UserResponse(
+        id=user_id,
+        username=username,
+        is_admin=bool(is_admin),
+        default_account_id=default_account_id
+    )
 
 @router.post("/logout")
 def logout(request: Request, response: Response, user: User = Depends(require_auth)):
@@ -256,79 +245,77 @@ def register(request: LoginRequest, response: Response):
     """
     # 检查是否允许注册
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL")
-        row = cursor.fetchone()
-        allow_registration = row and row[0] == '1'
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL")
+    row = cursor.fetchone()
+    allow_registration = row and row[0] == '1'
 
-        if not allow_registration:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="注册功能未开启，请联系管理员"
-            )
-
-        # 验证密码长度
-        if len(request.password) < 6:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="密码长度至少为 6 位"
-            )
-
-        # 检查用户名是否已存在
-        cursor.execute(
-            "SELECT id FROM users WHERE username = ?",
-            (request.username,)
-        )
-        if cursor.fetchone() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="用户名已存在"
-            )
-
-        # 创建用户（普通用户，非管理员）
-        password_hash = hash_password(request.password)
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0)",
-            (request.username, password_hash)
-        )
-        user_id = cursor.lastrowid
-
-        # 为新用户创建默认账户
-        cursor.execute(
-            "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
-            ("默认账户", "系统自动创建的默认账户", user_id)
-        )
-        account_id = cursor.lastrowid
-
-        # 设置默认账户 ID
-        cursor.execute(
-            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
-            (user_id, "default_account_id", str(account_id))
+    if not allow_registration:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="注册功能未开启，请联系管理员"
         )
 
-        conn.commit()
-
-        # 自动登录：创建 session
-        session_id = create_session(user_id)
-
-        # 设置 cookie
-        response.set_cookie(
-            key=SESSION_COOKIE_NAME,
-            value=session_id,
-            max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60,
-            httponly=True,
-            samesite="lax"
+    # 验证密码长度
+    if len(request.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码长度至少为 6 位"
         )
 
-        return UserResponse(
-            id=user_id,
-            username=request.username,
-            is_admin=False,
-            default_account_id=account_id
+    # 检查用户名是否已存在
+    cursor.execute(
+        "SELECT id FROM users WHERE username = ?",
+        (request.username,)
+    )
+    if cursor.fetchone() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名已存在"
         )
-    finally:
-        conn.close()
+
+    # 创建用户（普通用户，非管理员）
+    password_hash = hash_password(request.password)
+    cursor.execute(
+        "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0)",
+        (request.username, password_hash)
+    )
+    user_id = cursor.lastrowid
+
+    # 为新用户创建默认账户
+    cursor.execute(
+        "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
+        ("默认账户", "系统自动创建的默认账户", user_id)
+    )
+    account_id = cursor.lastrowid
+
+    # 设置默认账户 ID
+    cursor.execute(
+        "INSERT INTO settings (key, value, user_id) VALUES (?, ?, ?)",
+        ("default_account_id", str(account_id), user_id)
+    )
+
+    conn.commit()
+
+    # 自动登录：创建 session
+    session_id = create_session(user_id)
+
+    # 设置 cookie
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60,
+        httponly=True,
+        samesite="lax"
+    )
+
+    return UserResponse(
+        id=user_id,
+        username=request.username,
+        is_admin=False,
+        default_account_id=account_id
+    )
+
 
 
 @router.get("/me", response_model=UserResponse)
@@ -379,41 +366,37 @@ def change_password(
 
     # 查询用户密码哈希
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT password_hash FROM users WHERE id = ?",
-            (user.id,)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT password_hash FROM users WHERE id = ?",
+        (user.id,)
+    )
+    row = cursor.fetchone()
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
         )
-        row = cursor.fetchone()
 
-        if row is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
-            )
+    password_hash = row[0]
 
-        password_hash = row[0]
-
-        # 验证旧密码
-        if not verify_password(request.old_password, password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="旧密码错误"
-            )
-
-        # 更新密码
-        new_password_hash = hash_password(request.new_password)
-        cursor.execute(
-            "UPDATE users SET password_hash = ? WHERE id = ?",
-            (new_password_hash, user.id)
+    # 验证旧密码
+    if not verify_password(request.old_password, password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="旧密码错误"
         )
-        conn.commit()
 
-        return {"message": "密码修改成功"}
-    finally:
-        conn.close()
+    # 更新密码
+    new_password_hash = hash_password(request.new_password)
+    cursor.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        (new_password_hash, user.id)
+    )
+    conn.commit()
 
+    return {"message": "密码修改成功"}
 
 # ============================================================================
 # Admin API Endpoints
@@ -445,51 +428,48 @@ def create_user(request: CreateUserRequest, admin: User = Depends(require_admin)
         HTTPException: 400 用户名已存在
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # 检查用户名是否已存在
-        cursor.execute(
-            "SELECT id FROM users WHERE username = ?",
-            (request.username,)
-        )
-        if cursor.fetchone() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="用户名已存在"
-            )
-
-        # 创建用户
-        password_hash = hash_password(request.password)
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
-            (request.username, password_hash, int(request.is_admin))
-        )
-        user_id = cursor.lastrowid
-
-        # 为新用户创建默认账户
-        cursor.execute(
-            "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
-            ("默认账户", "系统自动创建的默认账户", user_id)
-        )
-        account_id = cursor.lastrowid
-
-        # 设置默认账户 ID
-        cursor.execute(
-            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)",
-            (user_id, "default_account_id", str(account_id))
+    # 检查用户名是否已存在
+    cursor.execute(
+        "SELECT id FROM users WHERE username = ?",
+        (request.username,)
+    )
+    if cursor.fetchone() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名已存在"
         )
 
-        conn.commit()
+    # 创建用户
+    password_hash = hash_password(request.password)
+    cursor.execute(
+        "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
+        (request.username, password_hash, int(request.is_admin))
+    )
+    user_id = cursor.lastrowid
 
-        return UserResponse(
-            id=user_id,
-            username=request.username,
-            is_admin=request.is_admin,
-            default_account_id=account_id
-        )
-    finally:
-        conn.close()
+    # 为新用户创建默认账户
+    cursor.execute(
+        "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
+        ("默认账户", "系统自动创建的默认账户", user_id)
+    )
+    account_id = cursor.lastrowid
+
+    # 设置默认账户 ID
+    cursor.execute(
+        "INSERT INTO settings (key, value, user_id) VALUES (?, ?, ?)",
+        ("default_account_id", str(account_id), user_id)
+    )
+
+    conn.commit()
+
+    return UserResponse(
+        id=user_id,
+        username=request.username,
+        is_admin=request.is_admin,
+        default_account_id=account_id
+    )
 
 
 @router.get("/admin/users", response_model=list[UserResponse])
@@ -504,25 +484,21 @@ def list_users(admin: User = Depends(require_admin)):
         list[UserResponse]: 用户列表（包含默认账户 ID）
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, username, is_admin, created_at FROM users ORDER BY id"
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, username, is_admin, created_at FROM users ORDER BY id"
+    )
+    rows = cursor.fetchall()
+
+    return [
+        UserResponse(
+            id=row[0],
+            username=row[1],
+            is_admin=bool(row[2]),
+            default_account_id=get_user_default_account_id(row[0])
         )
-        rows = cursor.fetchall()
-
-        return [
-            UserResponse(
-                id=row[0],
-                username=row[1],
-                is_admin=bool(row[2]),
-                default_account_id=get_user_default_account_id(row[0])
-            )
-            for row in rows
-        ]
-    finally:
-        conn.close()
-
+        for row in rows
+    ]
 
 @router.delete("/admin/users/{user_id}")
 def delete_user(user_id: int, admin: User = Depends(require_admin)):
@@ -547,67 +523,63 @@ def delete_user(user_id: int, admin: User = Depends(require_admin)):
         )
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # 检查用户是否存在
-        cursor.execute(
-            "SELECT is_admin FROM users WHERE id = ?",
-            (user_id,)
+    # 检查用户是否存在
+    cursor.execute(
+        "SELECT is_admin FROM users WHERE id = ?",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
         )
-        row = cursor.fetchone()
-        if row is None:
+
+    is_admin = bool(row[0])
+
+    # 如果要删除的是管理员，检查是否是最后一个管理员
+    if is_admin:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1")
+        admin_count = cursor.fetchone()[0]
+        if admin_count <= 1:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不允许删除最后一个管理员"
             )
 
-        is_admin = bool(row[0])
+    # 级联删除用户的所有数据
+    # 1. 删除持仓（通过 account_id）
+    cursor.execute("""
+        DELETE FROM positions
+        WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
+    """, (user_id,))
 
-        # 如果要删除的是管理员，检查是否是最后一个管理员
-        if is_admin:
-            cursor.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1")
-            admin_count = cursor.fetchone()[0]
-            if admin_count <= 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="不允许删除最后一个管理员"
-                )
+    # 2. 删除交易记录（通过 account_id）
+    cursor.execute("""
+        DELETE FROM transactions
+        WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
+    """, (user_id,))
 
-        # 级联删除用户的所有数据
-        # 1. 删除持仓（通过 account_id）
-        cursor.execute("""
-            DELETE FROM positions
-            WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
-        """, (user_id,))
+    # 3. 删除用户的账户
+    cursor.execute("DELETE FROM accounts WHERE user_id = ?", (user_id,))
 
-        # 2. 删除交易记录（通过 account_id）
-        cursor.execute("""
-            DELETE FROM transactions
-            WHERE account_id IN (SELECT id FROM accounts WHERE user_id = ?)
-        """, (user_id,))
+    # 4. 删除用户的配置
+    cursor.execute("DELETE FROM settings WHERE user_id = ?", (user_id,))
 
-        # 3. 删除用户的账户
-        cursor.execute("DELETE FROM accounts WHERE user_id = ?", (user_id,))
+    # 5. 删除用户的订阅
+    cursor.execute("DELETE FROM subscriptions WHERE user_id = ?", (user_id,))
 
-        # 4. 删除用户的配置
-        cursor.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
+    # 6. 删除用户的 AI prompts
+    cursor.execute("DELETE FROM ai_prompts WHERE user_id = ?", (user_id,))
 
-        # 5. 删除用户的订阅
-        cursor.execute("DELETE FROM subscriptions WHERE user_id = ?", (user_id,))
+    # 7. 删除用户
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
-        # 6. 删除用户的 AI prompts
-        cursor.execute("DELETE FROM ai_prompts WHERE user_id = ?", (user_id,))
+    conn.commit()
 
-        # 7. 删除用户
-        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-
-        conn.commit()
-
-        return {"message": "用户已删除"}
-    finally:
-        conn.close()
-
+    return {"message": "用户已删除"}
 
 @router.get("/admin/settings/allow-registration")
 def get_allow_registration(admin: User = Depends(require_admin)):
@@ -621,19 +593,16 @@ def get_allow_registration(admin: User = Depends(require_admin)):
         dict: 注册开关状态
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL"
-        )
-        row = cursor.fetchone()
-        allow = row[0] == '1' if row else False
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL"
+    )
+    row = cursor.fetchone()
+    allow = row[0] == '1' if row else False
 
-        return {
-            "allow_registration": allow
-        }
-    finally:
-        conn.close()
+    return {
+        "allow_registration": allow
+    }
 
 
 @router.put("/admin/settings/allow-registration")
@@ -652,20 +621,17 @@ def set_allow_registration(
         dict: 成功消息
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE settings SET value = ? WHERE key = 'allow_registration'",
-            ('1' if request.allow else '0',)
-        )
-        conn.commit()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE settings SET value = ? WHERE key = 'allow_registration' AND user_id IS NULL",
+        ('1' if request.allow else '0',)
+    )
+    conn.commit()
 
-        return {
-            "message": "注册开关已更新",
-            "allow_registration": request.allow
-        }
-    finally:
-        conn.close()
+    return {
+        "message": "注册开关已更新",
+        "allow_registration": request.allow
+    }
 
 
 @router.post("/admin/enable-multi-user")
@@ -690,66 +656,43 @@ def enable_multi_user(request: EnableMultiUserRequest):
         )
 
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # 1. 创建管理员用户（id=1, is_admin=1）
-        password_hash = hash_password(request.admin_password)
-        cursor.execute("""
-            INSERT INTO users (username, password_hash, is_admin)
-            VALUES (?, ?, 1)
-        """, (request.admin_username, password_hash))
-        admin_user_id = cursor.lastrowid
+    # 1. 创建管理员用户（id=1, is_admin=1）
+    password_hash = hash_password(request.admin_password)
+    cursor.execute("""
+        INSERT INTO users (username, password_hash, is_admin)
+        VALUES (?, ?, 1)
+    """, (request.admin_username, password_hash))
+    admin_user_id = cursor.lastrowid
 
-        # 2. 迁移数据：更新所有 accounts.user_id = admin_user_id
-        cursor.execute("""
-            UPDATE accounts SET user_id = ? WHERE user_id IS NULL
-        """, (admin_user_id,))
+    # 2. 迁移数据：更新所有 accounts.user_id = admin_user_id
+    cursor.execute("""
+        UPDATE accounts SET user_id = ? WHERE user_id IS NULL
+    """, (admin_user_id,))
 
-        # 3. 迁移数据：更新所有 subscriptions.user_id = admin_user_id
-        cursor.execute("""
-            UPDATE subscriptions SET user_id = ? WHERE user_id IS NULL
-        """, (admin_user_id,))
+    # 3. 迁移数据：更新所有 subscriptions.user_id = admin_user_id
+    cursor.execute("""
+        UPDATE subscriptions SET user_id = ? WHERE user_id IS NULL
+    """, (admin_user_id,))
 
-        # 4. 迁移数据：复制 settings → user_settings (user_id=admin_user_id)
-        # 获取所有用户级配置（排除系统级配置，只迁移 user_id IS NULL 的）
-        cursor.execute("""
-            SELECT key, value, encrypted FROM settings
-            WHERE user_id IS NULL AND key NOT IN ('multi_user_mode', 'allow_registration')
-        """)
-        settings_rows = cursor.fetchall()
+    # 4. 迁移数据：更新 settings 表的 user_id (NULL → admin_user_id)
+    # 将所有用户级配置（排除系统级配置）分配给管理员
+    cursor.execute("""
+        UPDATE settings
+        SET user_id = ?
+        WHERE user_id IS NULL AND key NOT IN ('multi_user_mode', 'allow_registration')
+    """, (admin_user_id,))
 
-        # 复制到 user_settings
-        for row in settings_rows:
-            cursor.execute("""
-                INSERT OR REPLACE INTO user_settings (user_id, key, value, encrypted)
-                VALUES (?, ?, ?, ?)
-            """, (admin_user_id, row[0], row[1], row[2]))
+    # 5. 设置 multi_user_mode = 1
+    cursor.execute("""
+        UPDATE settings SET value = '1' WHERE key = 'multi_user_mode' AND user_id IS NULL
+    """)
 
-        # 5. 删除 settings 表中的用户级配置（保留 multi_user_mode, allow_registration）
-        cursor.execute("""
-            DELETE FROM settings
-            WHERE key NOT IN ('multi_user_mode', 'allow_registration')
-        """)
+    conn.commit()
 
-        # 6. 设置 multi_user_mode = 1
-        cursor.execute("""
-            UPDATE settings SET value = '1' WHERE key = 'multi_user_mode'
-        """)
-
-        conn.commit()
-
-        return {
-            "message": "多用户模式已开启",
-            "admin_user_id": admin_user_id,
-            "admin_username": request.admin_username
-        }
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"开启多用户模式失败: {str(e)}"
-        )
-    finally:
-        conn.close()
-
+    return {
+        "message": "多用户模式已开启",
+        "admin_user_id": admin_user_id,
+        "admin_username": request.admin_username
+    }

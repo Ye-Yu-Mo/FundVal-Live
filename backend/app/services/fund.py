@@ -55,20 +55,14 @@ def get_fund_type(code: str, name: str) -> str:
     Returns:
         Fund type string
     """
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT type FROM funds WHERE code = ?", (code,))
-        row = cursor.fetchone()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT type FROM funds WHERE code = ?", (code,))
+    row = cursor.fetchone()
 
-        if row and row["type"]:
-            return row["type"]
-    except Exception as e:
-        print(f"DB query error for {code}: {e}")
-    finally:
-        if conn:
-            conn.close()
+    if row and row["type"]:
+        return row["type"]
+
 
     # Fallback: simple heuristics based on name
     if "债" in name or "纯债" in name or "固收" in name:
@@ -150,7 +144,7 @@ def get_eastmoney_valuation(code: str) -> Dict[str, Any]:
                     "time": data.get("gztime")
                 }
     except Exception as e:
-        print(f"Eastmoney API error for {code}: {e}")
+        logger.warning(f"Eastmoney API error for {code}: {e}")
     return {}
 
 
@@ -177,57 +171,140 @@ def get_sina_valuation(code: str) -> Dict[str, Any]:
                     "time": f"{parts[7]} {parts[1]}"
                 }
     except Exception as e:
-        print(f"Sina Valuation API error for {code}: {e}")
+        logger.warning(f"Sina Valuation API error for {code}: {e}")
     return {}
 
 
 def get_combined_valuation(code: str) -> Dict[str, Any]:
     """
-    Try Eastmoney first, fallback to Sina.
+    获取基金估值，优先级：
+    1. Eastmoney API
+    2. Sina API
+    3. 自定义算法估值（基于历史数据）
+    4. 兜底：返回昨日净值
     """
+    # 1. Try Eastmoney
     data = get_eastmoney_valuation(code)
-    if not data or data.get("estimate") == 0.0:
-        # Fallback to Sina
-        sina_data = get_sina_valuation(code)
-        if sina_data:
-            # Merge Sina info into Eastmoney structure
+    if data and data.get("estimate") and data.get("estimate") > 0:
+        return data
+
+    # 2. Fallback to Sina
+    sina_data = get_sina_valuation(code)
+    if sina_data and sina_data.get("estimate") and sina_data.get("estimate") > 0:
+        if data:
             data.update(sina_data)
-    return data
+            return data
+        return sina_data
+
+    # 3. Try custom estimation algorithm
+    from .estimate import estimate_nav
+    from datetime import datetime
+
+    try:
+        history = get_fund_history(code, limit=30)
+        if history and len(history) >= 2:
+            ml_result = estimate_nav(code, history)
+            if ml_result:
+                yesterday_nav = float(history[-1]["nav"])
+
+                # Get fund name from database if not available from API
+                fund_name = data.get("name") if data else None
+                if not fund_name or fund_name == code:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM funds WHERE code = ?", (code,))
+                    row = cursor.fetchone()
+                    fund_name = row["name"] if row else code
+
+                return {
+                    "code": code,
+                    "name": fund_name,
+                    "nav": yesterday_nav,
+                    "navDate": history[-1]["date"],
+                    "estimate": ml_result["estimate"],
+                    "estRate": ml_result["est_rate"],
+                    "time": datetime.now().strftime("%H:%M"),
+                    "source": "ml_estimate",  # 标记来源
+                    "confidence": ml_result.get("confidence", 0),
+                    "method": ml_result.get("method", "unknown")
+                }
+    except Exception as e:
+        logger.error(f"Custom estimation failed for {code}: {e}")
+
+    # 4. Final fallback: return yesterday's NAV as estimate
+    if data:
+        return data
+
+    # Last resort: try to get basic info
+    try:
+        history = get_fund_history(code, limit=1)
+        if history:
+            # Get fund name from database
+            fund_name = code
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM funds WHERE code = ?", (code,))
+            row = cursor.fetchone()
+            
+            if row:
+                fund_name = row["name"]
+
+            return {
+                "code": code,
+                "name": fund_name,
+                "nav": float(history[-1]["nav"]),
+                "navDate": history[-1]["date"],
+                "estimate": float(history[-1]["nav"]),
+                "estRate": 0.0,
+                "time": "--",
+                "source": "fallback"
+            }
+    except:
+        pass
+
+    return {"code": code, "name": code, "nav": 0, "estimate": 0, "estRate": 0}
 
 
 def search_funds(q: str) -> List[Dict[str, Any]]:
     """
     Search funds by keyword using local SQLite DB.
+    Supports both code and name search.
+    Results are ordered by relevance: exact code match > code prefix > name match
     """
     if not q:
         return []
 
     q_clean = q.strip()
     pattern = f"%{q_clean}%"
-    
+    prefix_pattern = f"{q_clean}%"
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            SELECT code, name, type 
-            FROM funds 
-            WHERE code LIKE ? OR name LIKE ? 
-            LIMIT 20
-        """, (pattern, pattern))
-        
-        rows = cursor.fetchall()
-        
-        results = []
-        for row in rows:
-            results.append({
-                "id": str(row["code"]),
-                "name": row["name"],
-                "type": row["type"] or "未知"
-            })
-        return results
-    finally:
-        conn.close()
+
+    cursor.execute("""
+        SELECT code, name, type,
+            CASE
+                WHEN code = ? THEN 1
+                WHEN code LIKE ? THEN 2
+                WHEN name LIKE ? THEN 3
+                ELSE 4
+            END as relevance
+        FROM funds
+        WHERE code LIKE ? OR name LIKE ?
+        ORDER BY relevance, code
+        LIMIT 30
+    """, (q_clean, prefix_pattern, pattern, pattern, pattern))
+
+    rows = cursor.fetchall()
+
+    results = []
+    for row in rows:
+        results.append({
+            "id": str(row["code"]),
+            "name": row["name"],
+            "type": row["type"] or "未知"
+        })
+    return results
 
 
 def get_eastmoney_pingzhong_data(code: str) -> Dict[str, Any]:
@@ -274,25 +351,33 @@ def get_eastmoney_pingzhong_data(code: str) -> Dict[str, Any]:
 
             # Extract Full History (Data_netWorthTrend)
             # var Data_netWorthTrend = [{"x":1536076800000,"y":1.0,...},...];
-            history_match = re.search(r'Data_netWorthTrend\s*=\s*(\[.+?\])\s*;\s*/\*', text)
+            # Relaxed regex: allow various endings (;/* or ; or ;\n)
+            history_match = re.search(r'Data_netWorthTrend\s*=\s*(\[.+?\])\s*;', text, re.DOTALL)
             if history_match:
                 try:
                     raw_hist = json.loads(history_match.group(1))
-                    # Convert to standard format: [{"date": "YYYY-MM-DD", "nav": 1.23}, ...]
-                    # x is ms timestamp
-                    data["history"] = [
-                        {
-                            "date": time.strftime('%Y-%m-%d', time.localtime(item['x']/1000)),
-                            "nav": float(item['y'])
-                        }
-                        for item in raw_hist
-                    ]
-                except:
-                    pass
+                    if not raw_hist:
+                        logger.warning(f"Empty Data_netWorthTrend for {code}")
+                    else:
+                        # Convert to standard format: [{"date": "YYYY-MM-DD", "nav": 1.23}, ...]
+                        # x is ms timestamp
+                        data["history"] = [
+                            {
+                                "date": time.strftime('%Y-%m-%d', time.localtime(item['x']/1000)),
+                                "nav": float(item['y'])
+                            }
+                            for item in raw_hist
+                            if 'x' in item and 'y' in item  # Validate data structure
+                        ]
+                except Exception as e:
+                    logger.error(f"Failed to parse Data_netWorthTrend for {code}: {e}")
+            else:
+                # Data_netWorthTrend not found - may be 货币基金 or new page structure
+                logger.warning(f"Data_netWorthTrend not found for {code}")
 
             return data
     except Exception as e:
-        print(f"PingZhong API error for {code}: {e}")
+        logger.warning(f"PingZhong API error for {code}: {e}")
     return {}
 
 
@@ -305,11 +390,10 @@ def _get_fund_info_from_db(code: str) -> Dict[str, Any]:
         cursor = conn.cursor()
         cursor.execute("SELECT name, type FROM funds WHERE code = ?", (code,))
         row = cursor.fetchone()
-        conn.close()
         if row:
             return {"name": row["name"], "type": row["type"]}
     except Exception as e:
-        print(f"DB fetch error for {code}: {e}")
+        logger.error(f"DB fetch error for {code}: {e}")
     return {}
 
 
@@ -398,7 +482,7 @@ def _fetch_stock_spots_sina(codes: List[str]) -> Dict[str, float]:
                 
         return results
     except Exception as e:
-        print(f"Sina fetch failed: {e}")
+        logger.warning(f"Sina fetch failed: {e}")
         return {}
 
 
@@ -462,7 +546,7 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
             pass
 
     if cache_valid:
-        conn.close()
+        
         # Reverse to ascending order (oldest to newest) for chart display
         return [{"date": row["date"], "nav": float(row["nav"])} for row in reversed(rows)]
 
@@ -470,7 +554,7 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
     try:
         df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
         if df is None or df.empty:
-            conn.close()
+            
             return []
 
         # If limit < 9999, take only the most recent N records
@@ -494,11 +578,10 @@ def get_fund_history(code: str, limit: int = 30) -> List[Dict[str, Any]]:
             """, (code, date_str, nav_value))
 
         conn.commit()
-        conn.close()
+        
         return results
     except Exception as e:
-        print(f"History fetch error for {code}: {e}")
-        conn.close()
+        logger.error(f"History fetch error for {code}: {e}")
         return []
 
 
@@ -560,7 +643,7 @@ def _calculate_technical_indicators(history: List[Dict[str, Any]]) -> Dict[str, 
             "annual_return": f"{round(float(annual_return) * 100, 2)}%"
         }
     except Exception as e:
-        print(f"Indicator calculation error: {e}")
+        logger.error(f"Indicator calculation error: {e}")
         return {
             "sharpe": "--",
             "volatility": "--",
@@ -580,6 +663,9 @@ def get_fund_intraday(code: str) -> Dict[str, Any]:
     estimate = float(em_data.get("estimate", 0.0))
     est_rate = float(em_data.get("estRate", 0.0))
     update_time = em_data.get("time", time.strftime("%H:%M:%S"))
+    source = em_data.get("source")
+    method = em_data.get("method")
+    confidence = em_data.get("confidence")
 
     # 1.5) Enrich with detailed info
     pz_data = get_eastmoney_pingzhong_data(code)
@@ -655,12 +741,15 @@ def get_fund_intraday(code: str) -> Dict[str, Any]:
     response = {
         "id": str(code),
         "name": name,
-        "type": sector, 
+        "type": sector,
         "manager": manager,
         "nav": nav,
         "estimate": estimate,
         "estRate": est_rate,
         "time": update_time,
+        "source": source,
+        "method": method,
+        "confidence": confidence,
         "holdings": holdings,
         "indicators": {
             "returns": {

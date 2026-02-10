@@ -25,7 +25,6 @@ def get_all_positions(account_id: int, user_id: Optional[int] = None) -> Dict[st
     cursor.execute("SELECT * FROM positions WHERE account_id = ? AND shares > 0", (account_id,))
 
     rows = cursor.fetchall()
-    conn.close()
 
     positions = []
     total_market_value = 0.0
@@ -47,6 +46,10 @@ def get_all_positions(account_id: int, user_id: Optional[int] = None) -> Dict[st
         }
 
     # Batch query 1: Get fund info (name, type) for all codes
+    # Defensive: Limit batch size to prevent SQL statement overflow
+    if len(codes) > 500:
+        raise ValueError(f"Too many positions ({len(codes)}), maximum 500 allowed")
+
     conn_batch = get_db_connection()
     cursor_batch = conn_batch.cursor()
     placeholders = ','.join('?' * len(codes))
@@ -65,7 +68,6 @@ def get_all_positions(account_id: int, user_id: Optional[int] = None) -> Dict[st
         GROUP BY code
     """, codes)
     nav_date_map = {row["code"]: row["latest_date"] for row in cursor_batch.fetchall()}
-    conn_batch.close()
 
     # 1. Fetch real-time data in parallel
     position_map = {row["code"]: row for row in rows}
@@ -260,7 +262,6 @@ def upsert_position(account_id: int, code: str, cost: float, shares: float, user
             updated_at = CURRENT_TIMESTAMP
     """, (account_id, code, cost, shares))
     conn.commit()
-    conn.close()
 
 def remove_position(account_id: int, code: str, user_id: Optional[int] = None):
     """
@@ -275,4 +276,3 @@ def remove_position(account_id: int, code: str, user_id: Optional[int] = None):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM positions WHERE account_id = ? AND code = ?", (account_id, code))
     conn.commit()
-    conn.close()

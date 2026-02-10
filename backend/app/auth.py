@@ -3,6 +3,7 @@
 """
 import bcrypt
 import secrets
+import threading
 from typing import Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -71,15 +72,12 @@ def _get_setting_bool(key: str, default: bool = False) -> bool:
         bool: 配置值
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM settings WHERE key = ? AND user_id IS NULL", (key,))
-        row = cursor.fetchone()
-        if row is None:
-            return default
-        return row[0] == '1'
-    finally:
-        conn.close()
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM settings WHERE key = ? AND user_id IS NULL", (key,))
+    row = cursor.fetchone()
+    if row is None:
+        return default
+    return row[0] == '1'
 
 
 def is_multi_user_mode() -> bool:
@@ -108,6 +106,7 @@ def is_registration_allowed() -> bool:
 
 # 内存存储 session（生产环境应该用 Redis）
 _sessions = {}
+_sessions_lock = threading.Lock()  # 并发保护
 
 
 def create_session(user_id: int) -> str:
@@ -122,10 +121,13 @@ def create_session(user_id: int) -> str:
     """
     session_id = secrets.token_urlsafe(32)
     expiry = datetime.now() + timedelta(days=SESSION_EXPIRY_DAYS)
-    _sessions[session_id] = {
-        'user_id': user_id,
-        'expiry': expiry
-    }
+
+    with _sessions_lock:
+        _sessions[session_id] = {
+            'user_id': user_id,
+            'expiry': expiry
+        }
+
     return session_id
 
 
@@ -139,20 +141,21 @@ def get_session_user(session_id: str) -> Optional[int]:
     Returns:
         Optional[int]: user_id，如果 session 不存在或已过期则返回 None
     """
-    if session_id not in _sessions:
-        return None
+    with _sessions_lock:
+        if session_id not in _sessions:
+            return None
 
-    session = _sessions[session_id]
+        session = _sessions[session_id]
 
-    # 检查是否过期
-    if datetime.now() > session['expiry']:
-        del _sessions[session_id]
-        return None
+        # 检查是否过期
+        if datetime.now() > session['expiry']:
+            del _sessions[session_id]
+            return None
 
-    # 续期：每次访问延长 30 天
-    session['expiry'] = datetime.now() + timedelta(days=SESSION_EXPIRY_DAYS)
+        # 续期：每次访问延长 30 天
+        session['expiry'] = datetime.now() + timedelta(days=SESSION_EXPIRY_DAYS)
 
-    return session['user_id']
+        return session['user_id']
 
 
 def cleanup_expired_sessions():
@@ -160,11 +163,12 @@ def cleanup_expired_sessions():
     清理所有过期的 session（防止内存泄漏）
     应该由后台任务定期调用
     """
-    now = datetime.now()
-    expired_keys = [sid for sid, data in _sessions.items() if now > data['expiry']]
-    for sid in expired_keys:
-        del _sessions[sid]
-    return len(expired_keys)
+    with _sessions_lock:
+        now = datetime.now()
+        expired_keys = [sid for sid, data in _sessions.items() if now > data['expiry']]
+        for sid in expired_keys:
+            del _sessions[sid]
+        return len(expired_keys)
 
 
 def delete_session(session_id: str):
@@ -174,8 +178,9 @@ def delete_session(session_id: str):
     Args:
         session_id: session ID
     """
-    if session_id in _sessions:
-        del _sessions[session_id]
+    with _sessions_lock:
+        if session_id in _sessions:
+            del _sessions[session_id]
 
 
 def _get_user_by_id(user_id: int) -> Optional[User]:
@@ -189,18 +194,15 @@ def _get_user_by_id(user_id: int) -> Optional[User]:
         Optional[User]: 用户对象，如果不存在则返回 None
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, username, is_admin FROM users WHERE id = ?",
-            (user_id,)
-        )
-        row = cursor.fetchone()
-        if row is None:
-            return None
-        return User(id=row[0], username=row[1], is_admin=row[2])
-    finally:
-        conn.close()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, username, is_admin FROM users WHERE id = ?",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return User(id=row[0], username=row[1], is_admin=row[2])
 
 
 # ============================================================================

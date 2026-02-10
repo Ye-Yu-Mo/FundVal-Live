@@ -19,40 +19,37 @@ def verify_account_ownership(account_id: int, user: Optional[User]) -> None:
         HTTPException: 404 账户不存在，403 无权访问
     """
     conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT user_id FROM accounts WHERE id = ?", (account_id,))
-        row = cursor.fetchone()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM accounts WHERE id = ?", (account_id,))
+    row = cursor.fetchone()
 
-        if row is None:
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="账户不存在"
+        )
+
+    account_user_id = row[0]
+
+    # 单用户模式：account_user_id 应该是 NULL
+    if not is_multi_user_mode():
+        if account_user_id is not None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账户不存在"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此账户"
             )
-
-        account_user_id = row[0]
-
-        # 单用户模式：account_user_id 应该是 NULL
-        if not is_multi_user_mode():
-            if account_user_id is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="无权访问此账户"
-                )
-        # 多用户模式：account_user_id 应该等于 current_user.id
-        else:
-            if user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="未登录"
-                )
-            if account_user_id != user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="无权访问此账户"
-                )
-    finally:
-        conn.close()
+    # 多用户模式：account_user_id 应该等于 current_user.id
+    else:
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未登录"
+            )
+        if account_user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此账户"
+            )
 
 
 def get_user_id_for_query(user: Optional[User]) -> Optional[int]:

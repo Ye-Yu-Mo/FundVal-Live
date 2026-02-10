@@ -46,7 +46,6 @@ def add_subscription(
     """, (code, email, user_id, up, down, int(enable_digest), digest_time, int(enable_volatility)))
 
     conn.commit()
-    conn.close()
     logger.info(f"Subscription updated: {email} -> {code} (user_id={user_id}, Volatility: {enable_volatility}, Digest: {enable_digest} @ {digest_time})")
 
 def get_active_subscriptions():
@@ -54,7 +53,6 @@ def get_active_subscriptions():
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM subscriptions")
     rows = cursor.fetchall()
-    conn.close()
     return rows
 
 def update_notification_time(sub_id: int):
@@ -62,11 +60,10 @@ def update_notification_time(sub_id: int):
     cursor = conn.cursor()
     cursor.execute("UPDATE subscriptions SET last_notified_at = CURRENT_TIMESTAMP WHERE id = ?", (sub_id,))
     conn.commit()
-    conn.close()
 
 def update_digest_time(sub_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE subscriptions SET last_digest_at = CURRENT_TIMESTAMP WHERE id = ?", (sub_id,))
     conn.commit()
-    conn.close()
+    
