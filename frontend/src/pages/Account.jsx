@@ -145,12 +145,12 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
 
       {/* Actions */}
       <div className="space-y-4">
-        {/* 第一行：标题 + 操作按钮 */}
-        <div className="flex justify-between items-center">
+        {/* 第一行：标题 + 操作按钮（小屏换行） */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <h2 className="text-xl font-bold text-slate-800">
             {isAggregatedView ? '全部账户持仓汇总' : '持仓明细'}
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {/* 排序下拉菜单 */}
             <div className="relative" ref={sortDropdownRef}>
               <button
@@ -211,8 +211,8 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
           </div>
         </div>
 
-        {/* 第二行：分类筛选器 */}
-        <div className="flex gap-1 bg-slate-50 p-1 rounded-lg w-fit">
+        {/* 第二行：分类筛选器（小屏可横向滚动） */}
+        <div className="flex gap-1 bg-slate-50 p-1 rounded-lg w-fit max-w-full overflow-x-auto pb-1">
           {CATEGORIES.map(cat => (
             <button
               key={cat}
@@ -229,10 +229,10 @@ const Account = ({ currentAccount = 1, onSelectFund, onPositionChange, onSyncWat
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table（小屏横向滚动） */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div>
-          <table className="w-full text-base text-left border-collapse">
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <table className="w-full text-base text-left border-collapse min-w-[700px]">
             <thead className="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider sticky top-[73px] z-30 shadow-sm">
               <tr>
                 <th className="px-4 py-3 text-left border-b border-slate-100 bg-slate-50 rounded-tl-xl">

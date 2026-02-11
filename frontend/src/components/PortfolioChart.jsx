@@ -75,9 +75,9 @@ export const PortfolioChart = ({ positions, summary, loading, onRefresh }) => {
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="flex gap-6">
-        {/* 左侧：统计数据 */}
-        <div className="flex flex-col gap-4 min-w-[240px]">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* 左侧：统计数据（小屏无最小宽度） */}
+        <div className="flex flex-col gap-4 min-w-0 md:min-w-[240px]">
           <div className="flex flex-col gap-1">
             <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">预估总资产</div>
             <div className="text-2xl font-bold text-slate-800">
@@ -110,8 +110,8 @@ export const PortfolioChart = ({ positions, summary, loading, onRefresh }) => {
           </div>
         </div>
 
-        {/* 右侧：饼图 */}
-        <div className="flex-1 min-h-[280px]">
+        {/* 右侧：饼图（小屏保证高度） */}
+        <div className="flex-1 min-h-[260px] md:min-h-[280px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

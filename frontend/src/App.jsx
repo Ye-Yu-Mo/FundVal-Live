@@ -611,8 +611,8 @@ function AppContent({ currentUser, isMultiUserMode, isAdmin, logout }) {
               </form>
             )}
 
-            {/* User / Status */}
-            <div className="hidden md:flex items-center gap-4 text-xs text-slate-500">
+            {/* User / Status（手机端也显示，小屏换行） */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-slate-500">
               {/* 多用户模式：显示用户信息和登出按钮 */}
               {isMultiUserMode && currentUser && (
                 <>
