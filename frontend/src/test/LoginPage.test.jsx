@@ -27,9 +27,10 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByText('Fundval 登录')).toBeInTheDocument();
-    expect(screen.getByLabelText('用户名')).toBeInTheDocument();
-    expect(screen.getByLabelText('密码')).toBeInTheDocument();
+    expect(screen.getByText('Fundval')).toBeInTheDocument();
+    expect(screen.getByText('基金估值与资产管理系统')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /登/ })).toBeInTheDocument();
   });
 
@@ -67,8 +68,8 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    const usernameInput = screen.getByLabelText('用户名');
-    const passwordInput = screen.getByLabelText('密码');
+    const usernameInput = screen.getByPlaceholderText('用户名');
+    const passwordInput = screen.getByPlaceholderText('密码');
     const submitButton = screen.getByRole('button', { name: /登/ });
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
@@ -99,8 +100,8 @@ describe('LoginPage', () => {
       </BrowserRouter>
     );
 
-    const usernameInput = screen.getByLabelText('用户名');
-    const passwordInput = screen.getByLabelText('密码');
+    const usernameInput = screen.getByPlaceholderText('用户名');
+    const passwordInput = screen.getByPlaceholderText('密码');
     const submitButton = screen.getByRole('button', { name: /登/ });
 
     fireEvent.change(usernameInput, { target: { value: 'admin' } });
