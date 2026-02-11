@@ -6,8 +6,8 @@ import logging
 from ..services.account import get_all_positions, upsert_position, remove_position
 from ..services.trade import add_position_trade, reduce_position_trade, list_transactions
 from ..db import get_db_connection
-from ..auth import User, get_current_user
-from ..utils import verify_account_ownership, get_user_id_for_query
+from ..auth import User, require_auth, get_current_user
+from ..utils import verify_account_ownership
 
 logger = logging.getLogger(__name__)
 
@@ -34,22 +34,16 @@ class ReduceTradeModel(BaseModel):
 
 # Account management endpoints
 @router.get("/accounts")
-def list_accounts(current_user: Optional[User] = Depends(get_current_user)):
+def list_accounts(current_user: User = Depends(require_auth)):
     """获取当前用户的所有账户"""
     try:
-        user_id = get_user_id_for_query(current_user)
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：返回 user_id IS NULL 的账户
-            cursor.execute("SELECT * FROM accounts WHERE user_id IS NULL ORDER BY id")
-        else:
-            # 多用户模式：返回当前用户的账户
-            cursor.execute("SELECT * FROM accounts WHERE user_id = ? ORDER BY id", (user_id,))
+        cursor.execute("SELECT * FROM accounts WHERE user_id = ? ORDER BY id", (current_user.id,))
 
         accounts = [dict(row) for row in cursor.fetchall()]
-        
+
         return {"accounts": accounts}
     except HTTPException:
         raise
@@ -57,25 +51,16 @@ def list_accounts(current_user: Optional[User] = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/accounts")
-def create_account(data: AccountModel, current_user: Optional[User] = Depends(get_current_user)):
+def create_account(data: AccountModel, current_user: User = Depends(require_auth)):
     """创建新账户"""
     try:
-        user_id = get_user_id_for_query(current_user)
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：user_id = NULL
-            cursor.execute(
-                "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, NULL)",
-                (data.name, data.description)
-            )
-        else:
-            # 多用户模式：user_id = current_user.id
-            cursor.execute(
-                "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
-                (data.name, data.description, user_id)
-            )
+        cursor.execute(
+            "INSERT INTO accounts (name, description, user_id) VALUES (?, ?, ?)",
+            (data.name, data.description, current_user.id)
+        )
 
         account_id = cursor.lastrowid
         conn.commit()
@@ -91,7 +76,7 @@ def create_account(data: AccountModel, current_user: Optional[User] = Depends(ge
 def update_account(
     account_id: int,
     data: AccountModel,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """更新账户信息"""
     # 验证所有权
@@ -113,16 +98,10 @@ def update_account(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/accounts/{account_id}")
-def delete_account(account_id: int, current_user: Optional[User] = Depends(get_current_user)):
+def delete_account(account_id: int, current_user: User = Depends(require_auth)):
     """删除账户（需检查是否有持仓）"""
     # 验证所有权
     verify_account_ownership(account_id, current_user)
-
-    # 不允许删除 ID=1 的默认账户（仅单用户模式）
-    if account_id == 1:
-        user_id = get_user_id_for_query(current_user)
-        if user_id is None:
-            raise HTTPException(status_code=400, detail="默认账户不可删除")
 
     try:
         conn = get_db_connection()
@@ -133,12 +112,12 @@ def delete_account(account_id: int, current_user: Optional[User] = Depends(get_c
         count = cursor.fetchone()["cnt"]
 
         if count > 0:
-            
+
             raise HTTPException(status_code=400, detail="账户下有持仓，无法删除")
 
         cursor.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
         conn.commit()
-        
+
 
         return {"status": "ok"}
     except HTTPException:
@@ -148,21 +127,14 @@ def delete_account(account_id: int, current_user: Optional[User] = Depends(get_c
 
 # Position endpoints
 @router.get("/positions/aggregate")
-def get_aggregate_positions(current_user: Optional[User] = Depends(get_current_user)):
+def get_aggregate_positions(current_user: User = Depends(require_auth)):
     """获取当前用户所有账户的聚合持仓"""
     try:
-        user_id = get_user_id_for_query(current_user)
-
         # 获取用户的所有账户
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：获取所有 user_id IS NULL 的账户
-            cursor.execute("SELECT id FROM accounts WHERE user_id IS NULL")
-        else:
-            # 多用户模式：获取当前用户的账户
-            cursor.execute("SELECT id FROM accounts WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT id FROM accounts WHERE user_id = ?", (current_user.id,))
 
         account_ids = [row["id"] for row in cursor.fetchall()]
         
@@ -380,15 +352,14 @@ def get_aggregate_positions(current_user: Optional[User] = Depends(get_current_u
 @router.get("/account/positions")
 def get_positions(
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """获取指定账户的持仓"""
     # 验证所有权
     verify_account_ownership(account_id, current_user)
 
     try:
-        user_id = get_user_id_for_query(current_user)
-        return get_all_positions(account_id, user_id)
+        return get_all_positions(account_id, current_user.id)
     except HTTPException:
         raise
     except Exception as e:
@@ -397,7 +368,7 @@ def get_positions(
 @router.post("/account/positions/update-nav")
 def update_positions_nav(
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     手动更新持仓基金的净值。
@@ -475,15 +446,14 @@ def update_positions_nav(
 def update_position(
     data: PositionModel,
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """更新持仓（指定账户）"""
     # 验证所有权
     verify_account_ownership(account_id, current_user)
 
     try:
-        user_id = get_user_id_for_query(current_user)
-        upsert_position(account_id, data.code, data.cost, data.shares, user_id)
+        upsert_position(account_id, data.code, data.cost, data.shares, current_user.id)
         return {"status": "ok"}
     except HTTPException:
         raise
@@ -494,15 +464,14 @@ def update_position(
 def delete_position(
     code: str,
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """删除持仓（指定账户）"""
     # 验证所有权
     verify_account_ownership(account_id, current_user)
 
     try:
-        user_id = get_user_id_for_query(current_user)
-        remove_position(account_id, code, user_id)
+        remove_position(account_id, code, current_user.id)
         return {"status": "ok"}
     except HTTPException:
         raise
@@ -515,7 +484,7 @@ def add_trade(
     code: str,
     data: AddTradeModel,
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """加仓（指定账户）"""
     # 验证所有权
@@ -531,8 +500,7 @@ def add_trade(
         except Exception:
             pass
     try:
-        user_id = get_user_id_for_query(current_user)
-        result = add_position_trade(account_id, code, data.amount, trade_ts, user_id)
+        result = add_position_trade(account_id, code, data.amount, trade_ts, current_user.id)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("message", "加仓失败"))
         return result
@@ -547,7 +515,7 @@ def reduce_trade(
     code: str,
     data: ReduceTradeModel,
     account_id: int = Query(..., description="账户 ID"),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """减仓（指定账户）"""
     # 验证所有权
@@ -563,8 +531,7 @@ def reduce_trade(
         except Exception:
             pass
     try:
-        user_id = get_user_id_for_query(current_user)
-        result = reduce_position_trade(account_id, code, data.shares, trade_ts, user_id)
+        result = reduce_position_trade(account_id, code, data.shares, trade_ts, current_user.id)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result.get("message", "减仓失败"))
         return result
@@ -579,15 +546,14 @@ def get_transactions(
     account_id: int = Query(..., description="账户 ID"),
     code: Optional[str] = Query(None),
     limit: int = Query(100, le=500),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """获取交易记录（指定账户）"""
     # 验证所有权
     verify_account_ownership(account_id, current_user)
 
     try:
-        user_id = get_user_id_for_query(current_user)
-        return {"transactions": list_transactions(account_id, code, limit, user_id)}
+        return {"transactions": list_transactions(account_id, code, limit, current_user.id)}
     except HTTPException:
         raise
     except Exception as e:

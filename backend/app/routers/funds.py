@@ -3,8 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from ..services.fund import search_funds, get_fund_intraday, get_fund_history
 from ..config import Config
-from ..auth import User, get_current_user
-from ..utils import get_user_id_for_query
+from ..auth import User, get_current_user, require_auth
 
 from ..services.subscription import add_subscription
 
@@ -87,14 +86,11 @@ def fund_history(
     fund_id: str,
     limit: int = 30,
     account_id: int = Query(None),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     Get historical NAV data for charts.
     Optionally include transaction markers if account_id is provided (需要验证所有权).
-
-    单用户模式：不需要认证，可以获取历史数据
-    多用户模式：如果提供 account_id，需要验证所有权
     """
     try:
         history = get_fund_history(fund_id, limit=limit)
@@ -278,7 +274,7 @@ def fund_backtest(fund_id: str, days: int = 20):
 def subscribe_fund(
     fund_id: str,
     data: dict = Body(...),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     订阅基金提醒
@@ -286,12 +282,11 @@ def subscribe_fund(
     Args:
         fund_id: 基金代码
         data: 订阅配置（email, thresholdUp, thresholdDown, enableDailyDigest, digestTime, enableVolatility）
-        current_user: 当前用户（单用户模式为 None）
+        current_user: 当前用户
 
     Returns:
         dict: 成功消息
     """
-    user_id = get_user_id_for_query(current_user)
     email = data.get("email")
     up = data.get("thresholdUp")
     down = data.get("thresholdDown")
@@ -306,7 +301,7 @@ def subscribe_fund(
         add_subscription(
             fund_id,
             email,
-            user_id,  # 添加 user_id 参数
+            current_user.id,
             float(up or 0),
             float(down or 0),
             enable_digest=enable_digest,

@@ -3,8 +3,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from ..services.ai import ai_service
 from ..db import get_db_connection
-from ..auth import get_current_user, User
-from ..utils import get_user_id_for_query
+from ..auth import get_current_user, User, require_auth
 
 router = APIRouter()
 
@@ -18,43 +17,27 @@ class PromptModel(BaseModel):
 async def analyze_fund(
     fund_info: Dict[str, Any] = Body(...),
     prompt_id: int = Body(None),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     分析基金（需要认证）
     """
-    user_id = get_user_id_for_query(current_user)
-    return await ai_service.analyze_fund(fund_info, prompt_id=prompt_id, user_id=user_id)
+    return await ai_service.analyze_fund(fund_info, prompt_id=prompt_id, user_id=current_user.id)
 
 @router.get("/ai/prompts")
-def get_prompts(current_user: Optional[User] = Depends(get_current_user)):
+def get_prompts(current_user: User = Depends(require_auth)):
     """
     获取 AI 提示词模板（按用户隔离）
-
-    单用户模式：返回 user_id IS NULL 的 prompts
-    多用户模式：返回当前用户的 prompts
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if user_id is None:
-        # 单用户模式：查询系统级 prompts
-        cursor.execute("""
-            SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
-            FROM ai_prompts
-            WHERE user_id IS NULL
-            ORDER BY is_default DESC, id ASC
-        """)
-    else:
-        # 多用户模式：查询当前用户的 prompts
-        cursor.execute("""
-            SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
-            FROM ai_prompts
-            WHERE user_id = ?
-            ORDER BY is_default DESC, id ASC
-        """, (user_id,))
+    cursor.execute("""
+        SELECT id, name, system_prompt, user_prompt, is_default, created_at, updated_at
+        FROM ai_prompts
+        WHERE user_id = ?
+        ORDER BY is_default DESC, id ASC
+    """, (current_user.id,))
 
     prompts = [dict(row) for row in cursor.fetchall()]
     return {"prompts": prompts}
@@ -62,28 +45,23 @@ def get_prompts(current_user: Optional[User] = Depends(get_current_user)):
 @router.post("/ai/prompts")
 def create_prompt(
     data: PromptModel,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     创建新的 AI 提示词模板（需要认证）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # If this is set as default, unset other defaults for this user
     if data.is_default:
-        if user_id is None:
-            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id IS NULL")
-        else:
-            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id = ?", (user_id,))
+        cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE user_id = ?", (current_user.id,))
 
     # Insert with user_id
     cursor.execute("""
         INSERT INTO ai_prompts (name, system_prompt, user_prompt, user_id, is_default)
         VALUES (?, ?, ?, ?, ?)
-    """, (data.name, data.system_prompt, data.user_prompt, user_id, 1 if data.is_default else 0))
+    """, (data.name, data.system_prompt, data.user_prompt, current_user.id, 1 if data.is_default else 0))
 
     prompt_id = cursor.lastrowid
     conn.commit()
@@ -94,31 +72,23 @@ def create_prompt(
 def update_prompt(
     prompt_id: int,
     data: PromptModel,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     更新 AI 提示词模板（需要认证，只能更新自己的）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if prompt exists and belongs to user
-    if user_id is None:
-        cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
-    else:
-        cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
+    cursor.execute("SELECT id FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, current_user.id))
 
     if not cursor.fetchone():
         raise HTTPException(status_code=404, detail="Prompt not found or access denied")
 
     # If this is set as default, unset other defaults for this user
     if data.is_default:
-        if user_id is None:
-            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id IS NULL", (prompt_id,))
-        else:
-            cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id = ?", (prompt_id, user_id))
+        cursor.execute("UPDATE ai_prompts SET is_default = 0 WHERE id != ? AND user_id = ?", (prompt_id, current_user.id))
 
     cursor.execute("""
         UPDATE ai_prompts
@@ -133,21 +103,16 @@ def update_prompt(
 @router.delete("/ai/prompts/{prompt_id}")
 def delete_prompt(
     prompt_id: int,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     删除 AI 提示词模板（需要认证，只能删除自己的）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if prompt exists and belongs to user
-    if user_id is None:
-        cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id IS NULL", (prompt_id,))
-    else:
-        cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, user_id))
+    cursor.execute("SELECT is_default FROM ai_prompts WHERE id = ? AND user_id = ?", (prompt_id, current_user.id))
 
     row = cursor.fetchone()
 
@@ -171,13 +136,11 @@ def get_analysis_history(
     prompt_id: Optional[int] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     获取 AI 分析历史记录列表（不返回 markdown，减少数据量）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -185,15 +148,9 @@ def get_analysis_history(
     query = """
         SELECT id, fund_code, fund_name, prompt_name, status, created_at
         FROM ai_analysis_history
-        WHERE account_id = ? AND fund_code = ?
+        WHERE account_id = ? AND fund_code = ? AND user_id = ?
     """
-    params = [account_id, fund_code]
-
-    if user_id is None:
-        query += " AND user_id IS NULL"
-    else:
-        query += " AND user_id = ?"
-        params.append(user_id)
+    params = [account_id, fund_code, current_user.id]
 
     # Add optional filters
     if prompt_id is not None:
@@ -219,26 +176,18 @@ def get_analysis_history(
 @router.get("/ai/analysis_history/{history_id}")
 def get_analysis_history_detail(
     history_id: int,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     获取单条 AI 分析历史记录详情（包含 markdown）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if user_id is None:
-        cursor.execute("""
-            SELECT * FROM ai_analysis_history
-            WHERE id = ? AND user_id IS NULL
-        """, (history_id,))
-    else:
-        cursor.execute("""
-            SELECT * FROM ai_analysis_history
-            WHERE id = ? AND user_id = ?
-        """, (history_id, user_id))
+    cursor.execute("""
+        SELECT * FROM ai_analysis_history
+        WHERE id = ? AND user_id = ?
+    """, (history_id, current_user.id))
 
     row = cursor.fetchone()
 
@@ -250,21 +199,16 @@ def get_analysis_history_detail(
 @router.delete("/ai/analysis_history/{history_id}")
 def delete_analysis_history(
     history_id: int,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     删除 AI 分析历史记录（只能删除自己的）
     """
-    user_id = get_user_id_for_query(current_user)
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if record exists and belongs to user
-    if user_id is None:
-        cursor.execute("SELECT id FROM ai_analysis_history WHERE id = ? AND user_id IS NULL", (history_id,))
-    else:
-        cursor.execute("SELECT id FROM ai_analysis_history WHERE id = ? AND user_id = ?", (history_id, user_id))
+    cursor.execute("SELECT id FROM ai_analysis_history WHERE id = ? AND user_id = ?", (history_id, current_user.id))
 
     if not cursor.fetchone():
         raise HTTPException(status_code=404, detail="History record not found or access denied")

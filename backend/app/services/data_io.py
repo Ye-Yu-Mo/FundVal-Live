@@ -2,7 +2,7 @@ import datetime
 import logging
 from typing import List, Dict, Any, Optional
 from ..db import get_db_connection
-from ..auth import User, is_multi_user_mode
+from ..auth import User
 
 logger = logging.getLogger(__name__)
 
@@ -13,19 +13,7 @@ IMPORT_ORDER = ["settings", "ai_prompts", "accounts", "positions", "transactions
 SENSITIVE_MASK = "***"
 
 
-def get_user_id_for_query(user: Optional[User]) -> Optional[int]:
-    """
-    获取用于查询的 user_id
-
-    单用户模式：返回 None
-    多用户模式：返回 user.id
-    """
-    if not is_multi_user_mode():
-        return None
-    return user.id if user else None
-
-
-def export_data(modules: List[str], current_user: Optional[User] = None) -> Dict[str, Any]:
+def export_data(modules: List[str], current_user: User) -> Dict[str, Any]:
     """
     Export selected modules to JSON format.
 
@@ -39,7 +27,7 @@ def export_data(modules: List[str], current_user: Optional[User] = None) -> Dict
     if not modules:
         raise ValueError("No modules selected for export")
 
-    user_id = get_user_id_for_query(current_user)
+    user_id = current_user.id
 
     result = {
         "version": "1.0",
@@ -72,7 +60,7 @@ def export_data(modules: List[str], current_user: Optional[User] = None) -> Dict
     return result
 
 
-def import_data(data: Dict[str, Any], modules: List[str], mode: str, current_user: Optional[User] = None) -> Dict[str, Any]:
+def import_data(data: Dict[str, Any], modules: List[str], mode: str, current_user: User) -> Dict[str, Any]:
     """
     Import selected modules from JSON data.
 
@@ -91,7 +79,7 @@ def import_data(data: Dict[str, Any], modules: List[str], mode: str, current_use
     if "version" not in data:
         raise ValueError("Missing version field in import data")
 
-    user_id = get_user_id_for_query(current_user)
+    user_id = current_user.id
 
     # Initialize result
     result = {

@@ -12,12 +12,12 @@ from ..auth import (
     get_current_user,
     require_auth,
     require_admin,
-    is_multi_user_mode,
+    has_admin_user,
     User,
     SESSION_COOKIE_NAME,
     SESSION_EXPIRY_DAYS
 )
-from ..db import get_db_connection
+from ..db import get_db_connection, check_database_version, CURRENT_SCHEMA_VERSION
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -84,26 +84,97 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
-class EnableMultiUserRequest(BaseModel):
-    admin_username: str
-    admin_password: str
+class InitAdminRequest(BaseModel):
+    username: str
+    password: str
 
 
 # ============================================================================
 # API Endpoints
 # ============================================================================
 
-@router.get("/mode")
-def get_auth_mode():
+@router.get("/init-status")
+def init_status():
     """
-    获取认证模式（不需要认证）
+    获取系统初始化状态（无需认证）
 
     Returns:
-        dict: { multi_user_mode: bool }
+        dict: {
+            "needs_init": bool,  # 是否需要初始化（没有管理员用户）
+            "needs_rebuild": bool  # 是否需要重建数据库（版本不匹配）
+        }
     """
+    needs_init = not has_admin_user()
+
+    # 检查数据库版本
+    current_version = check_database_version()
+    needs_rebuild = current_version != CURRENT_SCHEMA_VERSION
+
     return {
-        "multi_user_mode": is_multi_user_mode()
+        "needs_init": needs_init,
+        "needs_rebuild": needs_rebuild
     }
+
+
+@router.post("/init-admin")
+def init_admin(request: InitAdminRequest):
+    """
+    创建初始管理员用户（无需认证，只能在未初始化时调用）
+
+    Args:
+        request: 初始管理员信息（username, password）
+
+    Returns:
+        dict: 成功消息和管理员信息
+
+    Raises:
+        HTTPException: 400 已存在管理员用户
+    """
+    # 检查是否已经有管理员
+    if has_admin_user():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="系统已初始化，无法创建初始管理员"
+        )
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 创建管理员用户
+        password_hash = hash_password(request.password)
+        cursor.execute("""
+            INSERT INTO users (username, password_hash, is_admin)
+            VALUES (?, ?, 1)
+        """, (request.username, password_hash))
+        admin_id = cursor.lastrowid
+
+        # 为管理员创建默认账户
+        cursor.execute("""
+            INSERT INTO accounts (name, description, user_id)
+            VALUES (?, ?, ?)
+        """, ("默认账户", "管理员默认账户", admin_id))
+        account_id = cursor.lastrowid
+
+        conn.commit()
+
+        return {
+            "message": "初始管理员创建成功",
+            "admin_id": admin_id,
+            "username": request.username,
+            "default_account_id": account_id
+        }
+    except Exception as e:
+        conn.rollback()
+        if "UNIQUE constraint failed" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="用户名已存在"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建管理员失败: {str(e)}"
+        )
 
 
 @router.get("/registration-enabled")
@@ -142,13 +213,6 @@ def login(request: LoginRequest, response: Response):
     Raises:
         HTTPException: 400 单用户模式不支持登录，401 用户名或密码错误
     """
-    # 单用户模式不支持登录
-    if not is_multi_user_mode():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="单用户模式下不支持登录"
-        )
-
     # 查询用户
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -211,10 +275,6 @@ def logout(request: Request, response: Response, user: User = Depends(require_au
     Returns:
         dict: 成功消息
     """
-    # 单用户模式不需要登出
-    if not is_multi_user_mode():
-        return {"message": "单用户模式下不需要登出"}
-
     # 删除服务端 session
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
     if session_id:
@@ -357,13 +417,6 @@ def change_password(
     Raises:
         HTTPException: 400 旧密码错误
     """
-    # 单用户模式不支持修改密码
-    if not is_multi_user_mode():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="单用户模式下不支持修改密码"
-        )
-
     # 查询用户密码哈希
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -406,10 +459,6 @@ class CreateUserRequest(BaseModel):
     username: str
     password: str
     is_admin: bool = False
-
-
-class AllowRegistrationRequest(BaseModel):
-    allow: bool
 
 
 @router.post("/admin/users", response_model=UserResponse)
@@ -581,118 +630,3 @@ def delete_user(user_id: int, admin: User = Depends(require_admin)):
 
     return {"message": "用户已删除"}
 
-@router.get("/admin/settings/allow-registration")
-def get_allow_registration(admin: User = Depends(require_admin)):
-    """
-    获取注册开关状态（需要管理员权限）
-
-    Args:
-        admin: 当前管理员（通过 require_admin 获取）
-
-    Returns:
-        dict: 注册开关状态
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT value FROM settings WHERE key = 'allow_registration' AND user_id IS NULL"
-    )
-    row = cursor.fetchone()
-    allow = row[0] == '1' if row else False
-
-    return {
-        "allow_registration": allow
-    }
-
-
-@router.put("/admin/settings/allow-registration")
-def set_allow_registration(
-    request: AllowRegistrationRequest,
-    admin: User = Depends(require_admin)
-):
-    """
-    控制注册开关（需要管理员权限）
-
-    Args:
-        request: 注册开关请求（allow）
-        admin: 当前管理员（通过 require_admin 获取）
-
-    Returns:
-        dict: 成功消息
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE settings SET value = ? WHERE key = 'allow_registration' AND user_id IS NULL",
-        ('1' if request.allow else '0',)
-    )
-    conn.commit()
-
-    return {
-        "message": "注册开关已更新",
-        "allow_registration": request.allow
-    }
-
-
-@router.post("/admin/enable-multi-user")
-def enable_multi_user(request: EnableMultiUserRequest):
-    """
-    开启多用户模式（单用户模式 → 多用户模式）
-
-    Args:
-        request: 开启多用户模式请求（admin_username, admin_password）
-
-    Returns:
-        dict: 成功消息
-
-    Raises:
-        HTTPException: 400 已开启多用户模式
-    """
-    # 检查是否已开启
-    if is_multi_user_mode():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="多用户模式已开启"
-        )
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # 1. 创建管理员用户（id=1, is_admin=1）
-    password_hash = hash_password(request.admin_password)
-    cursor.execute("""
-        INSERT INTO users (username, password_hash, is_admin)
-        VALUES (?, ?, 1)
-    """, (request.admin_username, password_hash))
-    admin_user_id = cursor.lastrowid
-
-    # 2. 迁移数据：更新所有 accounts.user_id = admin_user_id
-    cursor.execute("""
-        UPDATE accounts SET user_id = ? WHERE user_id IS NULL
-    """, (admin_user_id,))
-
-    # 3. 迁移数据：更新所有 subscriptions.user_id = admin_user_id
-    cursor.execute("""
-        UPDATE subscriptions SET user_id = ? WHERE user_id IS NULL
-    """, (admin_user_id,))
-
-    # 4. 迁移数据：更新 settings 表的 user_id (NULL → admin_user_id)
-    # 将所有用户级配置（排除系统级配置）分配给管理员
-    cursor.execute("""
-        UPDATE settings
-        SET user_id = ?
-        WHERE user_id IS NULL AND key NOT IN ('multi_user_mode', 'allow_registration')
-    """, (admin_user_id,))
-
-    # 5. 设置 multi_user_mode = 1
-    cursor.execute("""
-        UPDATE settings SET value = '1' WHERE key = 'multi_user_mode' AND user_id IS NULL
-    """)
-
-    conn.commit()
-
-    return {
-        "message": "多用户模式已开启",
-        "admin_user_id": admin_user_id,
-        "admin_username": request.admin_username
-    }

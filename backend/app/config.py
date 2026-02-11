@@ -54,9 +54,20 @@ def _get_setting(key: str, default: str = "") -> str:
     return os.getenv(key, default)
 
 class Config:
-    # Database
-    DB_PATH = os.path.join(BASE_DIR, "data", "fund.db")
-    DB_URL = f"sqlite:///{DB_PATH}"
+    # Database Type
+    DB_TYPE = os.getenv("DB_TYPE", "sqlite")  # sqlite or postgresql
+
+    # Database Configuration
+    if DB_TYPE == "postgresql":
+        # PostgreSQL: use DATABASE_URL from environment
+        DB_URL = os.getenv("DATABASE_URL")
+        if not DB_URL:
+            raise ValueError("DATABASE_URL environment variable is required when DB_TYPE=postgresql")
+        DB_PATH = None  # Not applicable for PostgreSQL
+    else:
+        # SQLite: use file path
+        DB_PATH = os.path.join(BASE_DIR, "data", "fund.db")
+        DB_URL = f"sqlite:///{DB_PATH}"
 
     # Data Sources
     DEFAULT_DATA_SOURCE = "eastmoney"

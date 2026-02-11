@@ -36,6 +36,7 @@ orjson==3.11.6
 packaging==25.0
 pandas==3.0.0
 primp==0.15.0
+psycopg2-binary==2.9.10
 pycparser==3.0
 pydantic==2.12.5
 pydantic-core==2.41.5

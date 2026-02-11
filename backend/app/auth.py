@@ -60,44 +60,18 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def _get_setting_bool(key: str, default: bool = False) -> bool:
+def has_admin_user() -> bool:
     """
-    从 settings 表读取布尔值配置
-
-    Args:
-        key: 配置键
-        default: 默认值
+    检测是否存在管理员用户
 
     Returns:
-        bool: 配置值
+        bool: True 表示存在管理员，False 表示不存在
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = ? AND user_id IS NULL", (key,))
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE is_admin = 1")
     row = cursor.fetchone()
-    if row is None:
-        return default
-    return row[0] == '1'
-
-
-def is_multi_user_mode() -> bool:
-    """
-    获取多用户模式状态
-
-    Returns:
-        bool: True 表示多用户模式，False 表示单用户模式
-    """
-    return _get_setting_bool('multi_user_mode', False)
-
-
-def is_registration_allowed() -> bool:
-    """
-    获取注册开关状态
-
-    Returns:
-        bool: True 表示允许注册，False 表示禁止注册
-    """
-    return _get_setting_bool('allow_registration', False)
+    return row["count"] > 0
 
 
 # ============================================================================
@@ -250,11 +224,7 @@ def get_current_user(request: Request) -> Optional[User]:
             - 单用户模式：返回 None
             - 多用户模式：从 cookie 读取 session_id，返回 User 对象
     """
-    # 单用户模式：不需要认证
-    if not is_multi_user_mode():
-        return None
-
-    # 多用户模式：从 cookie 读取 session_id
+    # 从 cookie 读取 session_id
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
     if not session_id:
         return None
@@ -283,11 +253,7 @@ def require_auth(request: Request) -> User:
     """
     user = get_current_user(request)
 
-    # 单用户模式：不需要认证，返回虚拟用户
-    if not is_multi_user_mode():
-        return User(id=0, username='single_user', is_admin=True)
-
-    # 多用户模式：必须登录
+    # 必须登录
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

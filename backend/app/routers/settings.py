@@ -5,8 +5,7 @@ from fastapi import APIRouter, HTTPException, Body, Depends
 from ..db import get_db_connection
 from ..crypto import encrypt_value, decrypt_value
 from ..config import Config
-from ..auth import User, get_current_user, is_multi_user_mode
-from ..utils import get_user_id_for_query
+from ..auth import User, get_current_user, require_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,19 +30,13 @@ def validate_port(port: str) -> bool:
         return False
 
 @router.get("/settings")
-def get_settings(current_user: Optional[User] = Depends(get_current_user)):
+def get_settings(current_user: User = Depends(require_auth)):
     """获取所有设置（加密字段用 *** 掩码）"""
     try:
-        user_id = get_user_id_for_query(current_user)
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：从 settings 表读取（user_id IS NULL）
-            cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id IS NULL AND key NOT IN ('multi_user_mode', 'allow_registration')")
-        else:
-            # 多用户模式：从 settings 表读取（user_id = ?）
-            cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT key, value, encrypted FROM settings WHERE user_id = ?", (current_user.id,))
 
         rows = cursor.fetchall()
 
@@ -80,10 +73,9 @@ def get_settings(current_user: Optional[User] = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/settings")
-def update_settings(data: dict = Body(...), current_user: Optional[User] = Depends(get_current_user)):
+def update_settings(data: dict = Body(...), current_user: User = Depends(require_auth)):
     """更新设置（部分更新，验证输入）"""
     try:
-        user_id = get_user_id_for_query(current_user)
         settings = data.get("settings", {})
         errors = {}
 
@@ -121,32 +113,16 @@ def update_settings(data: dict = Body(...), current_user: Optional[User] = Depen
             if encrypted and value:
                 value = encrypt_value(value)
 
-            if user_id is None:
-                # 单用户模式：更新 settings 表（user_id = NULL）
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES (?, ?, ?, NULL, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        encrypted = excluded.encrypted,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (key, value, encrypted))
-            else:
-                # 多用户模式：更新 settings 表
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        encrypted = excluded.encrypted,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (key, value, encrypted, user_id))
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key, user_id) DO UPDATE SET
+                    value = excluded.value,
+                    encrypted = excluded.encrypted,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (key, value, encrypted, current_user.id))
 
         conn.commit()
-
-        # 重新加载配置（仅单用户模式）
-        if user_id is None:
-            Config.reload()
 
         return {"message": "设置已保存"}
     except HTTPException:
@@ -156,45 +132,26 @@ def update_settings(data: dict = Body(...), current_user: Optional[User] = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/preferences")
-def get_preferences(current_user: Optional[User] = Depends(get_current_user)):
+def get_preferences(current_user: User = Depends(require_auth)):
     """获取用户偏好（自选列表、当前账户、排序选项）"""
     try:
-        user_id = get_user_id_for_query(current_user)
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：从 settings 表读取（user_id IS NULL）
-            # 获取自选列表
-            cursor.execute("SELECT value FROM settings WHERE key = 'user_watchlist' AND user_id IS NULL")
-            watchlist_row = cursor.fetchone()
-            watchlist = watchlist_row["value"] if watchlist_row else "[]"
+        # 获取自选列表
+        cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_watchlist'", (current_user.id,))
+        watchlist_row = cursor.fetchone()
+        watchlist = watchlist_row["value"] if watchlist_row else "[]"
 
-            # 获取当前账户
-            cursor.execute("SELECT value FROM settings WHERE key = 'user_current_account' AND user_id IS NULL")
-            account_row = cursor.fetchone()
-            current_account = int(account_row["value"]) if account_row else 1
+        # 获取当前账户
+        cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_current_account'", (current_user.id,))
+        account_row = cursor.fetchone()
+        current_account = int(account_row["value"]) if account_row else 1
 
-            # 获取排序选项
-            cursor.execute("SELECT value FROM settings WHERE key = 'user_sort_option' AND user_id IS NULL")
-            sort_row = cursor.fetchone()
-            sort_option = sort_row["value"] if sort_row else None
-        else:
-            # 多用户模式：从 settings 表读取
-            # 获取自选列表
-            cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_watchlist'", (user_id,))
-            watchlist_row = cursor.fetchone()
-            watchlist = watchlist_row["value"] if watchlist_row else "[]"
-
-            # 获取当前账户
-            cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_current_account'", (user_id,))
-            account_row = cursor.fetchone()
-            current_account = int(account_row["value"]) if account_row else 1
-
-            # 获取排序选项
-            cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_sort_option'", (user_id,))
-            sort_row = cursor.fetchone()
-            sort_option = sort_row["value"] if sort_row else None
+        # 获取排序选项
+        cursor.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'user_sort_option'", (current_user.id,))
+        sort_row = cursor.fetchone()
+        sort_option = sort_row["value"] if sort_row else None
 
         return {
             "watchlist": watchlist,
@@ -208,69 +165,38 @@ def get_preferences(current_user: Optional[User] = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/preferences")
-def update_preferences(data: dict = Body(...), current_user: Optional[User] = Depends(get_current_user)):
+def update_preferences(data: dict = Body(...), current_user: User = Depends(require_auth)):
     """更新用户偏好"""
     try:
-        user_id = get_user_id_for_query(current_user)
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        if user_id is None:
-            # 单用户模式：更新 settings 表（user_id = NULL）
-            if "watchlist" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_watchlist', ?, 0, NULL, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (data["watchlist"],))
+        if "watchlist" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                VALUES ('user_watchlist', ?, 0, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key, user_id) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (data["watchlist"], current_user.id))
 
-            if "currentAccount" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_current_account', ?, 0, NULL, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (str(data["currentAccount"]),))
+        if "currentAccount" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                VALUES ('user_current_account', ?, 0, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key, user_id) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (str(data["currentAccount"]), current_user.id))
 
-            if "sortOption" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_sort_option', ?, 0, NULL, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (data["sortOption"],))
-        else:
-            # 多用户模式：更新 settings 表
-            if "watchlist" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_watchlist', ?, 0, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (data["watchlist"], user_id))
-
-            if "currentAccount" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_current_account', ?, 0, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (str(data["currentAccount"]), user_id))
-
-            if "sortOption" in data:
-                cursor.execute("""
-                    INSERT INTO settings (key, value, encrypted, user_id, updated_at)
-                    VALUES ('user_sort_option', ?, 0, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key, user_id) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (data["sortOption"], user_id))
+        if "sortOption" in data:
+            cursor.execute("""
+                INSERT INTO settings (key, value, encrypted, user_id, updated_at)
+                VALUES ('user_sort_option', ?, 0, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key, user_id) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (data["sortOption"], current_user.id))
 
         conn.commit()
 

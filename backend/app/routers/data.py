@@ -7,7 +7,7 @@ import io
 import datetime
 
 from ..services.data_io import export_data, import_data
-from ..auth import get_current_user, User
+from ..auth import get_current_user, User, require_auth
 
 router = APIRouter()
 
@@ -24,7 +24,7 @@ class ImportRequest(BaseModel):
 @router.get("/data/export")
 def export_data_endpoint(
     modules: Optional[str] = None,
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     导出数据到 JSON 文件（需要认证）
@@ -71,7 +71,7 @@ def export_data_endpoint(
 @router.post("/data/import")
 def import_data_endpoint(
     request: ImportRequest = Body(...),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(require_auth)
 ):
     """
     从 JSON 导入数据（需要认证）
