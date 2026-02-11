@@ -154,3 +154,39 @@ class WatchlistItem(models.Model):
     def __str__(self):
         return f'{self.watchlist.name} - {self.fund.fund_name}'
 
+
+class EstimateAccuracy(models.Model):
+    """估值准确率记录"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_name = models.CharField(max_length=50, db_index=True)
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='accuracy_records')
+
+    estimate_date = models.DateField()
+    estimate_nav = models.DecimalField(max_digits=10, decimal_places=4)
+    actual_nav = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+
+    error_rate = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, help_text='误差率')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'estimate_accuracy'
+        verbose_name = '估值准确率'
+        verbose_name_plural = '估值准确率'
+        unique_together = [['source_name', 'fund', 'estimate_date']]
+        indexes = [
+            models.Index(fields=['fund', 'estimate_date']),
+            models.Index(fields=['source_name', 'estimate_date']),
+        ]
+
+    def __str__(self):
+        return f'{self.source_name} - {self.fund.fund_code} - {self.estimate_date}'
+
+    def calculate_error_rate(self):
+        """计算误差率"""
+        if self.actual_nav and self.actual_nav > 0:
+            error = abs(self.estimate_nav - self.actual_nav)
+            self.error_rate = error / self.actual_nav
+            self.save()
+
