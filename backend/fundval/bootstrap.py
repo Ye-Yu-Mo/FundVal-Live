@@ -6,23 +6,23 @@ from .config import config
 class BootstrapManager:
     """Bootstrap 密钥管理"""
 
-    _bootstrap_key = None
-
     @classmethod
     def generate_key(cls):
-        """生成高熵随机密钥"""
-        if cls._bootstrap_key is None:
-            # 生成 64 字符的随机字符串
-            alphabet = string.ascii_letters + string.digits
-            cls._bootstrap_key = ''.join(secrets.choice(alphabet) for _ in range(64))
-        return cls._bootstrap_key
+        """生成高熵随机密钥并持久化到配置"""
+        # 生成 64 字符的随机字符串
+        alphabet = string.ascii_letters + string.digits
+        key = ''.join(secrets.choice(alphabet) for _ in range(64))
+        config.set('bootstrap_key', key)
+        config.save()
+        return key
 
     @classmethod
     def get_key(cls):
-        """获取 bootstrap_key"""
-        if cls._bootstrap_key is None:
-            cls.generate_key()
-        return cls._bootstrap_key
+        """获取 bootstrap_key（从配置读取或生成）"""
+        key = config.get('bootstrap_key')
+        if key is None:
+            key = cls.generate_key()
+        return key
 
     @classmethod
     def verify_key(cls, key):
@@ -34,7 +34,8 @@ class BootstrapManager:
     @classmethod
     def invalidate_key(cls):
         """使密钥失效"""
-        cls._bootstrap_key = None
+        config.set('bootstrap_key', None)
+        config.save()
 
 
 def get_bootstrap_key():
@@ -50,3 +51,4 @@ def verify_bootstrap_key(key):
 def invalidate_bootstrap_key():
     """使 bootstrap_key 失效"""
     BootstrapManager.invalidate_key()
+
