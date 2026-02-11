@@ -3,7 +3,7 @@ import { Form, Input, Button, Card, message, Typography, Layout, theme } from 'a
 import { UserOutlined, LockOutlined, LoginOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api';
-import { setToken } from '../utils/auth';
+import { setToken, setUser } from '../utils/auth';
 
 const { Title, Text } = Typography;
 const { Content, Footer } = Layout;
@@ -20,13 +20,10 @@ function LoginPage() {
       const { access_token, refresh_token, user } = response.data;
 
       setToken(access_token, refresh_token);
+      setUser(user);
       message.success(`欢迎回来，${user.username}！`);
 
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate('/dashboard');
     } catch (error) {
       message.error(error.response?.data?.error || '登录失败');
     } finally {

@@ -81,35 +81,4 @@ describe('LoginPage', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
   });
-
-  it('管理员登录跳转到 admin', async () => {
-    api.login.mockResolvedValue({
-      data: {
-        access_token: 'test_token',
-        refresh_token: 'test_refresh',
-        user: {
-          username: 'admin',
-          role: 'admin',
-        },
-      },
-    });
-
-    render(
-      <BrowserRouter>
-        <LoginPage />
-      </BrowserRouter>
-    );
-
-    const usernameInput = screen.getByPlaceholderText('用户名');
-    const passwordInput = screen.getByPlaceholderText('密码');
-    const submitButton = screen.getByRole('button', { name: /登/ });
-
-    fireEvent.change(usernameInput, { target: { value: 'admin' } });
-    fireEvent.change(passwordInput, { target: { value: 'adminpass' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin');
-    });
-  });
 });
