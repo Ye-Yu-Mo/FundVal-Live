@@ -28,9 +28,8 @@ class TestPositionCalculation:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '测试账户')
 
     @pytest.fixture
     def fund(self):
@@ -297,9 +296,8 @@ class TestPnLCalculation:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '测试账户')
 
     @pytest.fixture
     def fund(self):
@@ -388,9 +386,8 @@ class TestBatchRecalculation:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '测试账户')
 
     @pytest.fixture
     def fund1(self):
@@ -439,13 +436,13 @@ class TestBatchRecalculation:
         assert positions.filter(fund=fund1).first().holding_share == Decimal('100')
         assert positions.filter(fund=fund2).first().holding_share == Decimal('200')
 
-    def test_recalculate_account_positions(self, user, fund1):
+    def test_recalculate_account_positions(self, user, fund1, create_child_account):
         """测试重算指定账户的持仓"""
         from api.models import Account, PositionOperation
         from api.services import recalculate_all_positions
 
-        account1 = Account.objects.create(user=user, name='账户1')
-        account2 = Account.objects.create(user=user, name='账户2')
+        account1 = create_child_account(user, '账户1')
+        account2 = create_child_account(user, '账户2')
 
         # 账户1的操作
         PositionOperation.objects.create(

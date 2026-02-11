@@ -44,10 +44,14 @@ def recalculate_position(account_id, fund_id) -> Position:
                 cost_per_share = total_cost / total_share
                 total_share -= op.share
                 total_cost -= op.share * cost_per_share
+                # 四舍五入到 2 位小数
+                total_cost = total_cost.quantize(Decimal('0.01'))
 
     # 计算持仓净值（加权平均）
     if total_share > 0:
         holding_nav = total_cost / total_share
+        # 四舍五入到 4 位小数
+        holding_nav = holding_nav.quantize(Decimal('0.0001'))
     else:
         holding_nav = Decimal('0')
 

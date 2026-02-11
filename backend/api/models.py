@@ -70,9 +70,51 @@ class Account(models.Model):
         verbose_name = '账户'
         verbose_name_plural = '账户'
         unique_together = [['user', 'name']]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(is_default=False) | models.Q(parent__isnull=True),
+                name='default_account_must_be_parent',
+                violation_error_message='默认账户必须是父账户'
+            ),
+        ]
 
     def __str__(self):
         return f'{self.user.username} - {self.name}'
+
+    def clean(self):
+        """模型验证"""
+        from django.core.exceptions import ValidationError
+
+        # 验证：默认账户必须是父账户
+        if self.is_default and self.parent is not None:
+            raise ValidationError('默认账户必须是父账户（parent 必须为 NULL）')
+
+        # 验证：每个用户只能有一个默认账户
+        if self.is_default:
+            existing_default = Account.objects.filter(
+                user=self.user,
+                is_default=True
+            ).exclude(id=self.id).first()
+
+            if existing_default:
+                raise ValidationError(f'用户 {self.user.username} 已有默认账户：{existing_default.name}')
+
+        # 验证：最多两层（父账户 -> 子账户）
+        if self.parent is not None and self.parent.parent is not None:
+            raise ValidationError('账户层级最多两层：父账户 -> 子账户，不支持孙账户')
+
+    def save(self, *args, **kwargs):
+        """保存前自动处理默认账户切换"""
+        # 如果设置为默认账户，自动取消同用户的其他默认账户
+        if self.is_default:
+            Account.objects.filter(
+                user=self.user,
+                is_default=True
+            ).exclude(id=self.id).update(is_default=False)
+
+        # 调用 clean 进行验证
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Position(models.Model):
@@ -97,6 +139,19 @@ class Position(models.Model):
 
     def __str__(self):
         return f'{self.account.name} - {self.fund.fund_name}'
+
+    def clean(self):
+        """模型验证"""
+        from django.core.exceptions import ValidationError
+
+        # 验证：持仓账户必须是子账户（parent 不能为 NULL）
+        if self.account.parent is None:
+            raise ValidationError('持仓只能创建在子账户上，父账户不能持有持仓')
+
+    def save(self, *args, **kwargs):
+        """保存前验证"""
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def pnl(self):
@@ -136,6 +191,19 @@ class PositionOperation(models.Model):
 
     def __str__(self):
         return f'{self.get_operation_type_display()} - {self.fund.fund_name} - {self.operation_date}'
+
+    def clean(self):
+        """模型验证"""
+        from django.core.exceptions import ValidationError
+
+        # 验证：操作账户必须是子账户（parent 不能为 NULL）
+        if self.account.parent is None:
+            raise ValidationError('持仓操作只能在子账户上进行，父账户不能进行持仓操作')
+
+    def save(self, *args, **kwargs):
+        """保存前验证"""
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Watchlist(models.Model):

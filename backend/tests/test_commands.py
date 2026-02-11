@@ -248,9 +248,8 @@ class TestRecalculatePositionsCommand:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '测试账户')
 
     @pytest.fixture
     def fund(self):
@@ -284,12 +283,12 @@ class TestRecalculatePositionsCommand:
         position = Position.objects.first()
         assert position.holding_share == Decimal('100')
 
-    def test_recalculate_account_positions(self, user, fund):
+    def test_recalculate_account_positions(self, user, fund, create_child_account):
         """测试重算指定账户的持仓"""
         from api.models import Account, PositionOperation, Position
 
-        account1 = Account.objects.create(user=user, name='账户1')
-        account2 = Account.objects.create(user=user, name='账户2')
+        account1 = create_child_account(user, '账户1')
+        account2 = create_child_account(user, '账户2')
 
         # 创建两个账户的操作
         PositionOperation.objects.create(

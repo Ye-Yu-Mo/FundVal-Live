@@ -76,9 +76,8 @@ class TestPositionPnLWithLatestNav:
         )
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '测试账户')
 
     def test_pnl_calculation_with_latest_nav(self, account, fund):
         """测试盈亏计算使用 latest_nav"""

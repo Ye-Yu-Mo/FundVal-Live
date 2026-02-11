@@ -145,9 +145,8 @@ class TestAccountDetailAPI:
         return User.objects.create_user(username='otheruser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     def test_get_account_detail(self, client, user, account):
         """测试获取账户详情"""
@@ -182,9 +181,8 @@ class TestAccountUpdateAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     def test_update_account_name(self, client, user, account):
         """测试更新账户名称"""
@@ -195,11 +193,16 @@ class TestAccountUpdateAPI:
         assert response.status_code == 200
         assert response.data['name'] == '新名称'
 
-    def test_update_account_to_default(self, client, user, account):
-        """测试设置为默认账户"""
+    def test_update_account_to_default(self, client, user):
+        """测试设置为默认账户（只能设置父账户为默认）"""
+        from api.models import Account
+
+        # 创建父账户
+        parent_account = Account.objects.create(user=user, name='父账户')
+
         client.force_authenticate(user=user)
-        response = client.put(f'/api/accounts/{account.id}/', {
-            'name': '我的账户',
+        response = client.put(f'/api/accounts/{parent_account.id}/', {
+            'name': '父账户',
             'is_default': True,
         })
         assert response.status_code == 200
@@ -228,9 +231,8 @@ class TestAccountDeleteAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     def test_delete_account(self, client, user, account):
         """测试删除账户"""
@@ -270,9 +272,8 @@ class TestAccountPositionsAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     @pytest.fixture
     def positions(self, account):

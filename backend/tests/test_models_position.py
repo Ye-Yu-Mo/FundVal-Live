@@ -26,7 +26,10 @@ class TestPositionModel:
     @pytest.fixture
     def account(self, user):
         from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+        # 创建父账户
+        parent = Account.objects.create(user=user, name='父账户')
+        # 创建子账户（用于持仓）
+        return Account.objects.create(user=user, name='测试账户', parent=parent)
 
     @pytest.fixture
     def fund(self):
@@ -59,6 +62,7 @@ class TestPositionModel:
         """测试同一账户同一基金只能有一个持仓"""
         from api.models import Position
         from django.db import IntegrityError
+        from django.core.exceptions import ValidationError
 
         Position.objects.create(
             account=account,
@@ -67,7 +71,7 @@ class TestPositionModel:
         )
 
         # 重复创建应该报错
-        with pytest.raises(IntegrityError):
+        with pytest.raises((IntegrityError, ValidationError)):
             Position.objects.create(
                 account=account,
                 fund=fund,
@@ -86,7 +90,10 @@ class TestPositionOperationModel:
     @pytest.fixture
     def account(self, user):
         from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+        # 创建父账户
+        parent = Account.objects.create(user=user, name='父账户')
+        # 创建子账户（用于持仓）
+        return Account.objects.create(user=user, name='测试账户', parent=parent)
 
     @pytest.fixture
     def fund(self):
@@ -176,7 +183,10 @@ class TestPositionCalculation:
     @pytest.fixture
     def account(self, user):
         from api.models import Account
-        return Account.objects.create(user=user, name='测试账户')
+        # 创建父账户
+        parent = Account.objects.create(user=user, name='父账户')
+        # 创建子账户（用于持仓）
+        return Account.objects.create(user=user, name='测试账户', parent=parent)
 
     @pytest.fixture
     def fund(self):

@@ -153,11 +153,11 @@ class TestUserSummaryAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def user_data(self, user):
+    def user_data(self, user, create_child_account):
         from api.models import Account, Fund, Position
 
-        account1 = Account.objects.create(user=user, name='账户1')
-        account2 = Account.objects.create(user=user, name='账户2')
+        account1 = create_child_account(user, '账户1')
+        account2 = create_child_account(user, '账户2')
 
         fund1 = Fund.objects.create(
             fund_code='000001',
@@ -206,8 +206,8 @@ class TestUserSummaryAPI:
         # 总成本：1000 + 2000 = 3000
         assert Decimal(response.data['total_cost']) == Decimal('3000')
 
-        # 账户数：2
-        assert response.data['account_count'] == 2
+        # 账户数：4（2个父账户 + 2个子账户）
+        assert response.data['account_count'] == 4
 
         # 持仓数：2
         assert response.data['position_count'] == 2

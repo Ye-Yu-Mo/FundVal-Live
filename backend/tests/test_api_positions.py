@@ -32,9 +32,8 @@ class TestPositionListAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     @pytest.fixture
     def positions(self, account):
@@ -89,10 +88,10 @@ class TestPositionDetailAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def position(self, user):
+    def position(self, user, create_child_account):
         from api.models import Account, Fund, Position
 
-        account = Account.objects.create(user=user, name='我的账户')
+        account = create_child_account(user, '我的账户')
         fund = Fund.objects.create(fund_code='000001', fund_name='基金1')
 
         return Position.objects.create(
@@ -124,9 +123,8 @@ class TestPositionOperationCreateAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def account(self, user):
-        from api.models import Account
-        return Account.objects.create(user=user, name='我的账户')
+    def account(self, user, create_child_account):
+        return create_child_account(user, '我的账户')
 
     @pytest.fixture
     def fund(self):
@@ -214,10 +212,10 @@ class TestPositionOperationListAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def operations(self, user):
+    def operations(self, user, create_child_account):
         from api.models import Account, Fund, PositionOperation
 
-        account = Account.objects.create(user=user, name='我的账户')
+        account = create_child_account(user, '我的账户')
         fund = Fund.objects.create(fund_code='000001', fund_name='基金1')
 
         return [
@@ -278,10 +276,10 @@ class TestPositionOperationDetailAPI:
         return User.objects.create_user(username='testuser', password='pass')
 
     @pytest.fixture
-    def operation(self, user):
+    def operation(self, user, create_child_account):
         from api.models import Account, Fund, PositionOperation
 
-        account = Account.objects.create(user=user, name='我的账户')
+        account = create_child_account(user, '我的账户')
         fund = Fund.objects.create(fund_code='000001', fund_name='基金1')
 
         return PositionOperation.objects.create(
@@ -319,10 +317,10 @@ class TestPositionOperationDeleteAPI:
         return User.objects.create_user(username='user', password='pass')
 
     @pytest.fixture
-    def operation(self, user):
+    def operation(self, user, create_child_account):
         from api.models import Account, Fund, PositionOperation
 
-        account = Account.objects.create(user=user, name='我的账户')
+        account = create_child_account(user, '我的账户')
         fund = Fund.objects.create(fund_code='000001', fund_name='基金1')
 
         return PositionOperation.objects.create(

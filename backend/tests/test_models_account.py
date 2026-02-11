@@ -73,6 +73,7 @@ class TestAccountModel:
     def test_account_name_unique_per_user(self, user):
         """测试同一用户下账户名唯一"""
         from api.models import Account
+        from django.core.exceptions import ValidationError
 
         Account.objects.create(
             user=user,
@@ -80,7 +81,7 @@ class TestAccountModel:
         )
 
         # 同一用户重复账户名应该报错
-        with pytest.raises(IntegrityError):
+        with pytest.raises((IntegrityError, ValidationError)):
             Account.objects.create(
                 user=user,
                 name='我的账户',
