@@ -20,6 +20,13 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+// Mock ResizeObserver (Ant Design 需要)
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // 每个测试后清理
 afterEach(() => {
   cleanup();
