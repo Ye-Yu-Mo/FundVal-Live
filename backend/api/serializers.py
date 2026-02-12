@@ -101,13 +101,30 @@ class PositionSerializer(serializers.ModelSerializer):
 
     fund_code = serializers.CharField(source='fund.fund_code', read_only=True)
     fund_name = serializers.CharField(source='fund.fund_name', read_only=True)
+    fund_type = serializers.CharField(source='fund.fund_type', read_only=True)
     account_name = serializers.CharField(source='account.name', read_only=True)
     pnl = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+
+    # 添加基金的估值和净值信息
+    fund = serializers.SerializerMethodField()
+
+    def get_fund(self, obj):
+        """返回基金的详细信息"""
+        return {
+            'fund_code': obj.fund.fund_code,
+            'fund_name': obj.fund.fund_name,
+            'fund_type': obj.fund.fund_type,
+            'latest_nav': str(obj.fund.latest_nav) if obj.fund.latest_nav else None,
+            'latest_nav_date': obj.fund.latest_nav_date.isoformat() if obj.fund.latest_nav_date else None,
+            'estimate_nav': str(obj.fund.estimate_nav) if obj.fund.estimate_nav else None,
+            'estimate_growth': str(obj.fund.estimate_growth) if obj.fund.estimate_growth else None,
+            'estimate_time': obj.fund.estimate_time.isoformat() if obj.fund.estimate_time else None,
+        }
 
     class Meta:
         model = Position
         fields = [
-            'id', 'account', 'account_name', 'fund', 'fund_code', 'fund_name',
+            'id', 'account', 'account_name', 'fund', 'fund_code', 'fund_name', 'fund_type',
             'holding_share', 'holding_cost', 'holding_nav', 'pnl',
             'updated_at'
         ]

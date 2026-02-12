@@ -209,7 +209,7 @@ const AccountsPage = () => {
       render: (value) => {
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#52c41a' : '#ff4d4f' }}>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(value)}
           </span>
         );
@@ -223,7 +223,7 @@ const AccountsPage = () => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#52c41a' : '#ff4d4f' }}>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatPercent(value)}
           </span>
         );
@@ -244,7 +244,7 @@ const AccountsPage = () => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#52c41a' : '#ff4d4f' }}>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(value)}
           </span>
         );
@@ -305,7 +305,7 @@ const AccountsPage = () => {
       }
     >
       {!showAllSummary && (
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+        <Space orientation="vertical" style={{ width: '100%', marginBottom: 16 }}>
           <Select
             data-testid="parent-account-selector"
             style={{ width: 300 }}
@@ -334,16 +334,22 @@ const AccountsPage = () => {
                 <Statistic
                   title="总盈亏"
                   value={getAllAccountsSummary().pnl}
-                  prefix="¥"
-                  valueStyle={{ color: parseFloat(getAllAccountsSummary().pnl) >= 0 ? '#52c41a' : '#ff4d4f' }}
+                  formatter={(v) => (
+                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      ¥{v}
+                    </span>
+                  )}
                 />
               </Col>
               <Col span={6}>
                 <Statistic
                   title="今日盈亏"
                   value={getAllAccountsSummary().today_pnl}
-                  prefix="¥"
-                  valueStyle={{ color: parseFloat(getAllAccountsSummary().today_pnl) >= 0 ? '#52c41a' : '#ff4d4f' }}
+                  formatter={(v) => (
+                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      ¥{v}
+                    </span>
+                  )}
                 />
               </Col>
             </Row>
@@ -376,16 +382,23 @@ const AccountsPage = () => {
                 <Col span={6}>
                   <Statistic
                     title="总盈亏"
-                    value={formatMoney(getSelectedParent().pnl)}
-                    prefix="¥"
-                    valueStyle={{ color: parseFloat(getSelectedParent().pnl) >= 0 ? '#52c41a' : '#ff4d4f' }}
+                    value={getSelectedParent().pnl}
+                    formatter={(v) => (
+                      <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                        ¥{formatMoney(v)}
+                      </span>
+                    )}
                   />
                 </Col>
                 <Col span={6}>
                   <Statistic
                     title="收益率"
-                    value={formatPercent(getSelectedParent().pnl_rate)}
-                    valueStyle={{ color: parseFloat(getSelectedParent().pnl_rate) >= 0 ? '#52c41a' : '#ff4d4f' }}
+                    value={getSelectedParent().pnl_rate}
+                    formatter={(v) => (
+                      <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                        {formatPercent(v)}
+                      </span>
+                    )}
                   />
                 </Col>
               </Row>

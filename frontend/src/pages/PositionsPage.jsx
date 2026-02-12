@@ -202,13 +202,31 @@ const PositionsPage = () => {
   };
 
   // 获取操作类型标签
-  const getOperationTypeTag = (type) => {
+  const getOperationTypeTag = (type, record) => {
+    // 判断是否是建仓：如果是 BUY 且是该基金的第一条操作
+    const isBuild = type === 'BUY' && isFirstOperation(record);
+
     const typeMap = {
-      'BUY': { text: '买入', color: 'red' },
-      'SELL': { text: '卖出', color: 'green' },
+      'BUY': { text: isBuild ? '建仓' : '加仓', color: 'red' },
+      'SELL': { text: '减仓', color: 'green' },
     };
     const config = typeMap[type] || { text: type, color: 'default' };
     return <Tag color={config.color}>{config.text}</Tag>;
+  };
+
+  // 判断是否是第一条操作（建仓）
+  const isFirstOperation = (record) => {
+    // 找到该基金的所有操作，按时间排序
+    const fundOperations = operations
+      .filter(op => op.fund_code === record.fund_code)
+      .sort((a, b) => {
+        const dateCompare = new Date(a.operation_date) - new Date(b.operation_date);
+        if (dateCompare !== 0) return dateCompare;
+        return new Date(a.created_at) - new Date(b.created_at);
+      });
+
+    // 如果是第一条操作，则是建仓
+    return fundOperations.length > 0 && fundOperations[0].id === record.id;
   };
 
   // 打开建仓 Modal
@@ -444,7 +462,7 @@ const PositionsPage = () => {
       dataIndex: 'operation_type',
       key: 'operation_type',
       width: 100,
-      render: (type) => getOperationTypeTag(type),
+      render: (type, record) => getOperationTypeTag(type, record),
     },
     {
       title: '基金代码',
@@ -704,18 +722,30 @@ const PositionsPage = () => {
             <Statistic
               title="总盈亏"
               value={statistics.pnl}
-              prefix="¥"
-              styles={{ value: { color: parseFloat(statistics.pnl) >= 0 ? '#ff4d4f' : '#52c41a' } }}
-              suffix={statistics.pnl_rate ? `(${formatPercent(statistics.pnl_rate)})` : ''}
+              formatter={(v) => {
+                const color = Number(v) >= 0 ? '#ff4d4f' : '#52c41a';
+                const suffix = statistics.pnl_rate ? ` (${formatPercent(statistics.pnl_rate)})` : '';
+                return (
+                  <span style={{ color }}>
+                    ¥{v}{suffix}
+                  </span>
+                );
+              }}
             />
           </Col>
           <Col span={6}>
             <Statistic
               title="今日盈亏"
               value={statistics.today_pnl}
-              prefix="¥"
-              styles={{ value: { color: parseFloat(statistics.today_pnl) >= 0 ? '#ff4d4f' : '#52c41a' } }}
-              suffix={statistics.today_pnl_rate ? `(${formatPercent(statistics.today_pnl_rate)})` : ''}
+              formatter={(v) => {
+                const color = Number(v) >= 0 ? '#ff4d4f' : '#52c41a';
+                const suffix = statistics.today_pnl_rate ? ` (${formatPercent(statistics.today_pnl_rate)})` : '';
+                return (
+                  <span style={{ color }}>
+                    ¥{v}{suffix}
+                  </span>
+                );
+              }}
             />
           </Col>
         </Row>
