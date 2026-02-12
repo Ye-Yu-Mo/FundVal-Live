@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   Table,
@@ -16,10 +17,11 @@ import {
   Row,
   Col,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useAccounts } from '../contexts/AccountContext';
 
 const AccountsPage = () => {
+  const navigate = useNavigate();
   const {
     accounts,
     loading,
@@ -248,10 +250,20 @@ const AccountsPage = () => {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 150,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          {record.parent && (
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/dashboard/positions?account=${record.id}`)}
+            >
+              持仓
+            </Button>
+          )}
           <Button
             type="link"
             size="small"

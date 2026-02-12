@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Card,
   Select,
@@ -25,6 +26,7 @@ import { useAccounts } from '../contexts/AccountContext';
 import PositionCharts from '../components/PositionCharts';
 
 const PositionsPage = () => {
+  const [searchParams] = useSearchParams();
   const {
     accounts: allAccounts,
     loading: accountsLoading,
@@ -72,12 +74,24 @@ const PositionsPage = () => {
     loadAccounts();
   }, [loadAccounts]);
 
-  // 默认选中第一个子账户
+  // 从 URL 参数读取 accountId，或默认选中第一个子账户
   useEffect(() => {
+    const accountIdFromUrl = searchParams.get('account');
+
+    if (accountIdFromUrl && accounts.length > 0) {
+      // 如果 URL 中有 accountId，且该账户存在，则选中
+      const accountExists = accounts.some(a => a.id === accountIdFromUrl);
+      if (accountExists) {
+        setSelectedAccountId(accountIdFromUrl);
+        return;
+      }
+    }
+
+    // 否则，默认选中第一个子账户
     if (accounts.length > 0 && !selectedAccountId) {
       setSelectedAccountId(accounts[0].id);
     }
-  }, [accounts, selectedAccountId]);
+  }, [accounts, selectedAccountId, searchParams]);
 
   // 加载持仓列表
   const loadPositions = async (accountId) => {
