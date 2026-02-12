@@ -2,8 +2,13 @@ name: Build Android App
 
 on:
   push:
+    branches:
+      - '**'  # 所有分支
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
