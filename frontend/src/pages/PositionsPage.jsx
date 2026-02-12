@@ -17,6 +17,7 @@ import {
   Input,
   DatePicker,
   InputNumber,
+  AutoComplete,
 } from 'antd';
 import { RollbackOutlined, PlusOutlined } from '@ant-design/icons';
 import { accountsAPI, positionsAPI, fundsAPI } from '../api';
@@ -32,6 +33,8 @@ const PositionsPage = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [operationType, setOperationType] = useState('BUY'); // BUY, SELL
   const [buildPositionMode, setBuildPositionMode] = useState('value'); // value, nav
+  const [fundOptions, setFundOptions] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [form] = Form.useForm();
 
   // 加载账户列表
@@ -186,7 +189,52 @@ const PositionsPage = () => {
     form.resetFields();
     setOperationType('BUY');
     setBuildPositionMode('value');
+    setFundOptions([]);
     setModalVisible(true);
+  };
+
+  // 搜索基金
+  const handleFundSearch = async (keyword) => {
+    if (!keyword || keyword.length < 2) {
+      setFundOptions([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const response = await fundsAPI.search(keyword);
+      const options = response.data.map(fund => ({
+        value: fund.fund_code,
+        label: `${fund.fund_code} - ${fund.fund_name}`,
+        fund: fund,
+      }));
+      setFundOptions(options);
+    } catch (error) {
+      message.error('搜索基金失败');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // 选择基金后自动填充净值
+  const handleFundSelect = async (value, option) => {
+    if (!option.fund) return;
+
+    const fund = option.fund;
+    if (fund.latest_nav) {
+      form.setFieldsValue({
+        nav: parseFloat(fund.latest_nav),
+      });
+
+      // 如果是加仓模式，自动计算份额
+      if (operationType === 'BUY' && buildPositionMode === 'nav') {
+        handleNavModeCalculate();
+      }
+      // 如果是减仓模式，自动计算金额
+      if (operationType === 'SELL') {
+        handleSellCalculate();
+      }
+    }
   };
 
   // 提交操作
@@ -616,7 +664,13 @@ const PositionsPage = () => {
             name="fund_code"
             rules={[{ required: true, message: '请输入基金代码' }]}
           >
-            <Input placeholder="请输入基金代码" />
+            <AutoComplete
+              options={fundOptions}
+              onSearch={handleFundSearch}
+              onSelect={handleFundSelect}
+              placeholder="请输入基金代码或名称搜索"
+              loading={searchLoading}
+            />
           </Form.Item>
 
           <Form.Item

@@ -30,6 +30,7 @@ export const changePassword = (oldPassword, newPassword) =>
 export const fundsAPI = {
   list: (params) => api.get('/funds/', { params }),
   get: (code) => api.get(`/funds/${code}/`),
+  search: (keyword) => api.get('/funds/', { params: { search: keyword } }),
   getEstimate: (code, source) => api.get(`/funds/${code}/estimate/`, { params: { source } }),
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),
   batchEstimate: (fundCodes) => api.post('/funds/batch_estimate/', { fund_codes: fundCodes }),
