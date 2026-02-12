@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Optional
 from django.db import transaction
 
-from .models import Position, PositionOperation
+from ..models import Position, PositionOperation
 
 
 def recalculate_position(account_id, fund_id) -> Position:
@@ -24,7 +24,7 @@ def recalculate_position(account_id, fund_id) -> Position:
     Returns:
         Position: 更新后的持仓对象
     """
-    from .models import Account, Fund
+    from ..models import Account, Fund
 
     # 获取账户和基金对象（用于 Position 验证）
     account = Account.objects.get(id=account_id)
