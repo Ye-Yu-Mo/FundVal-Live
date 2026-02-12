@@ -80,9 +80,30 @@ init_database() {
     echo "2. 初始化数据库"
     echo "=========================================="
 
+    read -p "是否需要初始化数据库？(Y/n): " init_db
+    init_db=${init_db:-Y}
+
+    if [[ ! $init_db =~ ^[Yy]$ ]]; then
+        echo "跳过数据库初始化"
+        cd backend
+        # 确保 config.json 存在
+        if [ ! -f "config.json" ]; then
+            echo -e "${YELLOW}⚠ config.json 不存在，请手动创建${NC}"
+        fi
+        cd ..
+        echo ""
+        return
+    fi
+
     cd backend
 
+    # 配置监听端口
+    echo ""
+    read -p "Django 服务监听端口 (默认: 8000): " server_port
+    server_port=${server_port:-8000}
+
     # 选择数据库类型
+    echo ""
     echo "请选择数据库类型："
     echo "  1) SQLite（默认，适合开发和小规模部署）"
     echo "  2) PostgreSQL（推荐生产环境）"
@@ -135,7 +156,7 @@ init_database() {
         echo "更新配置文件..."
         cat > config.json << JSON_EOF
 {
-  "port": 8000,
+  "port": $server_port,
   "db_type": "postgresql",
   "db_config": {
     "host": "$db_host",
@@ -174,7 +195,7 @@ JSON_EOF
         if [ ! -f "config.json" ]; then
             cat > config.json << JSON_EOF
 {
-  "port": 8000,
+  "port": $server_port,
   "db_type": "sqlite",
   "db_config": {
     "name": "db.sqlite3"
@@ -190,9 +211,16 @@ JSON_EOF
     fi
 
     echo ""
-    echo "执行数据库迁移..."
-    uv run python manage.py migrate
-    echo -e "${GREEN}✓ 数据库迁移完成${NC}"
+    read -p "是否执行数据库迁移？(Y/n): " run_migrate
+    run_migrate=${run_migrate:-Y}
+
+    if [[ $run_migrate =~ ^[Yy]$ ]]; then
+        echo "执行数据库迁移..."
+        uv run python manage.py migrate
+        echo -e "${GREEN}✓ 数据库迁移完成${NC}"
+    else
+        echo "跳过数据库迁移"
+    fi
 
     # 检查是否需要创建超级用户
     echo ""
