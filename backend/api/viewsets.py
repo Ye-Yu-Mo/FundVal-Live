@@ -717,7 +717,7 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
     def sync(self, request):
         """
         同步历史净值

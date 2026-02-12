@@ -23,6 +23,23 @@ class TestFundNavHistoryAPI:
         return APIClient()
 
     @pytest.fixture
+    def admin_user(self):
+        """创建管理员用户"""
+        return User.objects.create_user(
+            username='admin',
+            password='adminpass123',
+            is_staff=True,
+            is_superuser=True
+        )
+
+    @pytest.fixture
+    def admin_client(self, admin_user):
+        """创建已认证的管理员客户端"""
+        client = APIClient()
+        client.force_authenticate(user=admin_user)
+        return client
+
+    @pytest.fixture
     def fund(self):
         """创建测试基金"""
         return Fund.objects.create(
@@ -183,7 +200,7 @@ class TestFundNavHistoryAPI:
         assert response.status_code == 200
         assert response.data['999999'] == []
 
-    def test_sync_nav_history(self, client, fund):
+    def test_sync_nav_history(self, admin_client, fund):
         """测试同步历史净值"""
         mock_data = [
             {
@@ -198,7 +215,7 @@ class TestFundNavHistoryAPI:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
-            response = client.post('/api/nav-history/sync/', {
+            response = admin_client.post('/api/nav-history/sync/', {
                 'fund_codes': ['000001'],
             }, format='json')
 
@@ -209,7 +226,7 @@ class TestFundNavHistoryAPI:
             # 验证数据已保存
             assert FundNavHistory.objects.filter(fund=fund).count() == 1
 
-    def test_sync_nav_history_with_date_range(self, client, fund):
+    def test_sync_nav_history_with_date_range(self, admin_client, fund):
         """测试同步指定日期范围"""
         mock_data = [
             {
@@ -224,7 +241,7 @@ class TestFundNavHistoryAPI:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
-            response = client.post('/api/nav-history/sync/', {
+            response = admin_client.post('/api/nav-history/sync/', {
                 'fund_codes': ['000001'],
                 'start_date': '2024-01-10',
                 'end_date': '2024-01-20',
@@ -233,16 +250,16 @@ class TestFundNavHistoryAPI:
             assert response.status_code == 200
             assert response.data['000001']['success'] is True
 
-    def test_sync_nav_history_missing_fund_codes(self, client):
+    def test_sync_nav_history_missing_fund_codes(self, admin_client):
         """测试同步缺少 fund_codes 参数"""
-        response = client.post('/api/nav-history/sync/', {}, format='json')
+        response = admin_client.post('/api/nav-history/sync/', {}, format='json')
 
         assert response.status_code == 400
         assert 'error' in response.data
 
-    def test_sync_nav_history_nonexistent_fund(self, client):
+    def test_sync_nav_history_nonexistent_fund(self, admin_client):
         """测试同步不存在的基金"""
-        response = client.post('/api/nav-history/sync/', {
+        response = admin_client.post('/api/nav-history/sync/', {
             'fund_codes': ['999999'],
         }, format='json')
 
