@@ -35,6 +35,11 @@ export const fundsAPI = {
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),
   batchEstimate: (fundCodes) => api.post('/funds/batch_estimate/', { fund_codes: fundCodes }),
   batchUpdateNav: (fundCodes) => api.post('/funds/batch_update_nav/', { fund_codes: fundCodes }),
+  queryNav: (fundCode, operationDate, before15) => api.post('/funds/query_nav/', {
+    fund_code: fundCode,
+    operation_date: operationDate,
+    before_15: before15
+  }),
 };
 
 // 账户管理

@@ -59,6 +59,8 @@ const PositionsPage = () => {
   const [operationType, setOperationType] = useState('BUY'); // BUY, SELL
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [operationForm] = Form.useForm();
+  const [navLoading, setNavLoading] = useState(false);
+  const [navError, setNavError] = useState(null);
 
   const [fundOptions, setFundOptions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -158,6 +160,20 @@ const PositionsPage = () => {
       loadOperations(selectedAccountId);
     }
   }, [selectedAccountId]);
+
+  // 监听加仓/减仓 Modal 的日期/时间变化，自动查询净值
+  useEffect(() => {
+    if (!operationModalVisible || !selectedPosition) {
+      return;
+    }
+
+    const operationDate = operationForm.getFieldValue('operation_date');
+    const before15 = operationForm.getFieldValue('before_15');
+
+    if (operationDate && before15) {
+      queryNav(selectedPosition.fund_code, operationDate, before15);
+    }
+  }, [operationModalVisible, selectedPosition]);
 
   // 获取当前选中的账户
   const getSelectedAccount = () => {
@@ -282,12 +298,47 @@ const PositionsPage = () => {
     setSelectedPosition(position);
     setOperationType('BUY');
     setOperationModalVisible(true);
+    setNavError(null);
 
-    // 自动填充基金信息和净值
-    if (position.fund?.latest_nav) {
+    // 不再自动填充净值，改为自动查询
+  };
+
+  // 查询净值
+  const queryNav = async (fundCode, operationDate, before15) => {
+    console.log('queryNav called:', { fundCode, operationDate, before15 });
+
+    if (!fundCode || !operationDate || before15 === undefined) {
+      console.log('queryNav skipped: missing parameters');
+      return;
+    }
+
+    setNavLoading(true);
+    setNavError(null);
+
+    try {
+      const dateStr = operationDate.format('YYYY-MM-DD');
+      const before15Bool = before15 === 'before';
+
+      console.log('Calling API:', { fundCode, dateStr, before15Bool });
+
+      const response = await fundsAPI.queryNav(
+        fundCode,
+        dateStr,
+        before15Bool
+      );
+
+      console.log('API response:', response.data);
+
       operationForm.setFieldsValue({
-        nav: parseFloat(position.fund.latest_nav),
+        nav: parseFloat(response.data.nav)
       });
+    } catch (error) {
+      console.error('queryNav error:', error);
+      const errorMsg = error.response?.data?.error || '净值查询失败';
+      setNavError(errorMsg);
+      message.error(errorMsg);
+    } finally {
+      setNavLoading(false);
     }
   };
 
@@ -1115,7 +1166,15 @@ const PositionsPage = () => {
             name="operation_date"
             rules={[{ required: true, message: '请选择操作日期' }]}
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker
+              style={{ width: '100%' }}
+              onChange={(date) => {
+                const before15 = operationForm.getFieldValue('before_15');
+                if (date && before15 && selectedPosition) {
+                  queryNav(selectedPosition.fund_code, date, before15);
+                }
+              }}
+            />
           </Form.Item>
 
           <Form.Item
@@ -1123,7 +1182,14 @@ const PositionsPage = () => {
             name="before_15"
             rules={[{ required: true, message: '请选择操作时间' }]}
           >
-            <Radio.Group>
+            <Radio.Group
+              onChange={(e) => {
+                const operationDate = operationForm.getFieldValue('operation_date');
+                if (operationDate && selectedPosition) {
+                  queryNav(selectedPosition.fund_code, operationDate, e.target.value);
+                }
+              }}
+            >
               <Radio value="before">15:00前</Radio>
               <Radio value="after">15:00后</Radio>
             </Radio.Group>
@@ -1145,14 +1211,16 @@ const PositionsPage = () => {
               </Form.Item>
 
               <Form.Item
-                label="净值"
+                label="净值（自动查询）"
                 name="nav"
-                rules={[{ required: true, message: '请输入净值' }]}
+                rules={[{ required: true, message: '净值查询中...' }]}
+                validateStatus={navError ? 'error' : navLoading ? 'validating' : 'success'}
+                help={navError || (navLoading ? '查询中...' : '')}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="请输入净值"
-                  min={0}
+                  placeholder="自动查询"
+                  disabled
                   onChange={handleOperationBuyCalculate}
                 />
               </Form.Item>
@@ -1184,14 +1252,16 @@ const PositionsPage = () => {
               </Form.Item>
 
               <Form.Item
-                label="净值"
+                label="净值（自动查询）"
                 name="nav"
-                rules={[{ required: true, message: '请输入净值' }]}
+                rules={[{ required: true, message: '净值查询中...' }]}
+                validateStatus={navError ? 'error' : navLoading ? 'validating' : 'success'}
+                help={navError || (navLoading ? '查询中...' : '')}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="请输入净值"
-                  min={0}
+                  placeholder="自动查询"
+                  disabled
                   onChange={handleOperationSellCalculate}
                 />
               </Form.Item>

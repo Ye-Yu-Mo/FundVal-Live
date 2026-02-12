@@ -207,7 +207,23 @@ class EastMoneySource(BaseEstimateSource):
                 logger.warning(f'无法解析历史净值数据：{fund_code}')
                 return []
 
-            unit_nav_data = json.loads(unit_nav_match.group(1))
+            try:
+                unit_nav_data = json.loads(unit_nav_match.group(1))
+                logger.info(f'解析单位净值数据成功：{fund_code}, 数据类型：{type(unit_nav_data)}, 长度：{len(unit_nav_data) if isinstance(unit_nav_data, list) else "N/A"}')
+                if unit_nav_data and isinstance(unit_nav_data, list):
+                    logger.info(f'第一个元素类型：{type(unit_nav_data[0])}, 内容：{unit_nav_data[0]}')
+            except Exception as e:
+                logger.error(f'解析单位净值数据失败：{fund_code}, 错误：{e}')
+                return []
+
+            # 调试：检查数据类型
+            if not isinstance(unit_nav_data, list):
+                logger.error(f'单位净值数据不是列表：{fund_code}, 类型：{type(unit_nav_data)}, 数据：{unit_nav_data}')
+                return []
+
+            if unit_nav_data and not isinstance(unit_nav_data[0], dict):
+                logger.error(f'单位净值数据元素不是字典：{fund_code}, 类型：{type(unit_nav_data[0])}, 数据：{unit_nav_data[0]}')
+                return []
 
             # 解析累计净值数据（可选）
             acc_nav_match = re.search(r'var Data_ACWorthTrend = (\[.*?\]);', text, re.DOTALL)
@@ -219,7 +235,15 @@ class EastMoneySource(BaseEstimateSource):
                     pass
 
             # 构建累计净值字典（按时间戳索引）
-            acc_nav_dict = {item['x']: item for item in acc_nav_data}
+            # Data_ACWorthTrend 可能是字典数组或二维数组
+            acc_nav_dict = {}
+            for item in acc_nav_data:
+                if isinstance(item, dict):
+                    # 字典格式：{"x": timestamp, "y": value}
+                    acc_nav_dict[item['x']] = item
+                elif isinstance(item, list) and len(item) >= 2:
+                    # 二维数组格式：[timestamp, value]
+                    acc_nav_dict[item[0]] = {'x': item[0], 'y': item[1]}
 
             # 转换数据格式
             result = []

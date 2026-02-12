@@ -349,7 +349,38 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 'source': 'history'
             })
 
-        # 4. fallback 到 Fund.latest_nav
+        # 4. 如果没有历史净值，尝试从数据源同步
+        from .services.nav_history import sync_nav_history
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            logger.info(f'尝试同步 {fund_code} 在 {query_date} 的净值')
+            count = sync_nav_history(fund_code, query_date, query_date)
+            logger.info(f'同步完成，新增/更新 {count} 条记录')
+
+            # 再次查询
+            nav_history = FundNavHistory.objects.filter(
+                fund=fund,
+                nav_date=query_date
+            ).first()
+
+            if nav_history:
+                logger.info(f'同步后查询成功：{fund_code} {query_date} = {nav_history.unit_nav}')
+                return Response({
+                    'fund_code': fund_code,
+                    'fund_name': fund.fund_name,
+                    'nav': str(nav_history.unit_nav),
+                    'nav_date': str(nav_history.nav_date),
+                    'source': 'synced'
+                })
+            else:
+                logger.warning(f'同步后仍未找到数据：{fund_code} {query_date}')
+        except Exception as e:
+            logger.warning(f'同步净值失败：{fund_code} {query_date}, 错误：{e}', exc_info=True)
+
+        # 5. fallback 到 Fund.latest_nav
         if fund.latest_nav:
             return Response({
                 'fund_code': fund_code,
@@ -359,7 +390,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 'source': 'latest'
             })
 
-        # 5. 没有数据
+        # 6. 没有数据
         return Response(
             {'error': '净值数据未找到'},
             status=status.HTTP_404_NOT_FOUND
@@ -788,10 +819,14 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['post'])
     def sync(self, request):
         """
         同步历史净值
+
+        权限规则：
+        - 同步 ≤15 个基金：不需要管理员权限
+        - 同步 >15 个基金：需要管理员权限
 
         POST /api/nav-history/sync/
         {
@@ -812,6 +847,14 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
                 {'error': '缺少 fund_codes 参数'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # 权限检查：超过 15 个基金需要管理员权限
+        if len(fund_codes) > 15:
+            if not request.user.is_authenticated or not request.user.is_staff:
+                return Response(
+                    {'error': '同步超过 15 个基金需要管理员权限'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         # 转换日期格式
         if start_date:
