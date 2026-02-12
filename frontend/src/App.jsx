@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import InitializePage from './pages/InitializePage';
+import ServerConfigPage from './pages/ServerConfigPage';
 import MainLayout from './layouts/MainLayout';
 import FundsPage from './pages/FundsPage';
 import FundDetailPage from './pages/FundDetailPage';
@@ -19,7 +21,48 @@ function PrivateRoute({ children }) {
   return isAuthenticated() ? children : <Navigate to="/" />;
 }
 
+// 检查是否在桌面/移动应用中运行
+const isNativeApp = () => {
+  return window.__TAURI__ !== undefined || window.Capacitor !== undefined;
+};
+
 function App() {
+  const [serverConfigured, setServerConfigured] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // 如果是 Web 版本，直接标记为已配置
+    if (!isNativeApp()) {
+      setServerConfigured(true);
+      setChecking(false);
+      return;
+    }
+
+    // 检查是否已配置服务器
+    const savedUrl = localStorage.getItem('apiBaseUrl');
+    if (savedUrl) {
+      setServerConfigured(true);
+    }
+    setChecking(false);
+  }, []);
+
+  const handleConfigSaved = () => {
+    setServerConfigured(true);
+  };
+
+  if (checking) {
+    return null; // 或者显示加载动画
+  }
+
+  // 如果是原生应用且未配置服务器，显示配置页面
+  if (isNativeApp() && !serverConfigured) {
+    return (
+      <ConfigProvider locale={zhCN}>
+        <ServerConfigPage onConfigSaved={handleConfigSaved} />
+      </ConfigProvider>
+    );
+  }
+
   return (
     <ConfigProvider locale={zhCN}>
       <AuthProvider>
