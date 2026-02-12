@@ -10,5 +10,6 @@
   },
   "allow_register": false,
   "system_initialized": false,
-  "debug": false
+  "debug": false,
+  "estimate_cache_ttl": 5
 }

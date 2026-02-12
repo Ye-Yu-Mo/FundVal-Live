@@ -4,11 +4,14 @@
 import re
 import json
 import requests
+import logging
 from decimal import Decimal
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from .base import BaseEstimateSource
+
+logger = logging.getLogger(__name__)
 
 
 class EastMoneySource(BaseEstimateSource):
@@ -20,7 +23,7 @@ class EastMoneySource(BaseEstimateSource):
     def get_source_name(self) -> str:
         return 'eastmoney'
 
-    def fetch_estimate(self, fund_code: str) -> Dict:
+    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
         """
         从天天基金获取估值
 
@@ -37,42 +40,94 @@ class EastMoneySource(BaseEstimateSource):
         - gszzl: 估算增长率
         - gztime: 估值时间
         """
-        url = self.ESTIMATE_URL.format(code=fund_code)
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        try:
+            url = self.ESTIMATE_URL.format(code=fund_code)
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
 
-        # 解析 JSONP：jsonpgz({...});
-        text = response.text
-        json_str = re.search(r'jsonpgz\((.*)\);?', text).group(1)
-        data = json.loads(json_str)
+            # 解析 JSONP：jsonpgz({...});
+            text = response.text
+            match = re.search(r'jsonpgz\((.*)\);?', text)
+            if not match:
+                logger.warning(f'无法解析估值数据：{fund_code}，响应格式不正确')
+                return None
 
-        return {
-            'fund_code': data['fundcode'],
-            'fund_name': data['name'],
-            'estimate_nav': Decimal(data['gsz']),
-            'estimate_growth': Decimal(data['gszzl']),
-            'estimate_time': datetime.strptime(data['gztime'], '%Y-%m-%d %H:%M'),
-        }
+            json_str = match.group(1)
+            data = json.loads(json_str)
 
-    def fetch_realtime_nav(self, fund_code: str) -> Dict:
+            # 验证必需字段
+            required_fields = ['fundcode', 'name', 'gsz', 'gszzl', 'gztime']
+            for field in required_fields:
+                if field not in data:
+                    logger.warning(f'估值数据缺少字段 {field}：{fund_code}')
+                    return None
+
+            return {
+                'fund_code': data['fundcode'],
+                'fund_name': data['name'],
+                'estimate_nav': Decimal(data['gsz']),
+                'estimate_growth': Decimal(data['gszzl']),
+                'estimate_time': datetime.strptime(data['gztime'], '%Y-%m-%d %H:%M'),
+            }
+
+        except requests.RequestException as e:
+            logger.error(f'获取估值失败（网络错误）：{fund_code}, 错误：{e}')
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f'获取估值失败（JSON 解析错误）：{fund_code}, 错误：{e}')
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f'获取估值失败（数据格式错误）：{fund_code}, 错误：{e}')
+            return None
+        except Exception as e:
+            logger.error(f'获取估值失败（未知错误）：{fund_code}, 错误：{e}')
+            return None
+
+    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
         """
         从天天基金获取实际净值
 
         使用同一个 API，但只取昨日净值
         """
-        url = self.ESTIMATE_URL.format(code=fund_code)
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        try:
+            url = self.ESTIMATE_URL.format(code=fund_code)
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
 
-        text = response.text
-        json_str = re.search(r'jsonpgz\((.*)\);?', text).group(1)
-        data = json.loads(json_str)
+            text = response.text
+            match = re.search(r'jsonpgz\((.*)\);?', text)
+            if not match:
+                logger.warning(f'无法解析净值数据：{fund_code}，响应格式不正确')
+                return None
 
-        return {
-            'fund_code': data['fundcode'],
-            'nav': Decimal(data['dwjz']),
-            'nav_date': datetime.strptime(data['jzrq'], '%Y-%m-%d').date(),
-        }
+            json_str = match.group(1)
+            data = json.loads(json_str)
+
+            # 验证必需字段
+            required_fields = ['fundcode', 'dwjz', 'jzrq']
+            for field in required_fields:
+                if field not in data:
+                    logger.warning(f'净值数据缺少字段 {field}：{fund_code}')
+                    return None
+
+            return {
+                'fund_code': data['fundcode'],
+                'nav': Decimal(data['dwjz']),
+                'nav_date': datetime.strptime(data['jzrq'], '%Y-%m-%d').date(),
+            }
+
+        except requests.RequestException as e:
+            logger.error(f'获取净值失败（网络错误）：{fund_code}, 错误：{e}')
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f'获取净值失败（JSON 解析错误）：{fund_code}, 错误：{e}')
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f'获取净值失败（数据格式错误）：{fund_code}, 错误：{e}')
+            return None
+        except Exception as e:
+            logger.error(f'获取净值失败（未知错误）：{fund_code}, 错误：{e}')
+            return None
 
     def fetch_fund_list(self) -> list:
         """

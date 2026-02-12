@@ -313,9 +313,15 @@ class PositionOperation(models.Model):
             raise ValidationError('持仓操作只能在子账户上进行，父账户不能进行持仓操作')
 
     def save(self, *args, **kwargs):
-        """保存前验证"""
+        """保存前验证，新建操作时自动重算持仓"""
         self.full_clean()
+        is_new = self._state.adding
         super().save(*args, **kwargs)
+
+        # 新建操作后自动重算持仓
+        if is_new:
+            from .services import recalculate_position
+            recalculate_position(self.account.id, self.fund.id)
 
 
 class Watchlist(models.Model):
@@ -393,3 +399,14 @@ class EstimateAccuracy(models.Model):
             self.error_rate = error / self.actual_nav
             self.save()
 
+
+# Signal handlers
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+
+@receiver(post_delete, sender=PositionOperation)
+def recalculate_position_on_delete(sender, instance, **kwargs):
+    """删除操作后自动重算持仓"""
+    from .services import recalculate_position
+    recalculate_position(instance.account.id, instance.fund.id)

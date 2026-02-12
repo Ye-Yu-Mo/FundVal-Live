@@ -154,7 +154,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         }
         """
         fund_codes = request.data.get('fund_codes', [])
-        ttl_minutes = 5  # 缓存有效期 5 分钟
+        ttl_minutes = config.get('estimate_cache_ttl', 5)  # 从配置读取 TTL
 
         if not fund_codes:
             return Response({'error': '缺少 fund_codes 参数'}, status=status.HTTP_400_BAD_REQUEST)
@@ -343,8 +343,19 @@ class AccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """只返回当前用户的账户"""
-        return Account.objects.filter(user=self.request.user)
+        """只返回当前用户的账户（优化查询）"""
+        queryset = Account.objects.filter(user=self.request.user)
+
+        # 优化：预加载子账户和持仓数据
+        queryset = queryset.prefetch_related(
+            'children',  # 预加载子账户
+            'children__positions',  # 预加载子账户的持仓
+            'children__positions__fund',  # 预加载持仓的基金
+            'positions',  # 预加载自己的持仓
+            'positions__fund',  # 预加载持仓的基金
+        )
+
+        return queryset
 
     def perform_create(self, serializer):
         """创建账户时自动设置用户"""
@@ -354,7 +365,7 @@ class AccountViewSet(viewsets.ModelViewSet):
     def positions(self, request, pk=None):
         """获取账户的所有持仓"""
         account = self.get_object()
-        positions = Position.objects.filter(account=account)
+        positions = Position.objects.filter(account=account).select_related('fund')
         serializer = PositionSerializer(positions, many=True)
         return Response(serializer.data)
 

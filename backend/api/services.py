@@ -24,6 +24,12 @@ def recalculate_position(account_id, fund_id) -> Position:
     Returns:
         Position: 更新后的持仓对象
     """
+    from .models import Account, Fund
+
+    # 获取账户和基金对象（用于 Position 验证）
+    account = Account.objects.get(id=account_id)
+    fund = Fund.objects.get(id=fund_id)
+
     # 获取所有流水（按时间排序）
     operations = PositionOperation.objects.filter(
         account_id=account_id,
@@ -55,11 +61,11 @@ def recalculate_position(account_id, fund_id) -> Position:
     else:
         holding_nav = Decimal('0')
 
-    # 更新或创建 Position
+    # 更新或创建 Position（使用对象而不是 ID）
     with transaction.atomic():
         position, created = Position.objects.update_or_create(
-            account_id=account_id,
-            fund_id=fund_id,
+            account=account,
+            fund=fund,
             defaults={
                 'holding_share': total_share,
                 'holding_cost': total_cost,

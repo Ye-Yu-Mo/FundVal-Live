@@ -31,6 +31,7 @@ class Config:
             'allow_register': False,
             'system_initialized': False,
             'debug': False,
+            'estimate_cache_ttl': 5,  # 估值缓存 TTL（分钟）
         }
 
         # 读取 JSON 配置
