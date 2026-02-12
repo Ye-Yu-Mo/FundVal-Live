@@ -168,15 +168,20 @@ const WatchlistsPage = () => {
 
     setFundsLoading(true);
     try {
-      // 批量获取估值
-      const estimatesResponse = await fundsAPI.batchEstimate(fundCodes);
+      // 批量更新最新净值和估值
+      const [navsResponse, estimatesResponse] = await Promise.all([
+        fundsAPI.batchUpdateNav(fundCodes),
+        fundsAPI.batchEstimate(fundCodes),
+      ]);
 
       // 合并数据
       const fundsWithEstimate = currentWatchlist.items.map(item => {
+        const nav = navsResponse.data[item.fund_code] || {};
         const estimate = estimatesResponse.data[item.fund_code] || {};
         return {
           ...item,
-          latest_nav: estimate.latest_nav,
+          latest_nav: nav.latest_nav || estimate.latest_nav,
+          latest_nav_date: nav.latest_nav_date || estimate.latest_nav_date,
           estimate_nav: estimate.estimate_nav,
           estimate_growth: estimate.estimate_growth,
           fund_name: estimate.fund_name || item.fund_name,
@@ -248,7 +253,12 @@ const WatchlistsPage = () => {
       message.success('添加成功');
       setSearchKeyword('');
       setFundOptions([]);
-      loadWatchlists();
+
+      // 重新加载自选列表
+      await loadWatchlists();
+
+      // 立即刷新基金详情（获取净值数据）
+      loadFundDetails();
     } catch (error) {
       const errorMsg = error.response?.data?.error || '添加失败';
       message.error(errorMsg);
