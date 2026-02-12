@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Form, Input, Button, Card, message, Typography, Layout, theme } from 'antd';
-import { UserOutlined, LockOutlined, LoginOutlined, CloudServerOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, UserAddOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../api';
+import { register } from '../api';
 import { setToken } from '../utils/auth';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 const { Content, Footer } = Layout;
 
-function LoginPage() {
+function RegisterPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { token } = theme.useToken();
@@ -18,16 +18,21 @@ function LoginPage() {
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      const response = await login(values.username, values.password);
+      const response = await register(values.username, values.password, values.password_confirm);
       const { access_token, refresh_token, user } = response.data;
 
       setToken(access_token, refresh_token);
       authLogin(user);
-      message.success(`欢迎回来，${user.username}！`);
+      message.success(`注册成功，欢迎 ${user.username}！`);
 
       navigate('/dashboard');
     } catch (error) {
-      message.error(error.response?.data?.error || '登录失败');
+      const errorMsg = error.response?.data?.error ||
+                       error.response?.data?.username?.[0] ||
+                       error.response?.data?.password?.[0] ||
+                       error.response?.data?.password_confirm?.[0] ||
+                       '注册失败';
+      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -77,7 +82,7 @@ function LoginPage() {
 
         <Card style={cardStyle} styles={{ body: { padding: 40 } }}>
           <Form
-            name="login"
+            name="register"
             onFinish={onFinish}
             autoComplete="off"
             layout="vertical"
@@ -85,7 +90,11 @@ function LoginPage() {
           >
             <Form.Item
               name="username"
-              rules={[{ required: true, message: '请输入用户名' }]}
+              rules={[
+                { required: true, message: '请输入用户名' },
+                { min: 3, message: '用户名至少 3 个字符' },
+                { max: 150, message: '用户名最多 150 个字符' }
+              ]}
             >
               <Input
                 prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
@@ -95,11 +104,35 @@ function LoginPage() {
 
             <Form.Item
               name="password"
-              rules={[{ required: true, message: '请输入密码' }]}
+              rules={[
+                { required: true, message: '请输入密码' },
+                { min: 8, message: '密码至少 8 个字符' }
+              ]}
             >
               <Input.Password
                 prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                 placeholder="密码"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="password_confirm"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: '请确认密码' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('两次密码不一致'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                placeholder="确认密码"
               />
             </Form.Item>
 
@@ -110,15 +143,15 @@ function LoginPage() {
                 loading={loading}
                 block
                 size="large"
-                icon={<LoginOutlined />}
+                icon={<UserAddOutlined />}
               >
-                登录
+                注册
               </Button>
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
               <Text type="secondary">
-                还没有账号？ <Link to="/register">立即注册</Link>
+                已有账号？ <Link to="/login">立即登录</Link>
               </Text>
             </div>
           </Form>
@@ -132,4 +165,5 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default RegisterPage;
+

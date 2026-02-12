@@ -15,6 +15,9 @@ export const initializeSystem = (data) =>
 export const login = (username, password) =>
   axios.post('/api/auth/login', { username, password });
 
+export const register = (username, password, passwordConfirm) =>
+  axios.post('/api/users/register/', { username, password, password_confirm: passwordConfirm });
+
 export const refreshToken = (refreshToken) =>
   axios.post('/api/auth/refresh', { refresh_token: refreshToken });
 
