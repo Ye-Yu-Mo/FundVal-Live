@@ -48,7 +48,7 @@ function App() {
                 path="/"
                 element={
                   isAuthenticated() ? (
-                    <Navigate to="/dashboard/funds" />
+                    <Navigate to="/dashboard/watchlists" />
                   ) : (
                     <Navigate to="/login" />
                   )
@@ -62,7 +62,7 @@ function App() {
                 element={
                   <PrivateRoute>
                     <MainLayout>
-                      <Navigate to="/dashboard/funds" />
+                      <Navigate to="/dashboard/watchlists" />
                     </MainLayout>
                   </PrivateRoute>
                 }

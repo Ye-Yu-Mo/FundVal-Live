@@ -109,7 +109,7 @@ services:
   frontend:
     image: jasamine/fundval-frontend:latest
     ports:
-      - "80:80"
+      - "21345:80"
     depends_on:
       - backend
     networks:

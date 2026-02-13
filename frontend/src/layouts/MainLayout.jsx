@@ -25,14 +25,9 @@ const MainLayout = ({ children }) => {
 
   const menuItems = [
     {
-      key: '/dashboard/funds',
-      icon: <FundOutlined />,
-      label: isMobile ? '基金' : '基金列表',
-    },
-    {
-      key: '/dashboard/accounts',
-      icon: <AccountBookOutlined />,
-      label: isMobile ? '账户' : '账户管理',
+      key: '/dashboard/watchlists',
+      icon: <StarOutlined />,
+      label: isMobile ? '自选' : '自选列表',
     },
     {
       key: '/dashboard/positions',
@@ -40,9 +35,14 @@ const MainLayout = ({ children }) => {
       label: isMobile ? '持仓' : '持仓查询',
     },
     {
-      key: '/dashboard/watchlists',
-      icon: <StarOutlined />,
-      label: isMobile ? '自选' : '自选列表',
+      key: '/dashboard/accounts',
+      icon: <AccountBookOutlined />,
+      label: isMobile ? '账户' : '账户管理',
+    },
+    {
+      key: '/dashboard/funds',
+      icon: <FundOutlined />,
+      label: isMobile ? '基金' : '基金查询',
     },
     {
       key: '/dashboard/settings',

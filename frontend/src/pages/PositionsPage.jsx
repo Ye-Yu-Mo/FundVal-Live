@@ -413,24 +413,19 @@ const PositionsPage = () => {
         estimate_time: estimateData?.estimate_time,
       });
 
-      // 自动填充净值
+      // 自动填充净值（仅在"持有市值+收益金额"模式下）
       const latestNav = navData?.latest_nav || fund.latest_nav;
-      if (latestNav) {
+      if (latestNav && buildPositionMode === 'value') {
         buildForm.setFieldsValue({
           nav: parseFloat(latestNav),
         });
-
-        // 如果是净值+份额模式，自动计算金额
-        if (buildPositionMode === 'nav') {
-          handleBuildNavModeCalculate();
-        }
       }
     } catch (error) {
       console.error('获取基金信息失败:', error);
       message.warning('获取基金最新信息失败，请手动输入净值');
 
-      // 降级：使用搜索结果中的净值
-      if (fund.latest_nav) {
+      // 降级：使用搜索结果中的净值（仅在"持有市值+收益金额"模式下）
+      if (fund.latest_nav && buildPositionMode === 'value') {
         buildForm.setFieldsValue({
           nav: parseFloat(fund.latest_nav),
         });
@@ -560,14 +555,16 @@ const PositionsPage = () => {
       return;
     }
 
-    const nav = parseFloat(selectedFund.fund.latest_nav);
-    // 份额 = 持有市值 / 净值
-    const share = holdingValue / nav;
+    const latestNav = parseFloat(selectedFund.fund.latest_nav);
+    // 份额 = 持有市值 / 最新净值
+    const share = holdingValue / latestNav;
+    // 持有净值 = 成本 / 份额
+    const holdingNav = cost / share;
 
     buildForm.setFieldsValue({
       amount: cost.toFixed(2),
       share: share.toFixed(4),
-      nav: nav.toFixed(4),
+      nav: holdingNav.toFixed(4),
     });
   };
 
@@ -810,9 +807,14 @@ const PositionsPage = () => {
         const estimateNav = record.fund?.estimate_nav;
         if (!latestNav || !estimateNav) return '-';
         const todayPnl = parseFloat(record.holding_share || 0) * (parseFloat(estimateNav) - parseFloat(latestNav));
+
+        // 判断是否是预估值：如果 estimate_nav 存在且不等于 latest_nav，则是预估
+        const isEstimate = estimateNav && estimateNav !== latestNav;
+
         return (
           <span style={{ color: todayPnl >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(todayPnl)}
+            {isEstimate && <span style={{ color: '#999', fontSize: '12px' }}> (预估)</span>}
           </span>
         );
       },
@@ -898,7 +900,7 @@ const PositionsPage = () => {
           </Col>
           <Col span={6}>
             <Statistic
-              title="今日盈亏"
+              title="今日盈亏 (预估)"
               value={statistics.today_pnl}
               formatter={(v) => {
                 const color = Number(v) >= 0 ? '#ff4d4f' : '#52c41a';
@@ -1048,7 +1050,7 @@ const PositionsPage = () => {
           <Form.Item label="建仓方式">
             <Radio.Group value={buildPositionMode} onChange={(e) => setBuildPositionMode(e.target.value)}>
               <Radio.Button value="value">持有市值 + 收益金额</Radio.Button>
-              <Radio.Button value="nav">净值 + 份额</Radio.Button>
+              <Radio.Button value="nav">持有净值 + 份额</Radio.Button>
             </Radio.Group>
           </Form.Item>
 
@@ -1102,7 +1104,7 @@ const PositionsPage = () => {
               </Form.Item>
 
               <Form.Item
-                label="净值（自动计算）"
+                label="持有净值（自动计算）"
                 name="nav"
               >
                 <InputNumber
@@ -1115,13 +1117,13 @@ const PositionsPage = () => {
           ) : (
             <>
               <Form.Item
-                label="净值"
+                label="持有净值"
                 name="nav"
-                rules={[{ required: true, message: '请输入净值' }]}
+                rules={[{ required: true, message: '请输入持有净值' }]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="请输入净值"
+                  placeholder="请输入持有净值"
                   min={0}
                   onChange={handleBuildNavModeCalculate}
                 />

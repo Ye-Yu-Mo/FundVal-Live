@@ -151,7 +151,7 @@ const AccountsPage = () => {
   // 计算全部账户汇总
   const getAllAccountsSummary = () => {
     const parents = getParentAccounts();
-    return parents.reduce((sum, parent) => ({
+    const summary = parents.reduce((sum, parent) => ({
       holding_cost: (parseFloat(sum.holding_cost) + parseFloat(parent.holding_cost || 0)).toFixed(2),
       holding_value: (parseFloat(sum.holding_value) + parseFloat(parent.holding_value || 0)).toFixed(2),
       pnl: (parseFloat(sum.pnl) + parseFloat(parent.pnl || 0)).toFixed(2),
@@ -166,6 +166,13 @@ const AccountsPage = () => {
       estimate_pnl: '0.00',
       today_pnl: '0.00',
     });
+
+    // 计算今日预估盈亏率
+    const holdingValue = parseFloat(summary.holding_value);
+    const todayPnl = parseFloat(summary.today_pnl);
+    summary.today_pnl_rate = holdingValue > 0 ? (todayPnl / holdingValue).toFixed(4) : null;
+
+    return summary;
   };
 
   // 格式化百分比
@@ -233,7 +240,7 @@ const AccountsPage = () => {
       responsive: ['lg'],
     },
     {
-      title: '今日盈亏',
+      title: '今日盈亏 (预估)',
       dataIndex: 'today_pnl',
       key: 'today_pnl',
       render: (value) => {
@@ -330,13 +337,13 @@ const AccountsPage = () => {
         <div data-testid="all-accounts-summary">
           <Card title="全部账户汇总" style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-              <Col span={6}>
+              <Col span={4}>
                 <Statistic title="持仓成本" value={getAllAccountsSummary().holding_cost} prefix="¥" />
               </Col>
-              <Col span={6}>
+              <Col span={4}>
                 <Statistic title="持仓市值" value={getAllAccountsSummary().holding_value} prefix="¥" />
               </Col>
-              <Col span={6}>
+              <Col span={4}>
                 <Statistic
                   title="总盈亏"
                   value={getAllAccountsSummary().pnl}
@@ -347,15 +354,37 @@ const AccountsPage = () => {
                   )}
                 />
               </Col>
-              <Col span={6}>
+              <Col span={4}>
                 <Statistic
-                  title="今日盈亏"
+                  title="今日盈亏 (预估)"
                   value={getAllAccountsSummary().today_pnl}
                   formatter={(v) => (
                     <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
                       ¥{v}
                     </span>
                   )}
+                />
+              </Col>
+              <Col span={4}>
+                <Statistic
+                  title="今日盈亏率 (预估)"
+                  value={getAllAccountsSummary().today_pnl_rate}
+                  formatter={(v) => {
+                    if (v === null || v === undefined) return '-';
+                    const num = Number(v);
+                    return (
+                      <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                        {formatPercent(v)}
+                      </span>
+                    );
+                  }}
+                />
+              </Col>
+              <Col span={4}>
+                <Statistic
+                  title="预估市值"
+                  value={getAllAccountsSummary().estimate_value}
+                  prefix="¥"
                 />
               </Col>
             </Row>
