@@ -58,6 +58,7 @@ services:
 
   celery-worker:
     image: jasamine/fundval-backend:latest
+    entrypoint: []
     command: celery -A fundval worker -l info
     volumes:
       - ./backend:/app
@@ -82,6 +83,7 @@ services:
 
   celery-beat:
     image: jasamine/fundval-backend:latest
+    entrypoint: []
     command: celery -A fundval beat -l info
     volumes:
       - ./backend:/app

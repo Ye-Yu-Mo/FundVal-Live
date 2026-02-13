@@ -45,18 +45,23 @@ class Command(BaseCommand):
             updated_count = 0
 
             for fund_data in funds:
-                fund, created = Fund.objects.update_or_create(
-                    fund_code=fund_data['fund_code'],
-                    defaults={
-                        'fund_name': fund_data['fund_name'],
-                        'fund_type': fund_data['fund_type'],
-                    }
-                )
+                try:
+                    fund, created = Fund.objects.update_or_create(
+                        fund_code=fund_data['fund_code'],
+                        defaults={
+                            'fund_name': fund_data['fund_name'],
+                            'fund_type': fund_data['fund_type'],
+                        }
+                    )
 
-                if created:
-                    created_count += 1
-                else:
-                    updated_count += 1
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                except Exception as e:
+                    # 忽略重复键错误，继续处理下一个
+                    logger.warning(f'同步基金 {fund_data["fund_code"]} 失败: {e}')
+                    continue
 
             self.stdout.write(self.style.SUCCESS(
                 f'同步完成：新增 {created_count} 个，更新 {updated_count} 个'
