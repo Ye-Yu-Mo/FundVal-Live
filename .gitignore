@@ -60,6 +60,12 @@ lerna-debug.log*
 /frontend/ios/
 /frontend/.capacitor/
 
+# Android signing (保留签名配置但不提交密钥)
+!/frontend/android/key.properties
+!/frontend/android/app/build.gradle
+/frontend/android/app/*.keystore
+/frontend/android/app/*.jks
+
 # IDE
 .vscode/
 .idea/

@@ -8,6 +8,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <script type="module">
+      // 确保 Tauri API 在应用启动前可用
+      if (window.__TAURI__) {
+        console.log('Tauri API detected');
+      }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Typography, Layout, theme, Modal } from 'antd';
 import { UserOutlined, LockOutlined, LoginOutlined, CloudServerOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
@@ -16,8 +16,24 @@ function LoginPage() {
   const [serverModalVisible, setServerModalVisible] = useState(false);
   const [serverUrl, setServerUrl] = useState(localStorage.getItem('apiBaseUrl') || '');
   const [testingConnection, setTestingConnection] = useState(false);
+  const [isNative, setIsNative] = useState(isNativeApp());
   const { token } = theme.useToken();
   const { login: authLogin } = useAuth();
+
+  // 检查是否是 native app（延迟检查以防 Tauri API 延迟加载）
+  useEffect(() => {
+    const checkNative = () => {
+      const native = isNativeApp();
+      setIsNative(native);
+      console.log('isNativeApp:', native);
+    };
+
+    checkNative();
+
+    // 延迟再检查一次，以防 Tauri API 还没加载
+    const timer = setTimeout(checkNative, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const onFinish = async (values) => {
     setLoading(true);
@@ -114,7 +130,7 @@ function LoginPage() {
         </div>
 
         <Card style={cardStyle} styles={{ body: { padding: 40 } }}>
-          {isNativeApp() && (
+          {isNative && (
             <div style={{ marginBottom: 16, textAlign: 'right' }}>
               <Button
                 type="text"

@@ -78,4 +78,24 @@ api.interceptors.response.use(
   }
 );
 
+// 创建一个不带认证的 axios 实例，用于登录等公开接口
+export const publicApi = axios.create({
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 请求拦截器：动态更新 baseURL
+publicApi.interceptors.request.use(
+  (config) => {
+    // 动态更新 baseURL
+    config.baseURL = `${getApiBaseUrl()}/api`;
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export default api;

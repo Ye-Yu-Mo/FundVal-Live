@@ -22,7 +22,19 @@ function PrivateRoute({ children }) {
 
 // 检查是否在桌面/移动应用中运行
 export const isNativeApp = () => {
-  return window.__TAURI__ !== undefined || window.Capacitor !== undefined;
+  // 检查 Tauri API
+  if (window.__TAURI__ !== undefined) return true;
+
+  // 检查 Capacitor API
+  if (window.Capacitor !== undefined) return true;
+
+  // 检查 Tauri 特有的环境变量
+  if (window.__TAURI_INTERNALS__ !== undefined) return true;
+
+  // 检查 user agent 中是否包含 Tauri
+  if (navigator.userAgent.includes('Tauri')) return true;
+
+  return false;
 };
 
 function App() {

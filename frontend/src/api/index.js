@@ -1,25 +1,24 @@
-import api from './axios';
-import axios from 'axios';
+import api, { publicApi } from './axios';
 
 // 系统管理
 export const healthCheck = () => api.get('/health/');
 
 // Bootstrap 初始化（不带 token）
 export const verifyBootstrapKey = (key) =>
-  axios.post('/api/admin/bootstrap/verify', { bootstrap_key: key });
+  publicApi.post('/admin/bootstrap/verify', { bootstrap_key: key });
 
 export const initializeSystem = (data) =>
-  axios.post('/api/admin/bootstrap/initialize', data);
+  publicApi.post('/admin/bootstrap/initialize', data);
 
 // 认证（不带 token）
 export const login = (username, password) =>
-  axios.post('/api/auth/login', { username, password });
+  publicApi.post('/auth/login', { username, password });
 
 export const register = (username, password, passwordConfirm) =>
-  axios.post('/api/users/register/', { username, password, password_confirm: passwordConfirm });
+  publicApi.post('/users/register/', { username, password, password_confirm: passwordConfirm });
 
 export const refreshToken = (refreshToken) =>
-  axios.post('/api/auth/refresh', { refresh_token: refreshToken });
+  publicApi.post('/auth/refresh', { refresh_token: refreshToken });
 
 export const getCurrentUser = () => api.get('/auth/me');
 
