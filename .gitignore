@@ -110,3 +110,5 @@ __pycache__
 backend/celerybeat-schedule
 backend/celerybeat-schedule-shm
 backend/celerybeat-schedule-wal
+dump.rdb
+image.png

@@ -31,9 +31,7 @@ services:
 
   backend:
     image: jasamine/fundval-backend:latest
-    command: >
-      sh -c "python manage.py migrate &&
-             gunicorn fundval.wsgi:application --bind 0.0.0.0:8000 --workers 4 --access-logfile - --error-logfile -"
+    command: gunicorn fundval.wsgi:application --bind 0.0.0.0:8000 --workers 4 --access-logfile - --error-logfile -
     volumes:
       - ./backend:/app
       - config_data:/app/config
@@ -53,6 +51,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/health/\")' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - fundval
 
@@ -111,7 +115,8 @@ services:
     ports:
       - "21345:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - fundval
 
