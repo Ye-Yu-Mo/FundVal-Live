@@ -295,6 +295,96 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def batch_update_today_nav(self, request):
+        """
+        批量更新基金当日确认净值
+
+        请求体:
+        {
+            "fund_codes": ["000001", "000002", ...]
+        }
+
+        响应:
+        {
+            "000001": {
+                "fund_code": "000001",
+                "latest_nav": "1.2200",
+                "latest_nav_date": "2026-02-24",
+                "updated": true
+            },
+            "000002": {
+                "fund_code": "000002",
+                "updated": false,
+                "reason": "非当日净值"
+            },
+            ...
+        }
+        """
+        from datetime import date as date_type
+
+        fund_codes = request.data.get('fund_codes', [])
+
+        if not fund_codes:
+            return Response({'error': '缺少 fund_codes 参数'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 查询数据库
+        funds = Fund.objects.filter(fund_code__in=fund_codes)
+        fund_map = {f.fund_code: f for f in funds}
+
+        results = {}
+        source = SourceRegistry.get_source('eastmoney')
+        today = date_type.today()
+
+        # 并发获取当日净值
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(source.fetch_today_nav, code): code
+                      for code in fund_codes if code in fund_map}
+
+            for future in as_completed(futures):
+                code = futures[future]
+                try:
+                    data = future.result()
+                    fund = fund_map.get(code)
+
+                    if not data:
+                        results[code] = {
+                            'fund_code': code,
+                            'updated': False,
+                            'reason': '获取净值失败'
+                        }
+                        continue
+
+                    # 日期校验：只有当日净值才更新
+                    if data['nav_date'] != today:
+                        results[code] = {
+                            'fund_code': code,
+                            'updated': False,
+                            'reason': f'非当日净值（{data["nav_date"]}）'
+                        }
+                        continue
+
+                    if fund:
+                        # 更新数据库
+                        fund.latest_nav = data.get('nav')
+                        fund.latest_nav_date = data.get('nav_date')
+                        fund.save(update_fields=['latest_nav', 'latest_nav_date'])
+
+                        results[code] = {
+                            'fund_code': code,
+                            'latest_nav': str(data.get('nav')),
+                            'latest_nav_date': data.get('nav_date').isoformat() if data.get('nav_date') else None,
+                            'updated': True
+                        }
+                except Exception as e:
+                    results[code] = {
+                        'fund_code': code,
+                        'updated': False,
+                        'error': f'获取净值失败: {str(e)}'
+                    }
+
+        return Response(results)
+
     @action(detail=False, methods=['post'])
     def query_nav(self, request):
         """

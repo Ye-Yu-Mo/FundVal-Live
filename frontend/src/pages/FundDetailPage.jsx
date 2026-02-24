@@ -148,6 +148,11 @@ const FundDetailPage = () => {
         setFund(detailRes.data);
         setEstimate(estimateRes?.data || null);
 
+        // 尝试更新当日净值（静默失败）
+        fundsAPI.batchUpdateTodayNav([code]).catch(() => {
+          // 静默失败，不影响页面加载
+        });
+
         // 加载历史净值
         await loadNavHistory(timeRange);
 

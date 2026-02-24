@@ -112,3 +112,4 @@ backend/celerybeat-schedule-shm
 backend/celerybeat-schedule-wal
 dump.rdb
 image.png
+yjb
