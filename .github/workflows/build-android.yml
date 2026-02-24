@@ -91,7 +91,11 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         working-directory: frontend/android
         run: |
-          ./gradlew assembleRelease bundleRelease
+          ./gradlew assembleRelease bundleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/.android/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
 
           echo "=== APK output ==="
           find app/build/outputs -name "*.apk" -o -name "*.aab" | sort
