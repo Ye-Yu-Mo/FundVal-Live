@@ -430,7 +430,7 @@ const AccountsPage = () => {
           </Card>
 
           <Table
-            columns={columns.filter(c => c.key !== 'action')}
+            columns={columns}
             dataSource={getParentAccounts()}
             rowKey="id"
             loading={loading}
