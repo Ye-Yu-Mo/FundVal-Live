@@ -95,6 +95,11 @@ jobs:
           # 构建 release APK
           ./gradlew assembleRelease
 
+          # 列出生成的文件
+          echo "=== Listing APK output directory ==="
+          ls -lh app/build/outputs/apk/release/ || echo "Release directory not found"
+          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
+
           # 验证 APK 是否签名
           APK_PATH="app/build/outputs/apk/release/app-release.apk"
           if [ -f "$APK_PATH" ]; then
@@ -106,6 +111,13 @@ jobs:
             fi
           else
             echo "ERROR: APK not found at $APK_PATH"
+            echo "Checking for unsigned APK..."
+            UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+            if [ -f "$UNSIGNED_APK" ]; then
+              echo "ERROR: Found unsigned APK at $UNSIGNED_APK"
+              echo "This means signing configuration failed!"
+              exit 1
+            fi
             exit 1
           fi
 
