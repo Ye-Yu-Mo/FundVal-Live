@@ -65,13 +65,13 @@ jobs:
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 -d > $HOME/.android/release.keystore
           ls -lh $HOME/.android/release.keystore
 
-          # 创建 key.properties（必须在 Gradle 构建前完成）
-          cat > key.properties << EOF
-          storeFile=$HOME/.android/release.keystore
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          EOF
+          # 创建 key.properties（不能有前导空格）
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$HOME/.android/release.keystore" \
+            "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            "${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            > key.properties
 
           echo "key.properties content (storeFile only):"
           grep storeFile key.properties
