@@ -57,6 +57,24 @@ class BaseEstimateSource(ABC):
         pass
 
     @abstractmethod
+    def fetch_today_nav(self, fund_code: str) -> Dict:
+        """
+        获取当日确认净值（从历史净值接口取最新一条）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'nav': Decimal,
+                'nav_date': date,
+            }
+            如果获取失败或数据为空，返回 None
+        """
+        pass
+
+    @abstractmethod
     def fetch_fund_list(self) -> list:
         """
         获取基金列表
