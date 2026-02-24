@@ -66,12 +66,12 @@ jobs:
           ls -lh $HOME/.android/release.keystore
 
           # 创建 key.properties（不能有前导空格）
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$HOME/.android/release.keystore" \
-            "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
-            "${{ secrets.ANDROID_KEY_ALIAS }}" \
-            "${{ secrets.ANDROID_KEY_PASSWORD }}" \
-            > key.properties
+          {
+            echo "storeFile=$HOME/.android/release.keystore"
+            echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}"
+            echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}"
+          } > key.properties
 
           echo "key.properties content (storeFile only):"
           grep storeFile key.properties
