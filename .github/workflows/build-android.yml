@@ -66,6 +66,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         working-directory: frontend/android
         run: |
+          mkdir -p $HOME/.android
           echo "storeFile=$HOME/.android/release.keystore" > key.properties
           echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> key.properties
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> key.properties
@@ -96,6 +97,7 @@ jobs:
           path: frontend/android/app/build/outputs/apk/release/*.apk
 
       - name: Upload AAB artifact
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: fundval-android-aab
