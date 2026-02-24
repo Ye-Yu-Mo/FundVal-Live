@@ -19,8 +19,9 @@ import {
   DatePicker,
   InputNumber,
   AutoComplete,
+  Space,
 } from 'antd';
-import { RollbackOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { positionsAPI, fundsAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import PositionCharts from '../components/PositionCharts';
@@ -68,6 +69,10 @@ const PositionsPage = () => {
   const [fundOptions, setFundOptions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+
+  // 批量删除操作
+  const [selectedOperationIds, setSelectedOperationIds] = useState([]);
+  const [batchDeleteLoading, setBatchDeleteLoading] = useState(false);
 
   // 加载账户列表
   useEffect(() => {
@@ -267,6 +272,73 @@ const PositionsPage = () => {
       console.error('回滚失败:', error);
       message.error(error.response?.data?.message || '回滚失败，请稍后重试');
     }
+  };
+
+  // 清空持仓
+  const handleClearPosition = (position) => {
+    Modal.confirm({
+      title: '确定要清空该持仓吗？',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>将删除 <strong>{position.fund_name}</strong> 的所有操作记录</p>
+          <p>持仓份额：{formatMoney(position.holding_share)}</p>
+          <p>持仓成本：{formatMoney(position.holding_cost)}</p>
+          <p style={{ color: '#ff4d4f', marginTop: 8 }}>此操作不可恢复！</p>
+        </div>
+      ),
+      okText: '确定清空',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await positionsAPI.clearPosition(position.id);
+          message.success('清空持仓成功');
+          loadPositions(selectedAccountId);
+          loadOperations(selectedAccountId);
+        } catch (error) {
+          console.error('清空持仓失败:', error);
+          message.error(error.response?.data?.detail || '清空持仓失败');
+        }
+      },
+    });
+  };
+
+  // 批量删除操作
+  const handleBatchDelete = () => {
+    if (selectedOperationIds.length === 0) {
+      message.warning('请先选择要删除的操作记录');
+      return;
+    }
+
+    Modal.confirm({
+      title: '确定要批量删除操作吗？',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>将删除 <strong>{selectedOperationIds.length}</strong> 条操作记录</p>
+          <p style={{ color: '#ff4d4f', marginTop: 8 }}>此操作不可恢复，删除后将自动重算持仓！</p>
+        </div>
+      ),
+      okText: '确定删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchDeleteLoading(true);
+        try {
+          const { data } = await positionsAPI.batchDeleteOperations(selectedOperationIds);
+          message.success(`成功删除 ${data.deleted_count} 条操作记录`);
+          setSelectedOperationIds([]);
+          loadPositions(selectedAccountId);
+          loadOperations(selectedAccountId);
+        } catch (error) {
+          console.error('批量删除失败:', error);
+          message.error(error.response?.data?.error || '批量删除失败');
+        } finally {
+          setBatchDeleteLoading(false);
+        }
+      },
+    });
   };
 
   // 获取操作类型标签
@@ -823,17 +895,28 @@ const PositionsPage = () => {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 150,
       fixed: 'right',
       render: (_, record) => (
-        <Button
-          type="link"
-          size="small"
-          icon={<EditOutlined />}
-          onClick={() => handleOpenOperationModal(record)}
-        >
-          编辑
-        </Button>
+        <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleOpenOperationModal(record)}
+          >
+            编辑
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleClearPosition(record)}
+          >
+            清空
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -965,7 +1048,23 @@ const PositionsPage = () => {
         />
       </Card>
 
-      <Card title="操作流水" style={{ marginTop: 16 }}>
+      <Card
+        title="操作流水"
+        style={{ marginTop: 16 }}
+        extra={
+          selectedOperationIds.length > 0 && (
+            <Button
+              type="primary"
+              danger
+              icon={<DeleteOutlined />}
+              loading={batchDeleteLoading}
+              onClick={handleBatchDelete}
+            >
+              批量删除 ({selectedOperationIds.length})
+            </Button>
+          )
+        }
+      >
         <Table
           columns={operationColumns}
           dataSource={operations}
@@ -973,6 +1072,13 @@ const PositionsPage = () => {
           loading={operationsLoading}
           pagination={false}
           scroll={{ x: 'max-content' }}
+          rowSelection={{
+            selectedRowKeys: selectedOperationIds,
+            onChange: (selectedRowKeys) => setSelectedOperationIds(selectedRowKeys),
+            getCheckboxProps: (record) => ({
+              disabled: false,
+            }),
+          }}
           locale={{
             emptyText: (
               <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />

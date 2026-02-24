@@ -70,6 +70,8 @@ export const positionsAPI = {
   createOperation: (data) => api.post('/positions/operations/', data),
   listOperations: (params) => api.get('/positions/operations/', { params }),
   deleteOperation: (id) => api.delete(`/positions/operations/${id}/`),
+  batchDeleteOperations: (operationIds) => api.post('/positions/operations/batch_delete/', { operation_ids: operationIds }),
+  clearPosition: (id) => api.delete(`/positions/${id}/clear/`),
   getHistory: (accountId, days = 30) => api.get('/positions/history/', {
     params: { account_id: accountId, days }
   }),

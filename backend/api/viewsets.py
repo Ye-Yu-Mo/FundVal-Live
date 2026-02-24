@@ -591,6 +591,35 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         recalculate_all_positions(account_id=account_id)
         return Response({'message': '重算完成'})
 
+    @action(detail=True, methods=['delete'])
+    def clear(self, request, pk=None):
+        """清空持仓（删除所有操作流水）"""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        position = self.get_object()
+
+        account_id = position.account.id
+        fund_id = position.fund.id
+
+        # 删除所有操作流水
+        operations = PositionOperation.objects.filter(
+            account_id=account_id,
+            fund_id=fund_id
+        )
+        operation_count = operations.count()
+        operations.delete()
+
+        logger.info(
+            f"Cleared position: user={request.user.username}, "
+            f"account={position.account.name}, fund={position.fund.fund_code}, "
+            f"operations_deleted={operation_count}"
+        )
+
+        # 删除操作后会自动触发持仓重算（通过 signal）
+        # 持仓会变为 0 份额或被删除
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=False, methods=['get'])
     def history(self, request):
         """
@@ -640,7 +669,7 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """删除操作需要管理员权限"""
-        if self.action == 'destroy':
+        if self.action in ['destroy', 'batch_delete']:
             return [IsAdminUser()]
         return super().get_permissions()
 
@@ -668,6 +697,48 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def batch_delete(self, request):
+        """批量删除操作（管理员）"""
+        import logging
+        import uuid
+
+        logger = logging.getLogger(__name__)
+        operation_ids = request.data.get('operation_ids', [])
+
+        if not operation_ids:
+            return Response(
+                {'error': '操作 ID 列表不能为空'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 转换为 UUID 对象
+        try:
+            uuid_list = [uuid.UUID(op_id) if isinstance(op_id, str) else op_id for op_id in operation_ids]
+        except (ValueError, AttributeError) as e:
+            return Response(
+                {'error': f'无效的操作 ID: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 查询要删除的操作
+        operations = PositionOperation.objects.filter(id__in=uuid_list)
+        deleted_count = operations.count()
+
+        # 记录日志
+        logger.info(
+            f"Batch deleting operations: user={request.user.username}, "
+            f"count={deleted_count}, ids={operation_ids}"
+        )
+
+        # 删除操作（会自动触发持仓重算）
+        operations.delete()
+
+        return Response({
+            'deleted_count': deleted_count,
+            'message': f'成功删除 {deleted_count} 条操作记录'
+        })
 
 
 class WatchlistViewSet(viewsets.ModelViewSet):

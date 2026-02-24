@@ -31,6 +31,9 @@ urlpatterns = [
         'get': 'list',
         'post': 'create'
     })),
+    path('positions/operations/batch_delete/', viewsets.PositionOperationViewSet.as_view({
+        'post': 'batch_delete'
+    })),
     path('positions/operations/<uuid:pk>/', viewsets.PositionOperationViewSet.as_view({
         'get': 'retrieve',
         'delete': 'destroy'
