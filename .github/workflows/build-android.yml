@@ -68,6 +68,25 @@ jobs:
         run: |
           mkdir -p $HOME/.android
 
+          # 验证 secrets 是否配置
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ]; then
+            echo "ERROR: ANDROID_KEYSTORE_PASSWORD secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ]; then
+            echo "ERROR: ANDROID_KEY_ALIAS secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
+            echo "ERROR: ANDROID_KEY_PASSWORD secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.ANDROID_SIGNING_KEY }}" ]; then
+            echo "ERROR: ANDROID_SIGNING_KEY secret is not set"
+            exit 1
+          fi
+          echo "All secrets are configured"
+
           # 创建 key.properties
           echo "storeFile=$HOME/.android/release.keystore" > key.properties
           echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> key.properties
@@ -79,6 +98,7 @@ jobs:
             echo "ERROR: Failed to create key.properties"
             exit 1
           fi
+          echo "key.properties created successfully"
 
           # 创建 release keystore
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 -d > $HOME/.android/release.keystore
@@ -91,6 +111,7 @@ jobs:
 
           # 显示 keystore 信息（不显示密码）
           ls -lh $HOME/.android/release.keystore
+          echo "Keystore created successfully"
 
           # 构建 release APK
           ./gradlew assembleRelease
