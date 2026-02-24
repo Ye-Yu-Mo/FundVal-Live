@@ -75,6 +75,12 @@ jobs:
 
           echo "key.properties content (storeFile only):"
           grep storeFile key.properties
+          echo "key.properties line count: $(wc -l < key.properties)"
+          echo "key.properties exists check: $(ls -la key.properties)"
+          # 验证 Gradle 能找到这个文件
+          echo "Current dir: $(pwd)"
+          echo "Files in current dir:"
+          ls -la
 
       - name: Build Android APK (Debug)
         if: "!startsWith(github.ref, 'refs/tags/')"
