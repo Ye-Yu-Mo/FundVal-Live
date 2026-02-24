@@ -11,6 +11,7 @@ router.register(r'watchlists', viewsets.WatchlistViewSet, basename='watchlist')
 router.register(r'sources', viewsets.SourceViewSet, basename='source')
 router.register(r'users', viewsets.UserViewSet, basename='user')
 router.register(r'nav-history', viewsets.FundNavHistoryViewSet, basename='nav-history')
+router.register(r'source-credentials', viewsets.SourceCredentialViewSet, basename='source-credential')
 
 urlpatterns = [
     # 系统管理

@@ -442,6 +442,31 @@ class FundNavHistory(models.Model):
         return f'{self.fund.fund_code} - {self.nav_date}'
 
 
+class UserSourceCredential(models.Model):
+    """用户数据源凭证"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='source_credentials')
+    source_name = models.CharField(max_length=50, help_text='数据源名称（如 yangjibao）')
+    token = models.TextField(help_text='加密存储的 token')
+    is_active = models.BooleanField(default=True, help_text='是否激活')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_source_credential'
+        verbose_name = '用户数据源凭证'
+        verbose_name_plural = '用户数据源凭证'
+        unique_together = [['user', 'source_name']]
+        indexes = [
+            models.Index(fields=['user', 'source_name', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.source_name}'
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

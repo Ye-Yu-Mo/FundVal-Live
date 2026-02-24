@@ -201,6 +201,18 @@ class EastMoneySource(BaseEstimateSource):
             logger.error(f'获取当日净值失败：{fund_code}, 错误：{e}')
             return None
 
+    def get_qrcode(self) -> Optional[Dict]:
+        """天天基金不需要登录，返回 None"""
+        return None
+
+    def check_qrcode_state(self, qr_id: str) -> Optional[Dict]:
+        """天天基金不需要登录，返回 None"""
+        return None
+
+    def logout(self):
+        """天天基金不需要登录，无操作"""
+        pass
+
     def fetch_nav_history(
         self,
         fund_code: str,

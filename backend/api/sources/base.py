@@ -75,6 +75,43 @@ class BaseEstimateSource(ABC):
         pass
 
     @abstractmethod
+    def get_qrcode(self) -> Dict:
+        """
+        获取登录二维码（用于需要登录的数据源）
+
+        Returns:
+            dict: {
+                'qr_id': str,
+                'qr_url': str,
+            }
+            如果数据源不支持二维码登录，返回 None
+        """
+        pass
+
+    @abstractmethod
+    def check_qrcode_state(self, qr_id: str) -> Dict:
+        """
+        检查二维码扫码状态
+
+        Args:
+            qr_id: 二维码ID
+
+        Returns:
+            dict: {
+                'state': str,  # waiting/scanned/confirmed/expired
+                'token': str,  # 仅 state=confirmed 时有值
+            }
+        """
+        pass
+
+    @abstractmethod
+    def logout(self):
+        """
+        登出（清除 token）
+        """
+        pass
+
+    @abstractmethod
     def fetch_fund_list(self) -> list:
         """
         获取基金列表

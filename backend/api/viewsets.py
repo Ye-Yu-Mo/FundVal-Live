@@ -3,6 +3,7 @@ API ViewSets
 
 实现所有 API 端点
 """
+import logging
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -26,6 +27,8 @@ from .serializers import (
 from .sources import SourceRegistry
 from .services import recalculate_all_positions
 from fundval.config import config
+
+logger = logging.getLogger(__name__)
 
 
 class FundViewSet(viewsets.ReadOnlyModelViewSet):
@@ -1154,3 +1157,197 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         results = batch_sync_nav_history(fund_codes, start_date, end_date)
 
         return Response(results)
+
+
+class SourceCredentialViewSet(viewsets.ViewSet):
+    """数据源凭证 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def qrcode(self, request):
+        """
+        获取登录二维码
+
+        POST /api/source-credentials/qrcode/
+        {
+            "source_name": "yangjibao"
+        }
+
+        响应:
+        {
+            "qr_id": "qr-123456",
+            "qr_url": "http://weixin.qq.com/q/..."
+        }
+        """
+        from .serializers import QRCodeLoginSerializer
+
+        serializer = QRCodeLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        source_name = serializer.validated_data['source_name']
+        source = SourceRegistry.get_source(source_name)
+
+        try:
+            qr_data = source.get_qrcode()
+
+            if qr_data is None:
+                return Response(
+                    {'error': f'数据源 {source_name} 不支持二维码登录'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            return Response(qr_data)
+        except Exception as e:
+            return Response(
+                {'error': f'获取二维码失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], url_path='qrcode/(?P<qr_id>[^/.]+)/state')
+    def qrcode_state(self, request, qr_id=None):
+        """
+        检查二维码扫码状态
+
+        GET /api/source-credentials/qrcode/{qr_id}/state/?source_name=yangjibao
+
+        响应:
+        {
+            "state": "waiting",  // waiting/scanned/confirmed/expired
+            "token": null
+        }
+
+        或（登录成功）:
+        {
+            "state": "confirmed",
+            "token": "xxx"
+        }
+        """
+        from .models import UserSourceCredential
+
+        source_name = request.query_params.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            return Response(
+                {'error': f'数据源 {source_name} 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            state_data = source.check_qrcode_state(qr_id)
+
+            # 如果登录成功，保存凭证
+            if state_data['state'] == 'confirmed' and state_data['token']:
+                token = state_data['token']
+
+                # 更新或创建凭证
+                credential, created = UserSourceCredential.objects.update_or_create(
+                    user=request.user,
+                    source_name=source_name,
+                    defaults={
+                        'token': token,
+                        'is_active': True,
+                    }
+                )
+
+                logger.info(f'用户 {request.user.username} 登录数据源 {source_name} 成功')
+
+            return Response(state_data)
+
+        except Exception as e:
+            return Response(
+                {'error': f'检查二维码状态失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def logout(self, request):
+        """
+        登出数据源
+
+        POST /api/source-credentials/logout/
+        {
+            "source_name": "yangjibao"
+        }
+        """
+        from .models import UserSourceCredential
+
+        source_name = request.data.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 停用凭证
+            credential = UserSourceCredential.objects.filter(
+                user=request.user,
+                source_name=source_name,
+                is_active=True
+            ).first()
+
+            if credential:
+                credential.is_active = False
+                credential.save()
+
+            # 调用数据源的 logout 方法
+            source = SourceRegistry.get_source(source_name)
+            if source:
+                source.logout()
+
+            return Response({'success': True})
+
+        except Exception as e:
+            return Response(
+                {'error': f'登出失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """
+        查询登录状态
+
+        GET /api/source-credentials/status/?source_name=yangjibao
+
+        响应:
+        {
+            "logged_in": true,
+            "source_name": "yangjibao",
+            "created_at": "2026-02-24T10:00:00Z"
+        }
+        """
+        from .models import UserSourceCredential
+        from .serializers import UserSourceCredentialSerializer
+
+        source_name = request.query_params.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        credential = UserSourceCredential.objects.filter(
+            user=request.user,
+            source_name=source_name,
+            is_active=True
+        ).first()
+
+        if credential:
+            serializer = UserSourceCredentialSerializer(credential)
+            return Response({
+                'logged_in': True,
+                **serializer.data
+            })
+        else:
+            return Response({
+                'logged_in': False,
+                'source_name': source_name
+            })
