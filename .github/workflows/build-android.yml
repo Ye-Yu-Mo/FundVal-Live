@@ -50,7 +50,6 @@ jobs:
         run: npx cap sync android
 
       - name: Create debug keystore
-        working-directory: frontend/android
         run: |
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore \
@@ -58,94 +57,49 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build Android APK (Debug)
-        working-directory: frontend/android
-        run: ./gradlew assembleDebug
-
-      - name: Build Android APK (Release)
+      - name: Setup release signing
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         working-directory: frontend/android
         run: |
-          mkdir -p $HOME/.android
-
-          # 验证 secrets 是否配置
-          if [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ]; then
-            echo "ERROR: ANDROID_KEYSTORE_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ]; then
-            echo "ERROR: ANDROID_KEY_ALIAS secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
-            echo "ERROR: ANDROID_KEY_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.ANDROID_SIGNING_KEY }}" ]; then
-            echo "ERROR: ANDROID_SIGNING_KEY secret is not set"
-            exit 1
-          fi
-          echo "All secrets are configured"
-
-          # 创建 key.properties
-          echo "storeFile=$HOME/.android/release.keystore" > key.properties
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> key.properties
-
-          # 验证 key.properties 是否创建成功
-          if [ ! -f key.properties ]; then
-            echo "ERROR: Failed to create key.properties"
-            exit 1
-          fi
-          echo "key.properties created successfully"
-
           # 创建 release keystore
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 -d > $HOME/.android/release.keystore
-
-          # 验证 keystore 是否创建成功
-          if [ ! -f $HOME/.android/release.keystore ]; then
-            echo "ERROR: Failed to create release.keystore"
-            exit 1
-          fi
-
-          # 显示 keystore 信息（不显示密码）
           ls -lh $HOME/.android/release.keystore
-          echo "Keystore created successfully"
 
-          # 构建 release APK
-          ./gradlew assembleRelease
+          # 创建 key.properties（必须在 Gradle 构建前完成）
+          cat > key.properties << EOF
+          storeFile=$HOME/.android/release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
 
-          # 列出生成的文件
-          echo "=== Listing APK output directory ==="
-          ls -lh app/build/outputs/apk/release/ || echo "Release directory not found"
-          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
+          echo "key.properties content (storeFile only):"
+          grep storeFile key.properties
 
-          # 验证 APK 是否签名
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
-          if [ -f "$APK_PATH" ]; then
-            echo "APK built successfully: $APK_PATH"
-            # 检查文件名是否包含 unsigned
-            if [[ "$APK_PATH" == *"unsigned"* ]]; then
-              echo "ERROR: APK is unsigned!"
-              exit 1
-            fi
-          else
-            echo "ERROR: APK not found at $APK_PATH"
-            echo "Checking for unsigned APK..."
-            UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
-            if [ -f "$UNSIGNED_APK" ]; then
-              echo "ERROR: Found unsigned APK at $UNSIGNED_APK"
-              echo "This means signing configuration failed!"
-              exit 1
-            fi
-            exit 1
-          fi
+      - name: Build Android APK (Debug)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug
 
-      - name: Build Android AAB (Release)
+      - name: Build Android APK + AAB (Release)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         working-directory: frontend/android
-        run: ./gradlew bundleRelease
+        run: |
+          ./gradlew assembleRelease bundleRelease
+
+          echo "=== APK output ==="
+          find app/build/outputs -name "*.apk" -o -name "*.aab" | sort
+
+          # 验证签名
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            echo "SUCCESS: Signed APK found"
+          elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            echo "ERROR: Only unsigned APK found, signing failed"
+            exit 1
+          else
+            echo "ERROR: No APK found"
+            exit 1
+          fi
 
       - name: Upload Debug APK artifact
         if: "!startsWith(github.ref, 'refs/tags/')"
