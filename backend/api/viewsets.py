@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.shortcuts import get_object_or_404
+from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
 from decimal import Decimal
@@ -471,6 +472,88 @@ class AccountViewSet(viewsets.ModelViewSet):
         positions = Position.objects.filter(account=account).select_related('fund')
         serializer = PositionSerializer(positions, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def delete_info(self, request, pk=None):
+        """获取账户删除信息（用于前端确认对话框）"""
+        from decimal import Decimal
+        import logging
+
+        logger = logging.getLogger(__name__)
+        account = self.get_object()
+
+        # 检查是否为默认账户
+        if account.is_default:
+            return Response({
+                'can_delete': False,
+                'is_default': True,
+                'message': '默认账户不能删除',
+                'children_count': 0,
+                'positions_count': 0,
+                'total_cost': '0.00',
+            })
+
+        # 统计子账户数量
+        children_count = account.children.count()
+
+        # 统计持仓数量和总成本（包括子账户的持仓）
+        all_account_ids = [account.id]
+        if children_count > 0:
+            all_account_ids.extend(account.children.values_list('id', flat=True))
+
+        positions = Position.objects.filter(account_id__in=all_account_ids)
+        positions_count = positions.count()
+        total_cost = positions.aggregate(
+            total=models.Sum('holding_cost')
+        )['total'] or Decimal('0')
+
+        logger.info(
+            f"Account delete info: user={request.user.username}, "
+            f"account={account.name}, children={children_count}, "
+            f"positions={positions_count}, cost={total_cost}"
+        )
+
+        return Response({
+            'can_delete': True,
+            'is_default': False,
+            'message': '',
+            'children_count': children_count,
+            'positions_count': positions_count,
+            'total_cost': str(total_cost),
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        """删除账户（增加安全检查和日志）"""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        account = self.get_object()
+
+        # 检查是否为默认账户
+        if account.is_default:
+            logger.warning(
+                f"Attempt to delete default account: user={request.user.username}, "
+                f"account={account.name}"
+            )
+            return Response(
+                {'detail': '默认账户不能删除'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 记录删除操作日志
+        children_count = account.children.count()
+        positions_count = Position.objects.filter(
+            account__in=[account.id] + list(account.children.values_list('id', flat=True))
+        ).count()
+
+        logger.info(
+            f"Deleting account: user={request.user.username}, "
+            f"account={account.name}, children={children_count}, "
+            f"positions={positions_count}"
+        )
+
+        # 执行删除
+        return super().destroy(request, *args, **kwargs)
 
 
 class PositionViewSet(viewsets.ReadOnlyModelViewSet):

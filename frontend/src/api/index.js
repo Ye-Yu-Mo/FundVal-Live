@@ -60,6 +60,7 @@ export const accountsAPI = {
   create: (data) => api.post('/accounts/', data),
   update: (id, data) => api.put(`/accounts/${id}/`, data),
   delete: (id) => api.delete(`/accounts/${id}/`),
+  deleteInfo: (id) => api.get(`/accounts/${id}/delete_info/`),
 };
 
 // 持仓管理

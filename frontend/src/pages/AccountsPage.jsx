@@ -11,14 +11,15 @@ import {
   Select,
   Checkbox,
   message,
-  Popconfirm,
   Tag,
   Statistic,
   Row,
   Col,
+  Alert,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useAccounts } from '../contexts/AccountContext';
+import { accountsAPI } from '../api';
 
 const AccountsPage = () => {
   const navigate = useNavigate();
@@ -104,10 +105,55 @@ const AccountsPage = () => {
   // 删除账户
   const handleDelete = async (id) => {
     try {
-      await deleteAccount(id);
-      message.success('删除账户成功');
+      const { data: info } = await accountsAPI.deleteInfo(id);
+
+      if (!info.can_delete) {
+        message.error(info.message || '该账户不能删除');
+        return;
+      }
+
+      const descriptionParts = [];
+      if (info.children_count > 0) {
+        descriptionParts.push(`${info.children_count} 个子账户`);
+      }
+      if (info.positions_count > 0) {
+        descriptionParts.push(`${info.positions_count} 条持仓记录（总成本 ¥${Number(info.total_cost).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}）`);
+      }
+
+      const description = descriptionParts.length > 0
+        ? `将同时删除 ${descriptionParts.join(' 和 ')}，删除后无法恢复。`
+        : '删除后无法恢复。';
+
+      Modal.confirm({
+        title: '确定要删除该账户吗？',
+        icon: <ExclamationCircleOutlined />,
+        content: (
+          <div>
+            {descriptionParts.length > 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                message={description}
+                style={{ marginBottom: 8 }}
+              />
+            )}
+            {descriptionParts.length === 0 && <p>{description}</p>}
+          </div>
+        ),
+        okText: '确定删除',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: async () => {
+          try {
+            await deleteAccount(id);
+            message.success('删除账户成功');
+          } catch (error) {
+            message.error(error?.response?.data?.detail || '删除账户失败');
+          }
+        },
+      });
     } catch (error) {
-      message.error('删除账户失败');
+      message.error('获取账户信息失败');
     }
   };
 
@@ -277,20 +323,13 @@ const AccountsPage = () => {
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           />
-          <Popconfirm
-            title="确定要删除账户吗？"
-            description="删除后无法恢复"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            />
-          </Popconfirm>
+          <Button
+            type="link"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          />
         </Space>
       ),
     },

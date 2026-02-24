@@ -258,6 +258,115 @@ class TestAccountDeleteAPI:
         # 应该级联删除持仓
         assert response.status_code == 204
 
+    def test_delete_default_account_forbidden(self, client, user):
+        """测试删除默认账户应被拒绝"""
+        from api.models import Account
+        default_account = Account.objects.create(
+            user=user,
+            name='默认账户',
+            is_default=True
+        )
+
+        client.force_authenticate(user=user)
+        response = client.delete(f'/api/accounts/{default_account.id}/')
+        assert response.status_code == 400
+        assert '默认账户不能删除' in str(response.data)
+
+        # 确认账户仍然存在
+        assert Account.objects.filter(id=default_account.id).exists()
+
+    def test_delete_parent_account_with_children(self, client, user):
+        """测试删除有子账户的父账户"""
+        from api.models import Account
+        parent = Account.objects.create(user=user, name='父账户')
+        child1 = Account.objects.create(user=user, name='子账户1', parent=parent)
+        child2 = Account.objects.create(user=user, name='子账户2', parent=parent)
+
+        client.force_authenticate(user=user)
+        response = client.delete(f'/api/accounts/{parent.id}/')
+
+        # 应该级联删除所有子账户
+        assert response.status_code == 204
+        assert not Account.objects.filter(id=parent.id).exists()
+        assert not Account.objects.filter(id=child1.id).exists()
+        assert not Account.objects.filter(id=child2.id).exists()
+
+    def test_delete_account_with_children_and_positions(self, client, user):
+        """测试删除有子账户和持仓的父账户"""
+        from api.models import Account, Fund, Position
+        from decimal import Decimal
+
+        parent = Account.objects.create(user=user, name='父账户')
+        child = Account.objects.create(user=user, name='子账户', parent=parent)
+
+        fund = Fund.objects.create(fund_code='000001', fund_name='测试基金')
+        Position.objects.create(
+            account=child,
+            fund=fund,
+            holding_share=Decimal('100'),
+            holding_cost=Decimal('1000'),
+        )
+
+        client.force_authenticate(user=user)
+        response = client.delete(f'/api/accounts/{parent.id}/')
+
+        # 应该级联删除子账户和持仓
+        assert response.status_code == 204
+        assert not Account.objects.filter(id=parent.id).exists()
+        assert not Account.objects.filter(id=child.id).exists()
+        assert not Position.objects.filter(account=child).exists()
+
+    def test_get_account_delete_info(self, client, user):
+        """测试获取账户删除信息（子账户数、持仓数）"""
+        from api.models import Account, Fund, Position
+        from decimal import Decimal
+
+        parent = Account.objects.create(user=user, name='父账户')
+        child1 = Account.objects.create(user=user, name='子账户1', parent=parent)
+        child2 = Account.objects.create(user=user, name='子账户2', parent=parent)
+
+        fund = Fund.objects.create(fund_code='000001', fund_name='测试基金')
+        Position.objects.create(
+            account=child1,
+            fund=fund,
+            holding_share=Decimal('100'),
+            holding_cost=Decimal('1000'),
+        )
+        Position.objects.create(
+            account=child2,
+            fund=fund,
+            holding_share=Decimal('200'),
+            holding_cost=Decimal('2000'),
+        )
+
+        client.force_authenticate(user=user)
+        response = client.get(f'/api/accounts/{parent.id}/delete_info/')
+
+        assert response.status_code == 200
+        assert response.data['can_delete'] is True
+        assert response.data['is_default'] is False
+        assert response.data['children_count'] == 2
+        assert response.data['positions_count'] == 2
+        assert response.data['total_cost'] == '3000.00'
+
+    def test_get_default_account_delete_info(self, client, user):
+        """测试获取默认账户删除信息"""
+        from api.models import Account
+
+        default_account = Account.objects.create(
+            user=user,
+            name='默认账户',
+            is_default=True
+        )
+
+        client.force_authenticate(user=user)
+        response = client.get(f'/api/accounts/{default_account.id}/delete_info/')
+
+        assert response.status_code == 200
+        assert response.data['can_delete'] is False
+        assert response.data['is_default'] is True
+        assert '默认账户不能删除' in response.data['message']
+
 
 @pytest.mark.django_db
 class TestAccountPositionsAPI:
