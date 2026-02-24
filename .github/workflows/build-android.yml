@@ -67,15 +67,47 @@ jobs:
         working-directory: frontend/android
         run: |
           mkdir -p $HOME/.android
+
+          # 创建 key.properties
           echo "storeFile=$HOME/.android/release.keystore" > key.properties
           echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> key.properties
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> key.properties
 
+          # 验证 key.properties 是否创建成功
+          if [ ! -f key.properties ]; then
+            echo "ERROR: Failed to create key.properties"
+            exit 1
+          fi
+
           # 创建 release keystore
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 -d > $HOME/.android/release.keystore
 
+          # 验证 keystore 是否创建成功
+          if [ ! -f $HOME/.android/release.keystore ]; then
+            echo "ERROR: Failed to create release.keystore"
+            exit 1
+          fi
+
+          # 显示 keystore 信息（不显示密码）
+          ls -lh $HOME/.android/release.keystore
+
+          # 构建 release APK
           ./gradlew assembleRelease
+
+          # 验证 APK 是否签名
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "APK built successfully: $APK_PATH"
+            # 检查文件名是否包含 unsigned
+            if [[ "$APK_PATH" == *"unsigned"* ]]; then
+              echo "ERROR: APK is unsigned!"
+              exit 1
+            fi
+          else
+            echo "ERROR: APK not found at $APK_PATH"
+            exit 1
+          fi
 
       - name: Build Android AAB (Release)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
