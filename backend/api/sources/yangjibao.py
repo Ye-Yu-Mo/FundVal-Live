@@ -161,21 +161,224 @@ class YangJiBaoSource(BaseEstimateSource):
         """登出（清除 token）"""
         self._token = None
 
+    def _get_all_accounts(self) -> List[Dict]:
+        """
+        获取所有账户列表
+
+        Returns:
+            list: 账户列表 [{'id': str, 'title': str, ...}, ...]
+
+        Raises:
+            Exception: 未登录
+        """
+        if not self._token:
+            raise Exception('未登录养基宝，无法获取账户列表')
+
+        try:
+            data = self._request('GET', '/user_account')
+            accounts = data.get('list', [])
+            return accounts if isinstance(accounts, list) else []
+        except Exception as e:
+            logger.error(f'获取账户列表失败: {e}')
+            raise
+
+    def _fetch_all_holdings(self) -> List[Dict]:
+        """
+        获取所有账户的持仓列表（合并）
+
+        Returns:
+            list: 所有持仓列表
+
+        Raises:
+            Exception: 未登录
+        """
+        if not self._token:
+            raise Exception('未登录养基宝，无法获取持仓数据')
+
+        try:
+            accounts = self._get_all_accounts()
+
+            if not accounts:
+                logger.warning('用户没有账户')
+                return []
+
+            all_holdings = []
+
+            for account in accounts:
+                account_id = account.get('id')
+                if not account_id:
+                    continue
+
+                try:
+                    data = self._request('GET', f'/fund_hold?account_id={account_id}')
+                    holdings = data if isinstance(data, list) else []
+                    all_holdings.extend(holdings)
+                except Exception as e:
+                    logger.warning(f'获取账户 {account_id} 持仓失败: {e}')
+                    continue
+
+            return all_holdings
+
+        except Exception as e:
+            logger.error(f'获取持仓列表失败: {e}')
+            raise
+
+    def _find_fund_in_holdings(self, fund_code: str) -> Optional[Dict]:
+        """
+        从所有账户持仓中查找指定基金
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: 基金持仓数据，未找到返回 None
+        """
+        holdings = self._fetch_all_holdings()
+
+        for holding in holdings:
+            if holding.get('code') == fund_code:
+                return holding
+
+        return None
+
     # ─────────────────────────────────────────────
-    # 基金数据获取（暂未实现）
+    # 基金数据获取
     # ─────────────────────────────────────────────
 
     def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
-        """获取基金估值（暂未实现）"""
-        raise NotImplementedError('养基宝估值获取功能暂未实现')
+        """
+        获取基金估值（从持仓列表提取）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'fund_name': str,
+                'estimate_nav': Decimal,
+                'estimate_time': datetime,
+                'estimate_growth': Decimal,
+            }
+            如果基金不在持仓中或无估值数据，返回 None
+        """
+        try:
+            holding = self._find_fund_in_holdings(fund_code)
+
+            if not holding:
+                logger.warning(f'基金 {fund_code} 不在持仓中')
+                return None
+
+            nv_info = holding.get('nv_info', {})
+
+            # 优先级：gsz（实时估算） > vgsz（预估） > zsgz（昨日估算）
+            estimate_nav_str = nv_info.get('gsz') or nv_info.get('vgsz') or nv_info.get('zsgz')
+            estimate_growth_str = nv_info.get('gszzl') or nv_info.get('vgszzl') or nv_info.get('zsgzzl')
+
+            if not estimate_nav_str or not estimate_growth_str:
+                logger.warning(f'基金 {fund_code} 无估值数据')
+                return None
+
+            return {
+                'fund_code': fund_code,
+                'fund_name': holding.get('short_name', ''),
+                'estimate_nav': Decimal(str(estimate_nav_str)),
+                'estimate_time': datetime.now(),
+                'estimate_growth': Decimal(str(estimate_growth_str)),
+            }
+
+        except Exception as e:
+            logger.error(f'获取基金 {fund_code} 估值失败: {e}')
+            return None
 
     def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
-        """获取实际净值（暂未实现）"""
-        raise NotImplementedError('养基宝净值获取功能暂未实现')
+        """
+        获取实际净值（从持仓列表提取昨日净值）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'nav': Decimal,
+                'nav_date': date,
+            }
+            如果基金不在持仓中或无净值数据，返回 None
+        """
+        try:
+            holding = self._find_fund_in_holdings(fund_code)
+
+            if not holding:
+                logger.warning(f'基金 {fund_code} 不在持仓中')
+                return None
+
+            nv_info = holding.get('nv_info', {})
+
+            nav_str = nv_info.get('dwjz')
+            nav_date_str = nv_info.get('jzrq')
+
+            if not nav_str or not nav_date_str:
+                logger.warning(f'基金 {fund_code} 无净值数据')
+                return None
+
+            return {
+                'fund_code': fund_code,
+                'nav': Decimal(str(nav_str)),
+                'nav_date': datetime.strptime(nav_date_str, '%Y-%m-%d').date(),
+            }
+
+        except Exception as e:
+            logger.error(f'获取基金 {fund_code} 净值失败: {e}')
+            return None
 
     def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
-        """获取当日确认净值（暂未实现）"""
-        raise NotImplementedError('养基宝当日净值获取功能暂未实现')
+        """
+        获取当日确认净值（从持仓列表提取，带日期校验）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'nav': Decimal,
+                'nav_date': date,
+            }
+            如果基金不在持仓中、无净值数据或净值日期不是今天，返回 None
+        """
+        try:
+            holding = self._find_fund_in_holdings(fund_code)
+
+            if not holding:
+                logger.warning(f'基金 {fund_code} 不在持仓中')
+                return None
+
+            nv_info = holding.get('nv_info', {})
+
+            nav_str = nv_info.get('dwjz')
+            nav_date_str = nv_info.get('jzrq')
+
+            if not nav_str or not nav_date_str:
+                logger.warning(f'基金 {fund_code} 无净值数据')
+                return None
+
+            nav_date = datetime.strptime(nav_date_str, '%Y-%m-%d').date()
+
+            # 日期校验：只返回当日净值
+            if nav_date != date.today():
+                logger.info(f'基金 {fund_code} 净值日期 {nav_date} 不是今天，跳过')
+                return None
+
+            return {
+                'fund_code': fund_code,
+                'nav': Decimal(str(nav_str)),
+                'nav_date': nav_date,
+            }
+
+        except Exception as e:
+            logger.error(f'获取基金 {fund_code} 当日净值失败: {e}')
+            return None
 
     def fetch_fund_list(self) -> list:
         """获取基金列表（暂未实现）"""

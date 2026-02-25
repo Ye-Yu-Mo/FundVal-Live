@@ -89,3 +89,15 @@ export const watchlistsAPI = {
   reorder: (id, items) => api.put(`/watchlists/${id}/reorder/`, { items }),
 };
 
+// 数据源凭证
+export const sourceAPI = {
+  getQRCode: (sourceName) =>
+    api.post('/source-credentials/qrcode/', { source_name: sourceName }),
+  checkQRCodeState: (sourceName, qrId) =>
+    api.get(`/source-credentials/qrcode/${qrId}/state/`, { params: { source_name: sourceName } }),
+  logout: (sourceName) =>
+    api.post('/source-credentials/logout/', { source_name: sourceName }),
+  getStatus: (sourceName) =>
+    api.get('/source-credentials/status/', { params: { source_name: sourceName } }),
+};
+
