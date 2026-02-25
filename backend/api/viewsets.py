@@ -687,10 +687,21 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         """只返回当前用户的持仓"""
         queryset = Position.objects.filter(account__user=self.request.user)
 
-        # 按账户过滤
-        account_id = self.request.query_params.get('account')
+        # 按账户过滤（兼容 account_id 和 account 两种参数名）
+        account_id = self.request.query_params.get('account_id') or self.request.query_params.get('account')
         if account_id:
-            queryset = queryset.filter(account_id=account_id)
+            # 如果是父账户，返回所有子账户的持仓
+            from .models import Account
+            try:
+                account = Account.objects.get(id=account_id, user=self.request.user)
+                if account.parent is None:
+                    # 父账户：返回所有子账户持仓
+                    queryset = queryset.filter(account__parent_id=account_id)
+                else:
+                    # 子账户：直接过滤
+                    queryset = queryset.filter(account_id=account_id)
+            except Account.DoesNotExist:
+                queryset = queryset.none()
 
         # 按基金过滤
         fund_code = self.request.query_params.get('fund_code')
@@ -801,10 +812,18 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
         else:
             queryset = PositionOperation.objects.filter(account__user=self.request.user)
 
-        # 按账户过滤
-        account_id = self.request.query_params.get('account')
+        # 按账户过滤（兼容 account_id 和 account 两种参数名）
+        account_id = self.request.query_params.get('account_id') or self.request.query_params.get('account')
         if account_id:
-            queryset = queryset.filter(account_id=account_id)
+            from .models import Account
+            try:
+                account = Account.objects.get(id=account_id)
+                if account.parent is None:
+                    queryset = queryset.filter(account__parent_id=account_id)
+                else:
+                    queryset = queryset.filter(account_id=account_id)
+            except Account.DoesNotExist:
+                queryset = queryset.none()
 
         # 按基金过滤
         fund_code = self.request.query_params.get('fund_code')
