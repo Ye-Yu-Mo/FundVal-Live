@@ -97,6 +97,16 @@ chmod +x start.sh stop.sh
 
 如果开启注册功能，需要**重新启动后端**
 
+## 功能特性
+
+- **实时估值**：基于持仓穿透 + 实时行情加权计算，支持东方财富、养基宝双数据源
+- **养基宝集成**：扫码登录、一键导入持仓、实时估值同步
+- **持仓管理**：多账户、父子账户结构，支持买入/卖出流水，自动重算持仓
+- **历史净值**：净值走势图，支持 1W / 1M / 3M / 6M / 1Y / ALL 时间范围
+- **估值准确率**：记录每日估值误差，统计各数据源准确率
+- **自选列表**：自定义基金自选分组
+- **数据源偏好**：用户级别数据源切换，偏好持久化
+
 ## 技术栈
 
 - **Frontend**: React 19 + Vite + Ant Design + ECharts
@@ -160,7 +170,12 @@ cd backend && uv run python manage.py sync_funds
 fundval/
 ├── frontend/          # React 前端
 ├── backend/           # Django 后端
+│   ├── api/
+│   │   ├── sources/   # 数据源（东方财富、养基宝）
+│   │   └── services/  # 业务逻辑（持仓计算、养基宝导入）
+│   └── entrypoint.sh  # Docker 启动脚本（自动迁移）
 ├── docker-compose.yml # Docker 编排
+├── start.sh           # 手动部署启动脚本（自动迁移）
 └── .github/workflows/ # CI/CD
 ```
 
