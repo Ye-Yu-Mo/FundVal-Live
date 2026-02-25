@@ -28,6 +28,7 @@
     "axios": "^1.13.5",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-resizable": "^3.1.3",

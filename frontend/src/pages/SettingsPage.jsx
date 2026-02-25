@@ -135,7 +135,7 @@ const YangJiBaoLogin = () => {
           退出登录
         </Button>
       ) : (
-        <Space direction="vertical" size={12}>
+        <Space orientation="vertical" size={12}>
           <Button
             icon={<QrcodeOutlined />}
             onClick={handleGetQRCode}
@@ -148,7 +148,7 @@ const YangJiBaoLogin = () => {
           {qrUrl && (
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <Image
-                src={qrUrl}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
                 width={160}
                 height={160}
                 preview={false}
@@ -223,7 +223,7 @@ const SettingsPage = () => {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Card title="数据源管理">
         <YangJiBaoLogin />
         <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
