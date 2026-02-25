@@ -82,6 +82,22 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # 养基宝需要注入用户 token
+        if source_name == 'yangjibao' and request.user.is_authenticated:
+            from .models import UserSourceCredential
+            credential = UserSourceCredential.objects.filter(
+                user=request.user,
+                source_name='yangjibao',
+                is_active=True,
+            ).first()
+            if credential:
+                source._token = credential.token
+            else:
+                return Response(
+                    {'error': '未登录养基宝，请先扫码登录'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         try:
             data = source.fetch_estimate(fund_code)
             return Response(data)
@@ -159,7 +175,8 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         }
         """
         fund_codes = request.data.get('fund_codes', [])
-        ttl_minutes = config.get('estimate_cache_ttl', 5)  # 从配置读取 TTL
+        source_name = request.data.get('source', 'eastmoney')
+        ttl_minutes = config.get('estimate_cache_ttl', 5)
 
         if not fund_codes:
             return Response({'error': '缺少 fund_codes 参数'}, status=status.HTTP_400_BAD_REQUEST)
@@ -199,7 +216,18 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 从数据源获取
         if need_fetch:
-            source = SourceRegistry.get_source('eastmoney')
+            source = SourceRegistry.get_source(source_name) or SourceRegistry.get_source('eastmoney')
+
+            # 养基宝需要注入用户 token
+            if source_name == 'yangjibao' and request.user.is_authenticated:
+                from .models import UserSourceCredential
+                credential = UserSourceCredential.objects.filter(
+                    user=request.user,
+                    source_name='yangjibao',
+                    is_active=True,
+                ).first()
+                if credential:
+                    source._token = credential.token
 
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {executor.submit(source.fetch_estimate, code): code
@@ -1397,3 +1425,45 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                 {'error': f'导入失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class UserPreferenceViewSet(viewsets.ViewSet):
+    """用户偏好 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    VALID_SOURCES = {'eastmoney', 'yangjibao'}
+
+    def list(self, request):
+        """
+        GET /api/preferences/
+        返回用户偏好，无记录时返回默认值
+        """
+        from .models import UserPreference
+
+        pref = UserPreference.objects.filter(user=request.user).first()
+        preferred_source = pref.preferred_source if pref else 'eastmoney'
+
+        return Response({'preferred_source': preferred_source})
+
+    def update(self, request, pk=None):
+        """
+        PUT /api/preferences/
+        更新用户偏好（不存在则创建）
+        """
+        from .models import UserPreference
+
+        preferred_source = request.data.get('preferred_source')
+
+        if not preferred_source or preferred_source not in self.VALID_SOURCES:
+            return Response(
+                {'error': f'无效的数据源，可选值：{", ".join(self.VALID_SOURCES)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pref, _ = UserPreference.objects.update_or_create(
+            user=request.user,
+            defaults={'preferred_source': preferred_source},
+        )
+
+        return Response({'preferred_source': pref.preferred_source})

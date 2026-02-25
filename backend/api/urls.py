@@ -40,6 +40,12 @@ urlpatterns = [
         'delete': 'destroy'
     })),
 
+    # 用户偏好
+    path('preferences/', viewsets.UserPreferenceViewSet.as_view({
+        'get': 'list',
+        'put': 'update',
+    })),
+
     # API 路由
     path('', include(router.urls)),
 ]

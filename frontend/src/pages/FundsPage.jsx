@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, EyeOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
-import { fundsAPI, watchlistsAPI } from '../api';
+import { fundsAPI, watchlistsAPI, preferencesAPI } from '../api';
 
 const { Text } = Typography;
 
@@ -44,6 +44,7 @@ const FundsPage = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  const [source, setSource] = useState('eastmoney');
   const pageSize = 10;
 
   // 自选列表相关状态
@@ -92,7 +93,7 @@ const FundsPage = () => {
   };
 
   // 加载估值和净值数据
-  const loadEstimatesAndNavs = async (fundList) => {
+  const loadEstimatesAndNavs = async (fundList, sourceName = source) => {
     if (!fundList || fundList.length === 0) return;
 
     setEstimateLoading(true);
@@ -101,7 +102,7 @@ const FundsPage = () => {
 
       // 并发获取估值和净值
       const [estimatesResponse, navsResponse] = await Promise.all([
-        fundsAPI.batchEstimate(fundCodes),
+        fundsAPI.batchEstimate(fundCodes, sourceName),
         fundsAPI.batchUpdateNav(fundCodes),
       ]);
 
@@ -136,7 +137,20 @@ const FundsPage = () => {
     message.success('数据已刷新');
   };
 
+  // 切换数据源
+  const handleSourceChange = async (newSource) => {
+    setSource(newSource);
+    await preferencesAPI.update(newSource).catch(() => {});
+    if (funds.length > 0) {
+      await loadEstimatesAndNavs(funds, newSource);
+    }
+  };
+
   useEffect(() => {
+    // 加载用户偏好数据源
+    preferencesAPI.get().then(res => {
+      setSource(res.data.preferred_source || 'eastmoney');
+    }).catch(() => {});
     loadFunds();
   }, []);
 
@@ -322,6 +336,16 @@ const FundsPage = () => {
               估值更新时间: {lastUpdateTime.toLocaleTimeString()}
             </Text>
           )}
+          <Select
+            value={source}
+            onChange={handleSourceChange}
+            size="small"
+            style={{ width: 100 }}
+            options={[
+              { label: '东方财富', value: 'eastmoney' },
+              { label: '养基宝', value: 'yangjibao' },
+            ]}
+          />
           <Button
             icon={<ReloadOutlined />}
             onClick={handleRefresh}

@@ -37,7 +37,7 @@ export const fundsAPI = {
   search: (keyword) => api.get('/funds/', { params: { search: keyword } }),
   getEstimate: (code, source) => api.get(`/funds/${code}/estimate/`, { params: { source } }),
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),
-  batchEstimate: (fundCodes) => api.post('/funds/batch_estimate/', { fund_codes: fundCodes }),
+  batchEstimate: (fundCodes, source = 'eastmoney') => api.post('/funds/batch_estimate/', { fund_codes: fundCodes, source }),
   batchUpdateNav: (fundCodes) => api.post('/funds/batch_update_nav/', { fund_codes: fundCodes }),
   batchUpdateTodayNav: (fundCodes) => api.post('/funds/batch_update_today_nav/', { fund_codes: fundCodes }),
   queryNav: (fundCode, operationDate, before15) => api.post('/funds/query_nav/', {
@@ -87,6 +87,12 @@ export const watchlistsAPI = {
   addItem: (id, fundCode) => api.post(`/watchlists/${id}/items/`, { fund_code: fundCode }),
   removeItem: (id, fundCode) => api.delete(`/watchlists/${id}/items/${fundCode}/`),
   reorder: (id, items) => api.put(`/watchlists/${id}/reorder/`, { items }),
+};
+
+// 用户偏好
+export const preferencesAPI = {
+  get: () => api.get('/preferences/'),
+  update: (preferredSource) => api.put('/preferences/', { preferred_source: preferredSource }),
 };
 
 // 数据源凭证

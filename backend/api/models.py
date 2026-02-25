@@ -467,6 +467,30 @@ class UserSourceCredential(models.Model):
         return f'{self.user.username} - {self.source_name}'
 
 
+class UserPreference(models.Model):
+    """用户偏好设置"""
+
+    SOURCE_CHOICES = [
+        ('eastmoney', '东方财富'),
+        ('yangjibao', '养基宝'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preference')
+    preferred_source = models.CharField(
+        max_length=50,
+        choices=SOURCE_CHOICES,
+        default='eastmoney',
+    )
+
+    class Meta:
+        db_table = 'user_preference'
+        verbose_name = '用户偏好'
+        verbose_name_plural = '用户偏好'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.preferred_source}'
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

@@ -12,9 +12,10 @@ import {
   message,
   Button,
   Table,
+  Select,
 } from 'antd';
 import ReactECharts from 'echarts-for-react';
-import { fundsAPI, positionsAPI } from '../api';
+import { fundsAPI, positionsAPI, preferencesAPI } from '../api';
 
 const FundDetailPage = () => {
   const { code } = useParams();
@@ -26,6 +27,7 @@ const FundDetailPage = () => {
   const [operations, setOperations] = useState([]);
   const [timeRange, setTimeRange] = useState('1M');
   const [chartLoading, setChartLoading] = useState(false);
+  const [source, setSource] = useState('eastmoney');
 
   // 加载历史净值
   const loadNavHistory = async (range) => {
@@ -139,10 +141,15 @@ const FundDetailPage = () => {
       setLoading(true);
 
       try {
+        // 加载用户偏好数据源
+        const prefRes = await preferencesAPI.get().catch(() => null);
+        const preferredSource = prefRes?.data?.preferred_source || 'eastmoney';
+        setSource(preferredSource);
+
         // 并发加载基金详情和估值
         const [detailRes, estimateRes] = await Promise.all([
           fundsAPI.detail(code),
-          fundsAPI.estimate(code).catch(() => null) // 估值失败不影响其他数据
+          fundsAPI.getEstimate(code, preferredSource).catch(() => null),
         ]);
 
         setFund(detailRes.data);
@@ -256,7 +263,26 @@ const FundDetailPage = () => {
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       {/* 基础信息卡片 */}
-      <Card title="基金信息">
+      <Card
+        title="基金信息"
+        extra={
+          <Select
+            value={source}
+            size="small"
+            style={{ width: 100 }}
+            onChange={async (newSource) => {
+              setSource(newSource);
+              await preferencesAPI.update(newSource).catch(() => {});
+              const res = await fundsAPI.getEstimate(code, newSource).catch(() => null);
+              setEstimate(res?.data || null);
+            }}
+            options={[
+              { label: '东方财富', value: 'eastmoney' },
+              { label: '养基宝', value: 'yangjibao' },
+            ]}
+          />
+        }
+      >
         <Descriptions column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="基金代码">{fund.fund_code}</Descriptions.Item>
           <Descriptions.Item label="基金名称">{fund.fund_name}</Descriptions.Item>
