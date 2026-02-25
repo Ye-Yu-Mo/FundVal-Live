@@ -99,5 +99,7 @@ export const sourceAPI = {
     api.post('/source-credentials/logout/', { source_name: sourceName }),
   getStatus: (sourceName) =>
     api.get('/source-credentials/status/', { params: { source_name: sourceName } }),
+  importFromYangJiBao: (overwrite = false) =>
+    api.post('/source-credentials/import/', { overwrite }),
 };
 

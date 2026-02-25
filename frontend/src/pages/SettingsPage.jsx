@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin } from 'antd';
+import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal } from 'antd';
 import {
   SaveOutlined, ReloadOutlined, CloudServerOutlined,
-  QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined,
+  QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined, ImportOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
 import { sourceAPI } from '../api';
@@ -16,6 +16,8 @@ const YangJiBaoLogin = () => {
   const [qrLoading, setQrLoading] = useState(false);
   const [polling, setPolling] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const pollTimerRef = useRef(null);
   const pollStartRef = useRef(null);
   const qrIdRef = useRef(null);
@@ -103,12 +105,46 @@ const YangJiBaoLogin = () => {
       await sourceAPI.logout('yangjibao');
       setStatus('logged_out');
       setQrUrl(null);
+      setImportResult(null);
       stopPolling();
       message.success('已退出养基宝');
     } catch {
       message.error('退出失败');
     } finally {
       setLogoutLoading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    Modal.confirm({
+      title: '导入养基宝持仓',
+      content: (
+        <div>
+          <p>请选择导入方式：</p>
+          <ul style={{ paddingLeft: 20, color: '#666' }}>
+            <li><b>新建账户</b>：跳过已有持仓记录，仅新增</li>
+            <li><b>覆盖账户</b>：清空已有持仓流水后重新导入</li>
+          </ul>
+        </div>
+      ),
+      okText: '新建账户',
+      cancelText: '覆盖账户',
+      onOk: () => doImport(false),
+      onCancel: () => doImport(true),
+    });
+  };
+
+  const doImport = async (overwrite) => {
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const res = await sourceAPI.importFromYangJiBao(overwrite);
+      setImportResult(res.data);
+      message.success(`导入完成：新增 ${res.data.holdings_created} 条持仓`);
+    } catch (e) {
+      message.error(e.response?.data?.error || '导入失败');
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -126,14 +162,35 @@ const YangJiBaoLogin = () => {
       </div>
 
       {status === 'logged_in' ? (
-        <Button
-          icon={<LogoutOutlined />}
-          onClick={handleLogout}
-          loading={logoutLoading}
-          danger
-        >
-          退出登录
-        </Button>
+        <Space orientation="vertical" size={12}>
+          <Space>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={handleImport}
+              loading={importLoading}
+              type="primary"
+            >
+              一键导入持仓
+            </Button>
+            <Button
+              icon={<LogoutOutlined />}
+              onClick={handleLogout}
+              loading={logoutLoading}
+              danger
+            >
+              退出登录
+            </Button>
+          </Space>
+          {importResult && (
+            <div style={{ color: '#666', fontSize: 12 }}>
+              新增账户 {importResult.accounts_created}，跳过 {importResult.accounts_skipped}；
+              新增持仓 {importResult.holdings_created}，跳过 {importResult.holdings_skipped}
+            </div>
+          )}
+          <div style={{ color: '#aaa', fontSize: 12 }}>
+            注：仅支持导入当前持仓中的基金
+          </div>
+        </Space>
       ) : (
         <Space orientation="vertical" size={12}>
           <Button

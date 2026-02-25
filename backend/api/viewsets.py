@@ -1351,3 +1351,49 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                 'logged_in': False,
                 'source_name': source_name
             })
+
+    @action(detail=False, methods=['post'], url_path='import')
+    def import_from_yangjibao(self, request):
+        """
+        一键导入养基宝账户和持仓数据
+
+        POST /api/source-credentials/import/
+
+        响应:
+        {
+            "accounts_created": 2,
+            "accounts_skipped": 0,
+            "holdings_created": 5,
+            "holdings_skipped": 1,
+        }
+        """
+        from .models import UserSourceCredential
+        from .sources.yangjibao import YangJiBaoSource
+        from .services.import_yjb import import_from_yangjibao
+
+        credential = UserSourceCredential.objects.filter(
+            user=request.user,
+            source_name='yangjibao',
+            is_active=True,
+        ).first()
+
+        if not credential:
+            return Response(
+                {'error': '未登录养基宝，请先扫码登录'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = YangJiBaoSource()
+        source._token = credential.token
+
+        overwrite = request.data.get('overwrite', False)
+
+        try:
+            result = import_from_yangjibao(request.user, source, overwrite=overwrite)
+            return Response(result)
+        except Exception as e:
+            logger.error(f'养基宝导入失败: {e}')
+            return Response(
+                {'error': f'导入失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

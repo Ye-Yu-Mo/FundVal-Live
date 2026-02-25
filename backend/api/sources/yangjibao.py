@@ -383,3 +383,90 @@ class YangJiBaoSource(BaseEstimateSource):
     def fetch_fund_list(self) -> list:
         """获取基金列表（暂未实现）"""
         raise NotImplementedError('养基宝基金列表获取功能暂未实现')
+
+    # ─────────────────────────────────────────────
+    # 账户与持仓导入
+    # ─────────────────────────────────────────────
+
+    def fetch_accounts(self) -> List[Dict]:
+        """
+        获取账户列表（标准化格式）
+
+        Returns:
+            list: [{'account_id': str, 'name': str}, ...]
+
+        Raises:
+            Exception: 未登录
+        """
+        if not self._token:
+            raise Exception('未登录养基宝，无法获取账户列表')
+
+        data = self._request('GET', '/user_account')
+        accounts = data.get('list', [])
+
+        return [
+            {
+                'account_id': acc.get('id', ''),
+                'name': acc.get('title', ''),
+            }
+            for acc in accounts
+            if acc.get('id') and acc.get('title')
+        ]
+
+    def fetch_holdings(self, account_id: str) -> List[Dict]:
+        """
+        获取指定账户的持仓列表（标准化格式）
+
+        Args:
+            account_id: 养基宝账户ID
+
+        Returns:
+            list: [{
+                'fund_code': str,
+                'fund_name': str,
+                'share': Decimal,
+                'nav': Decimal,       # 单位成本
+                'amount': Decimal,    # 总金额
+                'operation_date': date,
+            }, ...]
+
+        Raises:
+            Exception: 未登录
+        """
+        if not self._token:
+            raise Exception('未登录养基宝，无法获取持仓数据')
+
+        data = self._request('GET', f'/fund_hold?account_id={account_id}')
+        holdings = data if isinstance(data, list) else []
+
+        result = []
+        for h in holdings:
+            fund_code = h.get('code', '')
+            fund_name = h.get('short_name', '')
+            hold_share = h.get('hold_share')
+            hold_cost = h.get('hold_cost')
+            money = h.get('money')
+            hold_day = h.get('hold_day')
+
+            if not fund_code or hold_share is None or hold_cost is None:
+                continue
+
+            try:
+                operation_date = (
+                    datetime.strptime(hold_day, '%Y-%m-%d').date()
+                    if hold_day else date.today()
+                )
+                result.append({
+                    'fund_code': fund_code,
+                    'fund_name': fund_name,
+                    'share': Decimal(str(hold_share)),
+                    'nav': Decimal(str(hold_cost)),
+                    'amount': Decimal(str(money)) if money else Decimal(str(hold_share)) * Decimal(str(hold_cost)),
+                    'operation_date': operation_date,
+                })
+            except Exception as e:
+                logger.warning(f'解析持仓数据失败 {fund_code}: {e}')
+                continue
+
+        return result
+
