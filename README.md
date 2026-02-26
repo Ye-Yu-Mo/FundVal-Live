@@ -33,7 +33,7 @@ curl -O https://raw.githubusercontent.com/Ye-Yu-Mo/FundVal-Live/main/docker-comp
 docker-compose up
 ```
 
-访问 http://localhost
+访问 http://localhost:21345
 
 **首次启动**：系统会自动同步基金数据，需要等待几分钟。
 
@@ -43,7 +43,7 @@ docker-compose up
   frontend:
     image: jasamine/fundval-frontend:latest
     ports:
-      - "80:80"
+      - "21345:80"
     depends_on:
       - backend
     networks:
@@ -91,7 +91,7 @@ chmod +x start.sh stop.sh
 - Docker 用户：`docker-compose logs backend | grep 'BOOTSTRAP KEY'`
 - 手动部署用户：运行 `./start.sh` 即可看到
 
-然后访问 `http://localhost/initialize`（需要换成你自己的 IP + 端口）进行初始化
+然后访问 `http://localhost:21345/initialize`（需要换成你自己的 IP + 端口）进行初始化
 
 填入 BOOTSTRAP KEY，配置管理员账户和密码，是否开通注册功能
 
@@ -100,6 +100,7 @@ chmod +x start.sh stop.sh
 ## 功能特性
 
 - **实时估值**：基于持仓穿透 + 实时行情加权计算，支持东方财富、养基宝双数据源
+- **AI 分析**：接入任意 OpenAI 协议大模型，自定义提示词模板，支持基金和持仓两个维度分析
 - **养基宝集成**：扫码登录、一键导入持仓、实时估值同步
 - **持仓管理**：多账户、父子账户结构，支持买入/卖出流水，自动重算持仓
 - **历史净值**：净值走势图，支持 1W / 1M / 3M / 6M / 1Y / ALL 时间范围
@@ -131,17 +132,49 @@ chmod +x start.sh stop.sh
 
 ## 架构
 
-```
-frontend (Nginx)
-    ↓
-backend (Django + Gunicorn)
-    ↓
-PostgreSQL + Redis
-    ↓
-Celery Worker + Beat
+```mermaid
+graph TD
+    subgraph Clients["客户端层"]
+        Browser["Web Browser"]
+        Desktop["Desktop · Tauri"]
+        Android["Android · Capacitor"]
+    end
+
+    subgraph FE["前端容器 · Nginx"]
+        React["React 19 · Ant Design · ECharts"]
+    end
+
+    subgraph BE["后端容器 · Gunicorn"]
+        Django["Django 6 + DRF\nAPI · Auth · 业务逻辑"]
+    end
+
+    subgraph Queue["任务队列 · Celery"]
+        Beat["Beat · 定时调度"]
+        Worker["Worker · 异步执行"]
+    end
+
+    subgraph Store["存储层"]
+        PG[("PostgreSQL 16")]
+        Redis[("Redis 7")]
+    end
+
+    subgraph Ext["外部数据源"]
+        EM["东方财富"]
+        YJB["养基宝"]
+    end
+
+    Browser & Desktop & Android -->|HTTP| FE
+    FE -->|静态文件| React
+    FE -->|"/api/*"| BE
+    BE <-->|读写| PG
+    BE <-->|缓存 / Broker| Redis
+    Beat -->|任务入队| Redis
+    Redis -->|任务分发| Worker
+    Worker -->|数据抓取| EM & YJB
+    Django -->|按需请求| EM & YJB
 ```
 
-前端通过 Nginx 反向代理 `/api/` 到后端。
+前端通过 Nginx 反向代理 `/api/` 到后端。Celery Beat 定时触发净值同步，Worker 并发抓取多数据源后写入 PostgreSQL。
 
 ### 容器启动流程
 

@@ -3,7 +3,7 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - '**'
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -103,7 +103,6 @@ jobs:
   create-manifest:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
       packages: write
@@ -111,6 +110,15 @@ jobs:
       - name: Set lowercase repository owner
         id: repo
         run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "value=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=latest" >> $GITHUB_OUTPUT
+          fi
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -127,24 +135,24 @@ jobs:
 
       - name: Create and push manifest for frontend
         run: |
-          # Docker Hub
-          docker buildx imagetools create -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest-amd64 \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest-arm64
+          TAG=${{ steps.tag.outputs.value }}
 
-          # GitHub Container Registry
-          docker buildx imagetools create -t ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:latest \
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:latest-amd64 \
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:latest-arm64
+          docker buildx imagetools create -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG} \
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG}-amd64 \
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG}-arm64
+
+          docker buildx imagetools create -t ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG} \
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG}-amd64 \
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG}-arm64
 
       - name: Create and push manifest for backend
         run: |
-          # Docker Hub
-          docker buildx imagetools create -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:latest \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:latest-amd64 \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:latest-arm64
+          TAG=${{ steps.tag.outputs.value }}
 
-          # GitHub Container Registry
-          docker buildx imagetools create -t ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:latest \
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:latest-amd64 \
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:latest-arm64
+          docker buildx imagetools create -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG} \
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG}-amd64 \
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG}-arm64
+
+          docker buildx imagetools create -t ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG} \
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG}-amd64 \
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG}-arm64
