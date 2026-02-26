@@ -195,6 +195,7 @@ const PositionsPage = () => {
 
   useEffect(() => {
     if (selectedAccountId) {
+      loadAccounts();
       loadPositions(selectedAccountId);
       loadOperations(selectedAccountId);
     }
