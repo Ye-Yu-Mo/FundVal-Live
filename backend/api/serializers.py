@@ -9,7 +9,7 @@ from datetime import date
 from .models import (
     Fund, Account, Position, PositionOperation,
     Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
-    UserSourceCredential
+    UserSourceCredential, AIConfig, AIPromptTemplate
 )
 
 User = get_user_model()
@@ -307,3 +307,31 @@ class QRCodeLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(f'数据源 {value} 不存在')
 
         return value
+
+
+class AIConfigSerializer(serializers.ModelSerializer):
+    """AI配置序列化器"""
+
+    api_key = serializers.CharField(max_length=500)
+
+    class Meta:
+        model = AIConfig
+        fields = ['id', 'api_endpoint', 'api_key', 'model_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['api_key'] = '****'
+        return data
+
+
+class AIPromptTemplateSerializer(serializers.ModelSerializer):
+    """AI提示词模板序列化器"""
+
+    class Meta:
+        model = AIPromptTemplate
+        fields = [
+            'id', 'name', 'context_type', 'system_prompt',
+            'user_prompt', 'is_default', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
