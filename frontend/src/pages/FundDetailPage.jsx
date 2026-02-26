@@ -13,9 +13,11 @@ import {
   Button,
   Table,
   Select,
+  Modal,
 } from 'antd';
+import { RobotOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
-import { fundsAPI, positionsAPI, preferencesAPI } from '../api';
+import { fundsAPI, positionsAPI, preferencesAPI, aiAPI } from '../api';
 
 const FundDetailPage = () => {
   const { code } = useParams();
@@ -28,6 +30,61 @@ const FundDetailPage = () => {
   const [timeRange, setTimeRange] = useState('1M');
   const [chartLoading, setChartLoading] = useState(false);
   const [source, setSource] = useState('eastmoney');
+
+  // AI 分析
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [aiTemplates, setAiTemplates] = useState([]);
+  const [aiTemplateId, setAiTemplateId] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+
+  const openAiModal = async () => {
+    setAiResult(null);
+    setAiTemplateId(null);
+    try {
+      const res = await aiAPI.listTemplates('fund');
+      setAiTemplates(res.data);
+      if (res.data.length > 0) {
+        const def = res.data.find(t => t.is_default) || res.data[0];
+        setAiTemplateId(def.id);
+      }
+    } catch {
+      message.error('加载模板失败');
+      return;
+    }
+    setAiModalVisible(true);
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!aiTemplateId) { message.warning('请选择分析模板'); return; }
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const navHistoryStr = navHistory.slice(-30).map(h => `${h.nav_date}:${h.unit_nav}`).join(',');
+      const pos = positions.find(p => p.fund?.fund_code === code);
+      const contextData = {
+        fund_code: fund.fund_code,
+        fund_name: fund.fund_name,
+        fund_type: fund.fund_type || '',
+        latest_nav: fund.latest_nav || '',
+        latest_nav_date: fund.latest_nav_date || '',
+        estimate_nav: estimate?.estimate_nav || '',
+        estimate_growth: estimate?.estimate_growth || '',
+        nav_history: navHistoryStr,
+        holding_share: pos?.holding_share || '',
+        holding_cost: pos?.holding_cost || '',
+        holding_value: pos?.market_value || '',
+        pnl: pos?.profit || '',
+        pnl_rate: pos?.profit_rate || '',
+      };
+      const res = await aiAPI.analyze(aiTemplateId, 'fund', contextData);
+      setAiResult(res.data.result);
+    } catch (e) {
+      message.error(e?.response?.data?.error || 'AI分析失败');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // 加载历史净值
   const loadNavHistory = async (range) => {
@@ -266,21 +323,24 @@ const FundDetailPage = () => {
       <Card
         title="基金信息"
         extra={
-          <Select
-            value={source}
-            size="small"
-            style={{ width: 100 }}
-            onChange={async (newSource) => {
-              setSource(newSource);
-              await preferencesAPI.update(newSource).catch(() => {});
-              const res = await fundsAPI.getEstimate(code, newSource).catch(() => null);
-              setEstimate(res?.data || null);
-            }}
-            options={[
-              { label: '东方财富', value: 'eastmoney' },
-              { label: '养基宝', value: 'yangjibao' },
-            ]}
-          />
+          <Space>
+            <Button icon={<RobotOutlined />} onClick={openAiModal}>AI 分析</Button>
+            <Select
+              value={source}
+              size="small"
+              style={{ width: 100 }}
+              onChange={async (newSource) => {
+                setSource(newSource);
+                await preferencesAPI.update(newSource).catch(() => {});
+                const res = await fundsAPI.getEstimate(code, newSource).catch(() => null);
+                setEstimate(res?.data || null);
+              }}
+              options={[
+                { label: '东方财富', value: 'eastmoney' },
+                { label: '养基宝', value: 'yangjibao' },
+              ]}
+            />
+          </Space>
         }
       >
         <Descriptions column={{ xs: 1, sm: 2, md: 3 }}>
@@ -400,6 +460,49 @@ const FundDetailPage = () => {
           />
         </Card>
       )}
+
+      {/* AI 分析 Modal */}
+      <Modal
+        title="AI 分析"
+        open={aiModalVisible}
+        onCancel={() => setAiModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space>
+            <Select
+              style={{ width: 260 }}
+              placeholder="选择分析模板"
+              value={aiTemplateId}
+              onChange={setAiTemplateId}
+              options={aiTemplates.map(t => ({ label: t.name, value: t.id }))}
+            />
+            <Button type="primary" icon={<RobotOutlined />} loading={aiLoading} onClick={handleAiAnalyze}>
+              开始分析
+            </Button>
+          </Space>
+          {aiLoading && (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <Spin tip="AI 分析中..." />
+            </div>
+          )}
+          {aiResult && (
+            <div style={{
+              background: '#fafafa',
+              border: '1px solid #f0f0f0',
+              borderRadius: 6,
+              padding: 16,
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.8,
+              maxHeight: 400,
+              overflowY: 'auto',
+            }}>
+              {aiResult}
+            </div>
+          )}
+        </Space>
+      </Modal>
     </Space>
   );
 };

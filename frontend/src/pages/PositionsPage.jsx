@@ -21,8 +21,8 @@ import {
   AutoComplete,
   Space,
 } from 'antd';
-import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { positionsAPI, fundsAPI } from '../api';
+import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined } from '@ant-design/icons';
+import { positionsAPI, fundsAPI, aiAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import PositionCharts from '../components/PositionCharts';
 
@@ -57,6 +57,56 @@ const PositionsPage = () => {
   const [buildPositionMode, setBuildPositionMode] = useState('value'); // value, nav
   const [buildForm] = Form.useForm();
   const [selectedFundInfo, setSelectedFundInfo] = useState(null); // 选中的基金信息
+
+  // AI 分析 Modal 状态
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [aiTemplates, setAiTemplates] = useState([]);
+  const [aiTemplateId, setAiTemplateId] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+
+  const openAiModal = async () => {
+    setAiResult(null);
+    setAiTemplateId(null);
+    try {
+      const res = await aiAPI.listTemplates('position');
+      setAiTemplates(res.data);
+      if (res.data.length > 0) {
+        const def = res.data.find(t => t.is_default) || res.data[0];
+        setAiTemplateId(def.id);
+      }
+    } catch {
+      message.error('加载模板失败');
+      return;
+    }
+    setAiModalVisible(true);
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!aiTemplateId) { message.warning('请选择分析模板'); return; }
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const account = getSelectedAccount();
+      const positionsStr = positions
+        .map(p => `${p.fund?.fund_code}|${p.fund?.fund_name}|${p.holding_share}|${p.holding_cost}|${p.holding_value || ''}|${p.pnl || ''}`)
+        .join('\n');
+      const contextData = {
+        account_name: account?.name || '',
+        holding_cost: account?.holding_cost || '',
+        holding_value: account?.holding_value || '',
+        pnl: account?.pnl || '',
+        pnl_rate: account?.pnl_rate || '',
+        positions: positionsStr,
+      };
+      const res = await aiAPI.analyze(aiTemplateId, 'position', contextData);
+      setAiResult(res.data.result);
+    } catch (e) {
+      message.error(e?.response?.data?.error || 'AI分析失败');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // 加仓/减仓 Modal 状态
   const [operationModalVisible, setOperationModalVisible] = useState(false);
@@ -950,6 +1000,14 @@ const PositionsPage = () => {
             value: a.id,
           }))}
         />
+        <Button
+          icon={<RobotOutlined />}
+          style={{ marginLeft: 8, marginBottom: 16 }}
+          disabled={!selectedAccountId}
+          onClick={openAiModal}
+        >
+          AI 分析
+        </Button>
 
         <Row gutter={16}>
           <Col span={6}>
@@ -1405,6 +1463,49 @@ const PositionsPage = () => {
             </>
           )}
         </Form>
+      </Modal>
+
+      {/* AI 分析 Modal */}
+      <Modal
+        title="持仓 AI 分析"
+        open={aiModalVisible}
+        onCancel={() => setAiModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space>
+            <Select
+              style={{ width: 260 }}
+              placeholder="选择分析模板"
+              value={aiTemplateId}
+              onChange={setAiTemplateId}
+              options={aiTemplates.map(t => ({ label: t.name, value: t.id }))}
+            />
+            <Button type="primary" icon={<RobotOutlined />} loading={aiLoading} onClick={handleAiAnalyze}>
+              开始分析
+            </Button>
+          </Space>
+          {aiLoading && (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <Spin tip="AI 分析中..." />
+            </div>
+          )}
+          {aiResult && (
+            <div style={{
+              background: '#fafafa',
+              border: '1px solid #f0f0f0',
+              borderRadius: 6,
+              padding: 16,
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.8,
+              maxHeight: 400,
+              overflowY: 'auto',
+            }}>
+              {aiResult}
+            </div>
+          )}
+        </Space>
       </Modal>
     </div>
   );

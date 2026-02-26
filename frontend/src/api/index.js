@@ -95,6 +95,21 @@ export const preferencesAPI = {
   update: (preferredSource) => api.put('/preferences/', { preferred_source: preferredSource }),
 };
 
+// AI配置与分析
+export const aiAPI = {
+  getConfig: () => api.get('/ai/config/'),
+  updateConfig: (data) => api.put('/ai/config/', data),
+  listTemplates: (contextType) => api.get('/ai/templates/', { params: contextType ? { context_type: contextType } : {} }),
+  createTemplate: (data) => api.post('/ai/templates/', data),
+  updateTemplate: (id, data) => api.put(`/ai/templates/${id}/`, data),
+  deleteTemplate: (id) => api.delete(`/ai/templates/${id}/`),
+  analyze: (templateId, contextType, contextData) => api.post('/ai/analyze/', {
+    template_id: templateId,
+    context_type: contextType,
+    context_data: contextData,
+  }),
+};
+
 // 数据源凭证
 export const sourceAPI = {
   getQRCode: (sourceName) =>

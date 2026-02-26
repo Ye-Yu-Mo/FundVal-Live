@@ -1,11 +1,241 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal } from 'antd';
+import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography } from 'antd';
 import {
   SaveOutlined, ReloadOutlined, CloudServerOutlined,
   QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined, ImportOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
-import { sourceAPI } from '../api';
+import { sourceAPI, aiAPI } from '../api';
+
+const { TextArea } = Input;
+const { Text } = Typography;
+
+const FUND_PLACEHOLDERS = [
+  { key: '{{fund_code}}', desc: '基金代码' },
+  { key: '{{fund_name}}', desc: '基金名称' },
+  { key: '{{fund_type}}', desc: '基金类型' },
+  { key: '{{latest_nav}}', desc: '最新净值' },
+  { key: '{{latest_nav_date}}', desc: '净值日期' },
+  { key: '{{estimate_nav}}', desc: '估值净值' },
+  { key: '{{estimate_growth}}', desc: '估值涨跌幅(%)' },
+  { key: '{{nav_history}}', desc: '近30条净值历史（日期:净值，逗号分隔）' },
+  { key: '{{holding_share}}', desc: '持仓份额' },
+  { key: '{{holding_cost}}', desc: '持仓成本' },
+  { key: '{{holding_value}}', desc: '持仓市值' },
+  { key: '{{pnl}}', desc: '盈亏金额' },
+  { key: '{{pnl_rate}}', desc: '盈亏比例(%)' },
+];
+
+const POSITION_PLACEHOLDERS = [
+  { key: '{{account_name}}', desc: '账户名称' },
+  { key: '{{holding_cost}}', desc: '总持仓成本' },
+  { key: '{{holding_value}}', desc: '总持仓市值' },
+  { key: '{{pnl}}', desc: '总盈亏金额' },
+  { key: '{{pnl_rate}}', desc: '总盈亏比例(%)' },
+  { key: '{{positions}}', desc: '持仓明细（代码|名称|份额|成本|市值|盈亏，换行分隔）' },
+];
+
+const AIConfigCard = () => {
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    aiAPI.getConfig().then(res => {
+      form.setFieldsValue({
+        api_endpoint: res.data.api_endpoint || '',
+        api_key: '',
+        model_name: res.data.model_name || 'gpt-4o-mini',
+      });
+    }).catch(() => {});
+  }, [form]);
+
+  const handleSave = async (values) => {
+    if (!values.api_key) {
+      message.error('请输入 API Key');
+      return;
+    }
+    setLoading(true);
+    try {
+      await aiAPI.updateConfig(values);
+      message.success('AI配置已保存');
+    } catch {
+      message.error('保存失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title="AI 配置">
+      <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 600 }}>
+        <Form.Item label="API Endpoint" name="api_endpoint" rules={[{ required: true, message: '请输入接口地址' }]}>
+          <Input placeholder="https://api.openai.com/v1" />
+        </Form.Item>
+        <Form.Item label="API Key" name="api_key" rules={[{ required: true, message: '请输入 API Key' }]} extra="每次保存需重新输入 Key，读取时不显示原始值">
+          <Input.Password placeholder="sk-..." />
+        </Form.Item>
+        <Form.Item label="模型名称" name="model_name" rules={[{ required: true, message: '请输入模型名称' }]}>
+          <Input placeholder="gpt-4o-mini" />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>保存配置</Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  );
+};
+
+const AITemplatesCard = () => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [form] = Form.useForm();
+  const [contextType, setContextType] = useState('fund');
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    try {
+      const res = await aiAPI.listTemplates();
+      setTemplates(res.data);
+    } catch {
+      message.error('加载模板失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadTemplates(); }, []);
+
+  const openCreate = () => {
+    setEditingTemplate(null);
+    setContextType('fund');
+    form.resetFields();
+    form.setFieldsValue({ context_type: 'fund', is_default: false });
+    setModalVisible(true);
+  };
+
+  const openEdit = (tpl) => {
+    setEditingTemplate(tpl);
+    setContextType(tpl.context_type);
+    form.setFieldsValue(tpl);
+    setModalVisible(true);
+  };
+
+  const handleOk = async () => {
+    try {
+      const values = await form.validateFields();
+      if (editingTemplate) {
+        await aiAPI.updateTemplate(editingTemplate.id, values);
+        message.success('模板已更新');
+      } else {
+        await aiAPI.createTemplate(values);
+        message.success('模板已创建');
+      }
+      setModalVisible(false);
+      loadTemplates();
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error('保存失败');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await aiAPI.deleteTemplate(id);
+      message.success('已删除');
+      loadTemplates();
+    } catch {
+      message.error('删除失败');
+    }
+  };
+
+  const placeholders = contextType === 'fund' ? FUND_PLACEHOLDERS : POSITION_PLACEHOLDERS;
+
+  const columns = [
+    { title: '名称', dataIndex: 'name', key: 'name' },
+    {
+      title: '类型', dataIndex: 'context_type', key: 'context_type',
+      render: v => v === 'fund' ? <Tag color="blue">基金</Tag> : <Tag color="green">持仓</Tag>,
+    },
+    { title: '默认', dataIndex: 'is_default', key: 'is_default', render: v => v ? <Tag color="gold">默认</Tag> : '-' },
+    {
+      title: '操作', key: 'action',
+      render: (_, record) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
+          <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)} okText="删除" cancelText="取消">
+            <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <Card
+      title="提示词模板"
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建模板</Button>}
+    >
+      <Table
+        dataSource={templates}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+        size="small"
+      />
+
+      <Modal
+        title={editingTemplate ? '编辑模板' : '新建模板'}
+        open={modalVisible}
+        onOk={handleOk}
+        onCancel={() => setModalVisible(false)}
+        width={800}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item label="模板名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input placeholder="例如：基金趋势分析" />
+          </Form.Item>
+          <Form.Item label="分析维度" name="context_type" rules={[{ required: true }]}>
+            <Select onChange={setContextType} options={[
+              { label: '基金分析', value: 'fund' },
+              { label: '持仓分析', value: 'position' },
+            ]} />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ flex: 1 }}>
+              <Form.Item label="系统提示词" name="system_prompt" rules={[{ required: true, message: '请输入系统提示词' }]}>
+                <TextArea rows={4} placeholder="你是一个专业的基金分析师..." />
+              </Form.Item>
+              <Form.Item label="用户提示词" name="user_prompt" rules={[{ required: true, message: '请输入用户提示词' }]}>
+                <TextArea rows={8} placeholder="请分析基金 {{fund_code}} ..." />
+              </Form.Item>
+            </div>
+            <div style={{ width: 220, flexShrink: 0 }}>
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>可用占位符</div>
+              {placeholders.map(p => (
+                <div key={p.key} style={{ marginBottom: 6 }}>
+                  <Text code copyable style={{ fontSize: 12 }}>{p.key}</Text>
+                  <div style={{ fontSize: 11, color: '#888' }}>{p.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Form.Item name="is_default" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Select placeholder="是否设为默认" options={[
+              { label: '设为默认模板', value: true },
+              { label: '非默认', value: false },
+            ]} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+};
 
 const POLL_INTERVAL = 2000;
 const POLL_TIMEOUT = 120000;
@@ -287,6 +517,9 @@ const SettingsPage = () => {
           注：养基宝数据源仅支持查询您持仓中的基金估值
         </div>
       </Card>
+
+      <AIConfigCard />
+      <AITemplatesCard />
 
       {isNative && (
         <Card title="系统设置">
