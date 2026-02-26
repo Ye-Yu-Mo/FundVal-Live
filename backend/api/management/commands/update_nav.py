@@ -5,11 +5,50 @@
 """
 import logging
 from datetime import date
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.core.management.base import BaseCommand
 from api.sources import SourceRegistry
 from api.models import Fund
 
 logger = logging.getLogger(__name__)
+
+
+def _fetch_nav_from_source(source, fund_code, use_today, today):
+    """从单个数据源获取净值，失败返回 None"""
+    try:
+        if use_today:
+            data = source.fetch_today_nav(fund_code)
+            if not data or data['nav_date'] != today:
+                return None
+        else:
+            data = source.fetch_realtime_nav(fund_code)
+            if not data:
+                return None
+        return data
+    except Exception:
+        return None
+
+
+def _fetch_best_nav(fund_code, use_today, today):
+    """
+    并发从所有数据源获取净值，返回 nav_date 最新的那条。
+    """
+    source_names = SourceRegistry.list_sources()
+    sources = [SourceRegistry.get_source(n) for n in source_names if SourceRegistry.get_source(n)]
+
+    results = []
+    with ThreadPoolExecutor(max_workers=len(sources) or 1) as executor:
+        futures = {executor.submit(_fetch_nav_from_source, s, fund_code, use_today, today): s for s in sources}
+        for future in as_completed(futures):
+            data = future.result()
+            if data:
+                results.append(data)
+
+    if not results:
+        return None
+
+    # 取 nav_date 最新的
+    return max(results, key=lambda d: d['nav_date'])
 
 
 class Command(BaseCommand):
@@ -39,51 +78,24 @@ class Command(BaseCommand):
                 return
         else:
             mode = '当日净值' if use_today else '昨日净值'
-            self.stdout.write(f'开始更新所有基金的{mode}...')
+            self.stdout.write(f'开始更新所有基金的{mode}（多源取最新）...')
             funds = Fund.objects.all()
 
-        source = SourceRegistry.get_source('eastmoney')
-        if not source:
-            self.stdout.write(self.style.ERROR('数据源 eastmoney 未注册'))
-            return
-
+        today = date.today()
         success_count = 0
         error_count = 0
         skip_count = 0
-        today = date.today()
 
         for fund in funds:
             try:
-                if use_today:
-                    # 使用 fetch_today_nav 获取当日净值
-                    data = source.fetch_today_nav(fund.fund_code)
+                data = _fetch_best_nav(fund.fund_code, use_today, today)
 
-                    if not data:
-                        skip_count += 1
-                        continue
+                if not data:
+                    skip_count += 1
+                    continue
 
-                    # 日期校验：只有当日净值才更新
-                    if data['nav_date'] != today:
-                        skip_count += 1
-                        if fund_code:
-                            self.stdout.write(
-                                f'  {fund.fund_code}: 跳过（净值日期 {data["nav_date"]} 不是今天）'
-                            )
-                        continue
-
-                    fund.latest_nav = data['nav']
-                    fund.latest_nav_date = data['nav_date']
-                else:
-                    # 使用 fetch_realtime_nav 获取昨日净值
-                    data = source.fetch_realtime_nav(fund.fund_code)
-
-                    if not data:
-                        skip_count += 1
-                        continue
-
-                    fund.latest_nav = data['nav']
-                    fund.latest_nav_date = data['nav_date']
-
+                fund.latest_nav = data['nav']
+                fund.latest_nav_date = data['nav_date']
                 fund.save()
                 success_count += 1
 
