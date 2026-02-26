@@ -25,6 +25,7 @@ import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, Exclamati
 import { positionsAPI, fundsAPI, aiAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import PositionCharts from '../components/PositionCharts';
+import AIAnalysisModal from '../components/AIAnalysisModal';
 
 const PositionsPage = () => {
   const [searchParams] = useSearchParams();
@@ -60,52 +61,20 @@ const PositionsPage = () => {
 
   // AI 分析 Modal 状态
   const [aiModalVisible, setAiModalVisible] = useState(false);
-  const [aiTemplates, setAiTemplates] = useState([]);
-  const [aiTemplateId, setAiTemplateId] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
 
-  const openAiModal = async () => {
-    setAiResult(null);
-    setAiTemplateId(null);
-    try {
-      const res = await aiAPI.listTemplates('position');
-      setAiTemplates(res.data);
-      if (res.data.length > 0) {
-        const def = res.data.find(t => t.is_default) || res.data[0];
-        setAiTemplateId(def.id);
-      }
-    } catch {
-      message.error('加载模板失败');
-      return;
-    }
-    setAiModalVisible(true);
-  };
-
-  const handleAiAnalyze = async () => {
-    if (!aiTemplateId) { message.warning('请选择分析模板'); return; }
-    setAiLoading(true);
-    setAiResult(null);
-    try {
-      const account = getSelectedAccount();
-      const positionsStr = positions
-        .map(p => `${p.fund?.fund_code}|${p.fund?.fund_name}|${p.holding_share}|${p.holding_cost}|${p.holding_value || ''}|${p.pnl || ''}`)
-        .join('\n');
-      const contextData = {
-        account_name: account?.name || '',
-        holding_cost: account?.holding_cost || '',
-        holding_value: account?.holding_value || '',
-        pnl: account?.pnl || '',
-        pnl_rate: account?.pnl_rate || '',
-        positions: positionsStr,
-      };
-      const res = await aiAPI.analyze(aiTemplateId, 'position', contextData);
-      setAiResult(res.data.result);
-    } catch (e) {
-      message.error(e?.response?.data?.error || 'AI分析失败');
-    } finally {
-      setAiLoading(false);
-    }
+  const buildAiContextData = () => {
+    const account = getSelectedAccount();
+    const positionsStr = positions
+      .map(p => `${p.fund?.fund_code}|${p.fund?.fund_name}|${p.holding_share}|${p.holding_cost}|${p.holding_value || ''}|${p.pnl || ''}`)
+      .join('\n');
+    return {
+      account_name: account?.name || '',
+      holding_cost: account?.holding_cost || '',
+      holding_value: account?.holding_value || '',
+      pnl: account?.pnl || '',
+      pnl_rate: account?.pnl_rate || '',
+      positions: positionsStr,
+    };
   };
 
   // 加仓/减仓 Modal 状态
@@ -1004,7 +973,7 @@ const PositionsPage = () => {
           icon={<RobotOutlined />}
           style={{ marginLeft: 8, marginBottom: 16 }}
           disabled={!selectedAccountId}
-          onClick={openAiModal}
+          onClick={() => setAiModalVisible(true)}
         >
           AI 分析
         </Button>
@@ -1466,47 +1435,13 @@ const PositionsPage = () => {
       </Modal>
 
       {/* AI 分析 Modal */}
-      <Modal
-        title="持仓 AI 分析"
+      <AIAnalysisModal
         open={aiModalVisible}
-        onCancel={() => setAiModalVisible(false)}
-        footer={null}
-        width={700}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Space>
-            <Select
-              style={{ width: 260 }}
-              placeholder="选择分析模板"
-              value={aiTemplateId}
-              onChange={setAiTemplateId}
-              options={aiTemplates.map(t => ({ label: t.name, value: t.id }))}
-            />
-            <Button type="primary" icon={<RobotOutlined />} loading={aiLoading} onClick={handleAiAnalyze}>
-              开始分析
-            </Button>
-          </Space>
-          {aiLoading && (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <Spin tip="AI 分析中..." />
-            </div>
-          )}
-          {aiResult && (
-            <div style={{
-              background: '#fafafa',
-              border: '1px solid #f0f0f0',
-              borderRadius: 6,
-              padding: 16,
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.8,
-              maxHeight: 400,
-              overflowY: 'auto',
-            }}>
-              {aiResult}
-            </div>
-          )}
-        </Space>
-      </Modal>
+        onClose={() => setAiModalVisible(false)}
+        contextType="position"
+        contextData={buildAiContextData()}
+        title={`持仓 AI 分析 · ${getSelectedAccount()?.name || ''}`}
+      />
     </div>
   );
 };

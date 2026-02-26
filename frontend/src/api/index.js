@@ -107,7 +107,7 @@ export const aiAPI = {
     template_id: templateId,
     context_type: contextType,
     context_data: contextData,
-  }),
+  }, { timeout: 120000 }),
 };
 
 // 数据源凭证
