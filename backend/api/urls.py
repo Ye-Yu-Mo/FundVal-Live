@@ -12,6 +12,7 @@ router.register(r'sources', viewsets.SourceViewSet, basename='source')
 router.register(r'users', viewsets.UserViewSet, basename='user')
 router.register(r'nav-history', viewsets.FundNavHistoryViewSet, basename='nav-history')
 router.register(r'source-credentials', viewsets.SourceCredentialViewSet, basename='source-credential')
+router.register(r'ai/templates', viewsets.AIPromptTemplateViewSet, basename='ai-template')
 
 urlpatterns = [
     # 系统管理
@@ -45,6 +46,15 @@ urlpatterns = [
         'get': 'list',
         'put': 'update',
     })),
+
+    # AI配置
+    path('ai/config/', viewsets.AIConfigViewSet.as_view({
+        'get': 'list',
+        'put': 'update',
+    })),
+
+    # AI分析
+    path('ai/analyze/', views.ai_analyze, name='ai_analyze'),
 
     # API 路由
     path('', include(router.urls)),

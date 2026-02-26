@@ -17,12 +17,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .models import (
     Fund, Account, Position, PositionOperation,
-    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory
+    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
+    AIConfig, AIPromptTemplate,
 )
 from .serializers import (
     FundSerializer, AccountSerializer, PositionSerializer,
     PositionOperationSerializer, WatchlistSerializer, UserRegisterSerializer,
-    FundNavHistorySerializer, QueryNavSerializer
+    FundNavHistorySerializer, QueryNavSerializer,
+    AIConfigSerializer, AIPromptTemplateSerializer,
 )
 from .sources import SourceRegistry
 from .services import recalculate_all_positions
@@ -1486,3 +1488,60 @@ class UserPreferenceViewSet(viewsets.ViewSet):
         )
 
         return Response({'preferred_source': pref.preferred_source})
+
+
+class AIConfigViewSet(viewsets.ViewSet):
+    """AI配置 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """
+        GET /api/ai/config/
+        返回当前用户AI配置，无记录时返回默认空值
+        """
+        config = AIConfig.objects.filter(user=request.user).first()
+        if config:
+            serializer = AIConfigSerializer(config)
+            return Response(serializer.data)
+        return Response({
+            'api_endpoint': '',
+            'api_key': '',
+            'model_name': 'gpt-4o-mini',
+        })
+
+    def update(self, request, pk=None):
+        """
+        PUT /api/ai/config/
+        创建或更新当前用户AI配置
+        """
+        serializer = AIConfigSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        config, _ = AIConfig.objects.update_or_create(
+            user=request.user,
+            defaults={
+                'api_endpoint': serializer.validated_data['api_endpoint'],
+                'api_key': serializer.validated_data['api_key'],
+                'model_name': serializer.validated_data.get('model_name', 'gpt-4o-mini'),
+            },
+        )
+        return Response(AIConfigSerializer(config).data)
+
+
+class AIPromptTemplateViewSet(viewsets.ModelViewSet):
+    """AI提示词模板 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AIPromptTemplateSerializer
+
+    def get_queryset(self):
+        queryset = AIPromptTemplate.objects.filter(user=self.request.user)
+        context_type = self.request.query_params.get('context_type')
+        if context_type:
+            queryset = queryset.filter(context_type=context_type)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
