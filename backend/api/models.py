@@ -491,6 +491,54 @@ class UserPreference(models.Model):
         return f'{self.user.username} - {self.preferred_source}'
 
 
+class AIConfig(models.Model):
+    """用户AI配置"""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ai_config')
+    api_endpoint = models.CharField(max_length=500, help_text='OpenAI协议接口地址')
+    api_key = models.CharField(max_length=500, help_text='API Key')
+    model_name = models.CharField(max_length=100, default='gpt-4o-mini', help_text='模型名称')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_config'
+        verbose_name = 'AI配置'
+        verbose_name_plural = 'AI配置'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.model_name}'
+
+
+class AIPromptTemplate(models.Model):
+    """AI提示词模板"""
+
+    CONTEXT_CHOICES = [
+        ('fund', '基金分析'),
+        ('position', '持仓分析'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_templates')
+    name = models.CharField(max_length=100, help_text='模板名称')
+    context_type = models.CharField(max_length=20, choices=CONTEXT_CHOICES, help_text='分析维度')
+    system_prompt = models.TextField(help_text='系统提示词')
+    user_prompt = models.TextField(help_text='用户提示词（含占位符）')
+    is_default = models.BooleanField(default=False, help_text='是否为该类型的默认模板')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_prompt_template'
+        verbose_name = 'AI提示词模板'
+        verbose_name_plural = 'AI提示词模板'
+        unique_together = [['user', 'name']]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.name}'
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
