@@ -124,9 +124,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'zh-hans'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
 
@@ -185,4 +185,20 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 任务超时时间：30 分钟
 CELERY_ACCEPT_CONTENT = ['json']  # 接受的内容类型
 CELERY_TASK_SERIALIZER = 'json'  # 任务序列化格式
 CELERY_RESULT_SERIALIZER = 'json'  # 结果序列化格式
+
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'capture-estimate-snapshot': {
+        'task': 'api.tasks.capture_estimate_snapshot',
+        'schedule': crontab(minute=0, hour=15, day_of_week='1-5'), # 每个交易日 15:00
+    },
+    'audit-accuracy-task': {
+        'task': 'api.tasks.audit_accuracy',
+        'schedule': crontab(minute=0, hour=23, day_of_week='1-5'), # 每个交易日 23:00
+    },
+    'update-fund-nav-task': {
+        'task': 'api.tasks.update_fund_nav',
+        'schedule': crontab(minute=30, hour=22), # 每天 22:30
+    },
+}
 

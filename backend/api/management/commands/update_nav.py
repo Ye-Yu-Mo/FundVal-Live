@@ -17,7 +17,12 @@ def _fetch_nav_from_source(source, fund_code, use_today, today):
     """从单个数据源获取净值，失败返回 None"""
     try:
         if use_today:
-            data = source.fetch_today_nav(fund_code)
+            # 某些数据源可能没有 fetch_today_nav，需要判断
+            if hasattr(source, 'fetch_today_nav'):
+                data = source.fetch_today_nav(fund_code)
+            else:
+                data = source.fetch_realtime_nav(fund_code)
+            
             if not data or data['nav_date'] != today:
                 return None
         else:
@@ -34,15 +39,20 @@ def _fetch_best_nav(fund_code, use_today, today):
     并发从所有数据源获取净值，返回 nav_date 最新的那条。
     """
     source_names = SourceRegistry.list_sources()
-    sources = [SourceRegistry.get_source(n) for n in source_names if SourceRegistry.get_source(n)]
+    # 排除 sina 等行情类源，只保留净值类源用于更新
+    sources = [SourceRegistry.get_source(n) for n in source_names 
+               if SourceRegistry.get_source(n) and n != 'sina']
 
     results = []
     with ThreadPoolExecutor(max_workers=len(sources) or 1) as executor:
         futures = {executor.submit(_fetch_nav_from_source, s, fund_code, use_today, today): s for s in sources}
         for future in as_completed(futures):
-            data = future.result()
-            if data:
-                results.append(data)
+            try:
+                data = future.result()
+                if data:
+                    results.append(data)
+            except Exception:
+                continue
 
     if not results:
         return None
@@ -94,10 +104,15 @@ class Command(BaseCommand):
                     skip_count += 1
                     continue
 
-                fund.latest_nav = data['nav']
-                fund.latest_nav_date = data['nav_date']
-                fund.save()
-                success_count += 1
+                new_date = data.get('nav_date')
+                # 核心保护：只在日期更新或相等时保存，防止旧数据覆盖新数据
+                if not fund.latest_nav_date or (new_date and new_date >= fund.latest_nav_date):
+                    fund.latest_nav = data['nav']
+                    fund.latest_nav_date = new_date
+                    fund.save(update_fields=['latest_nav', 'latest_nav_date', 'updated_at'])
+                    success_count += 1
+                else:
+                    skip_count += 1
 
                 if fund_code:
                     self.stdout.write(

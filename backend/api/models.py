@@ -395,7 +395,8 @@ class EstimateAccuracy(models.Model):
     def calculate_error_rate(self):
         """计算误差率"""
         if self.actual_nav and self.actual_nav > 0:
-            error = abs(self.estimate_nav - self.actual_nav)
+            # 去掉 abs()，改用 (估值 - 实际) / 实际
+            error = self.estimate_nav - self.actual_nav
             self.error_rate = error / self.actual_nav
             self.save()
 

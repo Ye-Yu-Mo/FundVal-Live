@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
-import { fundsAPI, positionsAPI, preferencesAPI, aiAPI } from '../api';
+import { fundsAPI, positionsAPI, preferencesAPI } from '../api';
 import AIAnalysisModal from '../components/AIAnalysisModal';
 
 const FundDetailPage = () => {
@@ -24,7 +24,9 @@ const FundDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [fund, setFund] = useState(null);
   const [estimate, setEstimate] = useState(null);
+  const [marketQuote, setMarketQuote] = useState(null);
   const [navHistory, setNavHistory] = useState([]);
+  const [accuracy, setAccuracy] = useState(null);
   const [positions, setPositions] = useState([]);
   const [operations, setOperations] = useState([]);
   const [timeRange, setTimeRange] = useState('1M');
@@ -171,14 +173,18 @@ const FundDetailPage = () => {
         const preferredSource = prefRes?.data?.preferred_source || 'eastmoney';
         setSource(preferredSource);
 
-        // 并发加载基金详情和估值
-        const [detailRes, estimateRes] = await Promise.all([
+        // 并发加载基金详情、指定源估值、准确率历史和场内价格
+        const [detailRes, estimateRes, accuracyRes, marketRes] = await Promise.all([
           fundsAPI.detail(code),
           fundsAPI.getEstimate(code, preferredSource).catch(() => null),
+          fundsAPI.getAccuracy(code).catch(() => null),
+          fundsAPI.marketQuote(code).catch(() => null)
         ]);
 
         setFund(detailRes.data);
         setEstimate(estimateRes?.data || null);
+        setAccuracy(accuracyRes?.data || null);
+        setMarketQuote(marketRes?.data || null);
 
         // 尝试更新当日净值（静默失败）
         fundsAPI.batchUpdateTodayNav([code]).catch(() => {
@@ -228,11 +234,8 @@ const FundDetailPage = () => {
         smooth: true,
         markPoint: {
           data: operations.map(op => {
-            console.log('Processing operation:', op);
             // 找到操作日期在图表中的索引
             const dateIndex = navHistory.findIndex(item => item.nav_date === op.operation_date);
-            console.log(`Operation date: ${op.operation_date}, found at index: ${dateIndex}`);
-
             if (dateIndex === -1) return null;
 
             return {
@@ -260,11 +263,6 @@ const FundDetailPage = () => {
     }
   };
 
-  console.log('Chart option:', chartOption);
-  console.log('Nav history length:', navHistory.length);
-  console.log('Operations count:', operations.length);
-  console.log('Mark points:', chartOption.series[0].markPoint.data);
-
   // 加载中
   if (loading) {
     return (
@@ -285,13 +283,28 @@ const FundDetailPage = () => {
     );
   }
 
+  // 获取主要数据源的准确率记录
+  const accuracyRecords = accuracy ? (accuracy.eastmoney?.records || []) : [];
+
+  // 计算场内溢价率: (场内价格 - 实时估值) / 实时估值
+  const calculatePremium = () => {
+    if (!estimate?.estimate_nav || !marketQuote?.market_price) return null;
+    const est = parseFloat(estimate.estimate_nav);
+    const mkt = parseFloat(marketQuote.market_price);
+    if (est === 0) return null;
+    // (场内价格 - 实时估值) / 实时估值
+    return ((mkt - est) / est) * 100;
+  };
+
+  const premium = calculatePremium();
+
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       {/* 基础信息卡片 */}
       <Card
         title="基金信息"
         extra={
-          <Space>
+          <Space wrap>
             <Button icon={<RobotOutlined />} onClick={() => setAiModalVisible(true)}>AI 分析</Button>
             <Select
               value={source}
@@ -299,7 +312,7 @@ const FundDetailPage = () => {
               style={{ width: 100 }}
               onChange={async (newSource) => {
                 setSource(newSource);
-                await preferencesAPI.update(newSource).catch(() => {});
+                await preferencesAPI.update(newSource).catch(() => { });
                 const res = await fundsAPI.getEstimate(code, newSource).catch(() => null);
                 setEstimate(res?.data || null);
               }}
@@ -317,37 +330,121 @@ const FundDetailPage = () => {
           <Descriptions.Item label="基金类型">{fund.fund_type || '-'}</Descriptions.Item>
         </Descriptions>
 
-        <Row gutter={16} style={{ marginTop: 16 }}>
-          <Col xs={24} sm={8}>
+        <Row gutter={[16, 24]} style={{ marginTop: 16 }}>
+          <Col xs={12} sm={6} md={4}>
             <Statistic
               title="最新净值"
               value={fund.latest_nav || '-'}
               precision={fund.latest_nav ? 4 : 0}
               prefix={fund.latest_nav ? '¥' : ''}
               suffix={fund.latest_nav_date ? ` (${fund.latest_nav_date.slice(5)})` : ''}
+              valueStyle={{ fontSize: '18px' }}
             />
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={12} sm={6} md={4}>
             <Statistic
               title="实时估值"
               value={estimate?.estimate_nav || '-'}
               precision={estimate?.estimate_nav ? 4 : 0}
               prefix={estimate?.estimate_nav ? '¥' : ''}
+              valueStyle={{ fontSize: '18px' }}
             />
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={12} sm={6} md={4}>
             <Statistic
               title="估算涨跌"
               value={estimate?.estimate_growth || '-'}
               precision={estimate?.estimate_growth ? 2 : 0}
               suffix={estimate?.estimate_growth ? '%' : ''}
               valueStyle={{
-                color: estimate?.estimate_growth >= 0 ? '#cf1322' : '#3f8600'
+                color: estimate?.estimate_growth >= 0 ? '#cf1322' : '#3f8600',
+                fontSize: '18px'
               }}
               prefix={estimate?.estimate_growth >= 0 ? '+' : ''}
             />
           </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Statistic
+              title="场内价格"
+              value={marketQuote?.market_price || '-'}
+              precision={marketQuote?.market_price ? 3 : 0}
+              prefix={marketQuote?.market_price ? '¥' : ''}
+              valueStyle={{ fontSize: '18px' }}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Statistic
+              title="场内涨跌"
+              value={marketQuote?.market_growth || '-'}
+              precision={marketQuote?.market_growth ? 2 : 0}
+              suffix={marketQuote?.market_growth ? '%' : ''}
+              valueStyle={{
+                color: marketQuote?.market_growth >= 0 ? '#cf1322' : '#3f8600',
+                fontSize: '18px'
+              }}
+              prefix={marketQuote?.market_growth >= 0 ? '+' : ''}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Statistic
+              title="场内溢价"
+              value={premium || '-'}
+              precision={6}
+              suffix={premium !== null ? '%' : ''}
+              valueStyle={{
+                color: premium >= 0 ? '#cf1322' : '#3f8600',
+                fontSize: '18px'
+              }}
+              prefix={premium > 0 ? '+' : ''}
+            />
+          </Col>
         </Row>
+      </Card>
+
+      {/* 历史估值卡片 */}
+      <Card title="历史估值记录">
+        <Table
+          dataSource={accuracyRecords}
+          rowKey="date"
+          pagination={{ pageSize: 5 }}
+          size="small"
+          columns={[
+            {
+              title: '日期',
+              dataIndex: 'date',
+              key: 'date',
+            },
+            {
+              title: '当天净值',
+              dataIndex: 'actual_nav',
+              key: 'actual_nav',
+              render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
+            },
+            {
+              title: '收盘估值',
+              dataIndex: 'estimate_nav',
+              key: 'estimate_nav',
+              render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
+            },
+            {
+              title: '估算误差',
+              dataIndex: 'error_rate',
+              key: 'error_rate',
+              render: (v) => {
+                if (!v) return '-';
+                const val = parseFloat(v);
+                const rate = (val * 100).toFixed(4);
+                // 正值代表高估（红色），负值代表低估（绿色）
+                const color = val > 0 ? '#cf1322' : '#3f8600';
+                return (
+                  <span style={{ color, fontWeight: '500' }}>
+                    {val > 0 ? '+' : ''}{rate}%
+                  </span>
+                )
+              }
+            }
+          ]}
+        />
       </Card>
 
       {/* 历史净值图表 */}

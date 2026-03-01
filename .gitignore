@@ -111,5 +111,14 @@ backend/celerybeat-schedule
 backend/celerybeat-schedule-shm
 backend/celerybeat-schedule-wal
 dump.rdb
+
+# Local Tools
+node-env/
+redis-7.4.2/
+redis-cli
+redis-server
+redis.tar.gz
+
+# Upstream Mixed
 image.png
 yjb

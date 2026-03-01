@@ -123,4 +123,21 @@ class BaseEstimateSource(ABC):
                 'fund_type': str,
             }, ...]
         """
+    @abstractmethod
+    def fetch_nav_history(self, fund_code: str, start_date: date = None, end_date: date = None) -> list:
+        """获取历史净值"""
         pass
+
+    def fetch_market_quote(self, fund_code: str) -> Dict:
+        """
+        获取场内实时价格（非必选实现）
+        
+        Returns:
+            dict: {
+                'fund_code': str,
+                'market_price': Decimal,
+                'market_growth': Decimal,
+                'market_time': datetime/str
+            }
+        """
+        return None

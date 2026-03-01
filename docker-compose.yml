@@ -30,7 +30,10 @@ services:
       - fundval
 
   backend:
-    image: jasamine/fundval-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: fundval-backend:latest
     command: gunicorn fundval.wsgi:application --bind 0.0.0.0:8000 --workers 4 --access-logfile - --error-logfile -
     volumes:
       # 生产环境：只挂载配置目录，不挂载代码
@@ -63,7 +66,7 @@ services:
       - fundval
 
   celery-worker:
-    image: jasamine/fundval-backend:latest
+    image: fundval-backend:latest
     entrypoint: []
     command: celery -A fundval worker -l info
     volumes:
@@ -89,7 +92,7 @@ services:
       - fundval
 
   celery-beat:
-    image: jasamine/fundval-backend:latest
+    image: fundval-backend:latest
     entrypoint: []
     command: celery -A fundval beat -l info
     volumes:
@@ -115,7 +118,10 @@ services:
       - fundval
 
   frontend:
-    image: jasamine/fundval-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: fundval-frontend:latest
     ports:
       - "21345:80"
     depends_on:

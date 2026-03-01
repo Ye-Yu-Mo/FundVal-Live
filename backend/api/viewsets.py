@@ -110,6 +110,25 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
     @action(detail=True, methods=['get'])
+    def market_quote(self, request, fund_code=None):
+        """获取场内实时价格"""
+        source = SourceRegistry.get_source('sina')
+        if not source:
+            return Response(
+                {'error': '数据源 sina 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            data = source.fetch_market_quote(fund_code)
+            return Response(data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
     def accuracy(self, request, fund_code=None):
         """获取基金各数据源准确率"""
         fund = self.get_object()
@@ -134,6 +153,8 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
             result[source_name]['records'].append({
                 'date': record.estimate_date,
+                'estimate_nav': record.estimate_nav,
+                'actual_nav': record.actual_nav,
                 'error_rate': record.error_rate
             })
             result[source_name]['total_error'] += record.error_rate
@@ -310,15 +331,17 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     fund = fund_map.get(code)
 
                     if fund and data:
-                        # 更新数据库
-                        fund.latest_nav = data.get('nav')
-                        fund.latest_nav_date = data.get('nav_date')
-                        fund.save(update_fields=['latest_nav', 'latest_nav_date'])
+                        # 核心修正：绝不覆盖较新的日期
+                        new_date = data.get('nav_date')
+                        if not fund.latest_nav_date or (new_date and new_date >= fund.latest_nav_date):
+                            fund.latest_nav = data.get('nav')
+                            fund.latest_nav_date = new_date
+                            fund.save(update_fields=['latest_nav', 'latest_nav_date', 'updated_at'])
 
                         results[code] = {
                             'fund_code': code,
-                            'latest_nav': str(data.get('nav')),
-                            'latest_nav_date': data.get('nav_date').isoformat() if data.get('nav_date') else None,
+                            'latest_nav': str(fund.latest_nav),
+                            'latest_nav_date': fund.latest_nav_date.isoformat() if fund.latest_nav_date else None,
                         }
                 except Exception as e:
                     results[code] = {
