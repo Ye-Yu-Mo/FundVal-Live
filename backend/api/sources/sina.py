@@ -2,7 +2,7 @@ import requests
 import re
 import logging
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, Dict, List
 
 from .base import BaseEstimateSource
@@ -23,6 +23,22 @@ class SinaStockSource(BaseEstimateSource):
 
     def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
         return None
+
+    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+        """sina 源不支持确权净值查询，仅支持实时行情"""
+        return None
+
+    def get_qrcode(self) -> Optional[Dict]:
+        """不需要 QR 登录"""
+        return None
+
+    def check_qrcode_state(self, qr_id: str) -> Optional[Dict]:
+        """不需要扫码"""
+        return None
+
+    def logout(self):
+        """无需登出"""
+        pass
 
     def fetch_fund_list(self) -> list:
         return []

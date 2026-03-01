@@ -470,3 +470,7 @@ class YangJiBaoSource(BaseEstimateSource):
 
         return result
 
+    def fetch_nav_history(self, fund_code: str, start_date: date = None, end_date: date = None) -> list:
+        """获取历史净值（养基宝暂不支持）"""
+        return []
+
