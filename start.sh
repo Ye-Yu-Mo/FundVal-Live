@@ -41,12 +41,13 @@ check_running() {
 # 启动 Redis（如果需要）
 start_redis() {
     echo "检查 Redis..."
-    if command -v redis-server &> /dev/null; then
+    REDIS_BIN="/Volumes/1T SSD/SynologyDrive/web/FundVal/redis-server"
+    if [ -x "$REDIS_BIN" ]; then
         if check_running "redis"; then
             echo -e "${YELLOW}Redis 已在运行${NC}"
         else
             echo "启动 Redis..."
-            redis-server --daemonize yes --pidfile "$PID_DIR/redis.pid" --logfile "$LOG_DIR/redis.log"
+            "$REDIS_BIN" --daemonize yes --pidfile "$PID_DIR/redis.pid" --logfile "$LOG_DIR/redis.log"
             echo -e "${GREEN}✓ Redis 已启动${NC}"
         fi
     else
@@ -63,7 +64,7 @@ start_celery_worker() {
         echo -e "${YELLOW}Celery Worker 已在运行${NC}"
     else
         cd backend
-        nohup uv run celery -A fundval worker --loglevel=info \
+        nohup /Users/oscar/.local/bin/uv run celery -A fundval worker --loglevel=info \
             --pidfile="../$PID_DIR/celery-worker.pid" \
             > "../$LOG_DIR/celery-worker.log" 2>&1 &
         cd ..
@@ -81,7 +82,7 @@ start_celery_beat() {
         echo -e "${YELLOW}Celery Beat 已在运行${NC}"
     else
         cd backend
-        nohup uv run celery -A fundval beat --loglevel=info \
+        nohup /Users/oscar/.local/bin/uv run celery -A fundval beat --loglevel=info \
             --pidfile="../$PID_DIR/celery-beat.pid" \
             --schedule="../$LOG_DIR/celerybeat-schedule" \
             > "../$LOG_DIR/celery-beat.log" 2>&1 &
@@ -103,7 +104,7 @@ start_django() {
 
         # 从 config.json 读取端口配置
         if [ -f "config.json" ]; then
-            SERVER_PORT=$(python3 -c "import json; print(json.load(open('config.json')).get('port', 8000))" 2>/dev/null || echo "8000")
+            SERVER_PORT=$(/Users/oscar/.local/bin/uv run python -c "import json; print(json.load(open('config.json')).get('port', 8000))" 2>/dev/null || echo "8000")
         else
             echo -e "${YELLOW}⚠ config.json 不存在，使用默认端口 8000${NC}"
             SERVER_PORT="8000"
@@ -111,7 +112,7 @@ start_django() {
 
         echo "监听地址: 0.0.0.0:$SERVER_PORT"
 
-        nohup uv run python manage.py runserver "0.0.0.0:$SERVER_PORT" \
+        nohup /Users/oscar/.local/bin/uv run python manage.py runserver "0.0.0.0:$SERVER_PORT" \
             > "../$LOG_DIR/django.log" 2>&1 &
         echo $! > "../$PID_DIR/django.pid"
         cd ..
@@ -170,7 +171,7 @@ main() {
 
     # 读取实际端口
     if [ -f "backend/config.json" ]; then
-        ACTUAL_PORT=$(python3 -c "import json; print(json.load(open('backend/config.json')).get('port', 8000))" 2>/dev/null || echo "8000")
+        ACTUAL_PORT=$(/Users/oscar/.local/bin/uv run python -c "import json; print(json.load(open('backend/config.json')).get('port', 8000))" 2>/dev/null || echo "8000")
     else
         ACTUAL_PORT="8000"
     fi

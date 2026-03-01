@@ -45,9 +45,11 @@ class Command(BaseCommand):
         for fund in funds:
             try:
                 data = source.fetch_realtime_nav(fund.fund_code)
-                fund.latest_nav = data['nav']
-                fund.latest_nav_date = data['nav_date']
-                fund.save()
+                new_date = data.get('nav_date')
+                if not fund.latest_nav_date or (new_date and new_date >= fund.latest_nav_date):
+                    fund.latest_nav = data['nav']
+                    fund.latest_nav_date = new_date
+                    fund.save(update_fields=['latest_nav', 'latest_nav_date', 'updated_at'])
                 success_count += 1
 
                 if fund_code:

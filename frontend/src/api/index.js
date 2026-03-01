@@ -34,6 +34,7 @@ export const fundsAPI = {
   get: (code) => api.get(`/funds/${code}/`),
   detail: (fundCode) => api.get(`/funds/${fundCode}/`),
   estimate: (fundCode) => api.get(`/funds/${fundCode}/estimate/`),
+  marketQuote: (fundCode) => api.get(`/funds/${fundCode}/market_quote/`),
   search: (keyword) => api.get('/funds/', { params: { search: keyword } }),
   getEstimate: (code, source) => api.get(`/funds/${code}/estimate/`, { params: { source } }),
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),

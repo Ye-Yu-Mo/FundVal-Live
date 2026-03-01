@@ -56,6 +56,12 @@ class Command(BaseCommand):
             try:
                 # 获取实际净值
                 data = source.fetch_realtime_nav(record.fund.fund_code)
+                
+                # 核心修正：强校验日期必须匹配
+                if data['nav_date'] != record.estimate_date:
+                    logger.warning(f"数据尚未同步: {record.fund.fund_code} 审计日期为 {record.estimate_date}, 但接口返回净值日期为 {data['nav_date']}")
+                    continue
+
                 record.actual_nav = data['nav']
 
                 # 计算误差率
