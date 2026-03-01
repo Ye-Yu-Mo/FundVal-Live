@@ -102,6 +102,11 @@ start_django() {
     else
         cd backend
 
+        # 运行数据库迁移
+        echo "运行数据库迁移..."
+        uv run python manage.py migrate --noinput
+        echo -e "${GREEN}✓ 迁移完成${NC}"
+
         # 从 config.json 读取端口配置
         if [ -f "config.json" ]; then
             SERVER_PORT=$(/Users/oscar/.local/bin/uv run python -c "import json; print(json.load(open('config.json')).get('port', 8000))" 2>/dev/null || echo "8000")

@@ -8,7 +8,8 @@ from django.contrib.auth import get_user_model
 from datetime import date
 from .models import (
     Fund, Account, Position, PositionOperation,
-    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory
+    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
+    UserSourceCredential, AIConfig, AIPromptTemplate
 )
 
 User = get_user_model()
@@ -275,3 +276,62 @@ class QueryNavSerializer(serializers.Serializer):
         if value > date.today():
             raise serializers.ValidationError('操作日期不能是未来')
         return value
+
+
+class UserSourceCredentialSerializer(serializers.ModelSerializer):
+    """用户数据源凭证序列化器"""
+
+    class Meta:
+        model = UserSourceCredential
+        fields = [
+            'id',
+            'source_name',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class QRCodeLoginSerializer(serializers.Serializer):
+    """二维码登录请求序列化器"""
+
+    source_name = serializers.CharField(max_length=50)
+
+    def validate_source_name(self, value):
+        """验证数据源是否存在"""
+        from .sources import SourceRegistry
+
+        source = SourceRegistry.get_source(value)
+        if not source:
+            raise serializers.ValidationError(f'数据源 {value} 不存在')
+
+        return value
+
+
+class AIConfigSerializer(serializers.ModelSerializer):
+    """AI配置序列化器"""
+
+    api_key = serializers.CharField(max_length=500)
+
+    class Meta:
+        model = AIConfig
+        fields = ['id', 'api_endpoint', 'api_key', 'model_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['api_key'] = '****'
+        return data
+
+
+class AIPromptTemplateSerializer(serializers.ModelSerializer):
+    """AI提示词模板序列化器"""
+
+    class Meta:
+        model = AIPromptTemplate
+        fields = [
+            'id', 'name', 'context_type', 'system_prompt',
+            'user_prompt', 'is_default', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

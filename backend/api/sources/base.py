@@ -57,6 +57,61 @@ class BaseEstimateSource(ABC):
         pass
 
     @abstractmethod
+    def fetch_today_nav(self, fund_code: str) -> Dict:
+        """
+        获取当日确认净值（从历史净值接口取最新一条）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'nav': Decimal,
+                'nav_date': date,
+            }
+            如果获取失败或数据为空，返回 None
+        """
+        pass
+
+    @abstractmethod
+    def get_qrcode(self) -> Dict:
+        """
+        获取登录二维码（用于需要登录的数据源）
+
+        Returns:
+            dict: {
+                'qr_id': str,
+                'qr_url': str,
+            }
+            如果数据源不支持二维码登录，返回 None
+        """
+        pass
+
+    @abstractmethod
+    def check_qrcode_state(self, qr_id: str) -> Dict:
+        """
+        检查二维码扫码状态
+
+        Args:
+            qr_id: 二维码ID
+
+        Returns:
+            dict: {
+                'state': str,  # waiting/scanned/confirmed/expired
+                'token': str,  # 仅 state=confirmed 时有值
+            }
+        """
+        pass
+
+    @abstractmethod
+    def logout(self):
+        """
+        登出（清除 token）
+        """
+        pass
+
+    @abstractmethod
     def fetch_fund_list(self) -> list:
         """
         获取基金列表

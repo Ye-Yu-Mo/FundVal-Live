@@ -13,16 +13,32 @@ logger = logging.getLogger(__name__)
 @shared_task
 def update_fund_nav():
     """
-    定时更新基金净值
-
-    每天从数据源获取最新净值并更新数据库
+    定时更新基金净值（昨日净值）
+    
+    默认从数据源获取最新可用的历史净值并同步到基金主表。
     """
     try:
         call_command('update_nav')
-        logger.info('基金净值更新完成')
-        return '净值更新完成'
+        logger.info('基金昨日/最新净值同步完成')
+        return '净值同步完成'
     except Exception as e:
-        logger.error(f'基金净值更新失败: {str(e)}')
+        logger.error(f'基金净值自动更新失败: {str(e)}')
+        raise
+
+
+@shared_task
+def update_fund_today_nav():
+    """
+    定时更新基金当日确认净值
+    
+    每天晚间执行，尝试从确权接口抓取今日净值。
+    """
+    try:
+        call_command('update_nav', '--today')
+        logger.info('基金今日净值确权完成')
+        return '当日净值更新完成'
+    except Exception as e:
+        logger.error(f'基金当日净值确权失败: {str(e)}')
         raise
 
 
@@ -30,13 +46,12 @@ def update_fund_nav():
 def capture_estimate_snapshot():
     """
     捕捉 15:00 收盘估值快照
-
-    每个交易日 15:00 执行，将当前的实时估值存入准确率审计表
+    
+    每个交易日 15:05 执行，将收盘估值锁定，用于晚间与真实净值对比计算误差。
     """
     from api.models import Fund, EstimateAccuracy
     from api.utils.trading_calendar import is_trading_day
     from django.utils import timezone
-    from decimal import Decimal
 
     today = timezone.localdate()
     if not is_trading_day(today):
@@ -66,8 +81,8 @@ def capture_estimate_snapshot():
 def audit_accuracy():
     """
     审计估值准确率
-
-    每个交易晚间执行，撮合当天的估值快照与最终公布的净值
+    
+    每个交易晚间执行，计算所有捕捉到的快照与最终净值的误差。
     """
     from api.utils.trading_calendar import is_trading_day
     from django.utils import timezone

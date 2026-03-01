@@ -18,5 +18,17 @@
       "保留 db/redis 等官方镜像配置"
     ],
     "finish": true
+  },
+  "today-nav-fetch": {
+    "core": "新增当日确认净值获取功能",
+    "details": [
+      "后端：新增 fetch_today_nav 接口（从历史净值接口取最新一条）",
+      "后端：update_nav 命令新增 --today 参数，带日期校验",
+      "后端：新增 Celery 定时任务（21:30 + 23:00）",
+      "后端：新增 batch_update_today_nav API",
+      "前端：FundDetailPage 自动请求当日净值",
+      "测试：14个测试用例全部通过"
+    ],
+    "finish": true
   }
 }

@@ -162,6 +162,57 @@ class EastMoneySource(BaseEstimateSource):
 
         return funds
 
+    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+        """
+        获取当日确认净值（从历史净值接口取最新一条）
+
+        使用 pingzhongdata 接口获取历史净值，取最后一条记录作为当日净值。
+        当日净值通常在 20:00-22:00 公布后出现在历史数据中。
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            dict: {
+                'fund_code': str,
+                'nav': Decimal,
+                'nav_date': date,
+            }
+            如果获取失败或数据为空，返回 None
+        """
+        try:
+            # 调用 fetch_nav_history 获取历史净值（不限制日期范围）
+            history = self.fetch_nav_history(fund_code)
+
+            if not history:
+                logger.warning(f'获取当日净值失败：{fund_code}，历史净值数据为空')
+                return None
+
+            # 取最后一条记录（最新净值）
+            latest = history[-1]
+
+            return {
+                'fund_code': fund_code,
+                'nav': latest['unit_nav'],
+                'nav_date': latest['nav_date'],
+            }
+
+        except Exception as e:
+            logger.error(f'获取当日净值失败：{fund_code}, 错误：{e}')
+            return None
+
+    def get_qrcode(self) -> Optional[Dict]:
+        """天天基金不需要登录，返回 None"""
+        return None
+
+    def check_qrcode_state(self, qr_id: str) -> Optional[Dict]:
+        """天天基金不需要登录，返回 None"""
+        return None
+
+    def logout(self):
+        """天天基金不需要登录，无操作"""
+        pass
+
     def fetch_nav_history(
         self,
         fund_code: str,

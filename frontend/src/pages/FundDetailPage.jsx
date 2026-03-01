@@ -12,9 +12,12 @@ import {
   message,
   Button,
   Table,
+  Select,
 } from 'antd';
+import { RobotOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
-import { fundsAPI, positionsAPI } from '../api';
+import { fundsAPI, positionsAPI, preferencesAPI } from '../api';
+import AIAnalysisModal from '../components/AIAnalysisModal';
 
 const FundDetailPage = () => {
   const { code } = useParams();
@@ -28,6 +31,30 @@ const FundDetailPage = () => {
   const [operations, setOperations] = useState([]);
   const [timeRange, setTimeRange] = useState('1M');
   const [chartLoading, setChartLoading] = useState(false);
+  const [source, setSource] = useState('eastmoney');
+
+  // AI 分析
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+
+  const buildAiContextData = () => {
+    const navHistoryStr = navHistory.slice(-30).map(h => `${h.nav_date}:${h.unit_nav}`).join(',');
+    const pos = positions.find(p => p.fund?.fund_code === code);
+    return {
+      fund_code: fund?.fund_code || '',
+      fund_name: fund?.fund_name || '',
+      fund_type: fund?.fund_type || '',
+      latest_nav: fund?.latest_nav || '',
+      latest_nav_date: fund?.latest_nav_date || '',
+      estimate_nav: estimate?.estimate_nav || '',
+      estimate_growth: estimate?.estimate_growth || '',
+      nav_history: navHistoryStr,
+      holding_share: pos?.holding_share || '',
+      holding_cost: pos?.holding_cost || '',
+      holding_value: pos?.market_value || '',
+      pnl: pos?.profit || '',
+      pnl_rate: pos?.profit_rate || '',
+    };
+  };
 
   // 加载历史净值
   const loadNavHistory = async (range) => {
@@ -141,10 +168,15 @@ const FundDetailPage = () => {
       setLoading(true);
 
       try {
-        // 并发加载基金详情、估值、准确率历史和场内价格
+        // 加载用户偏好数据源
+        const prefRes = await preferencesAPI.get().catch(() => null);
+        const preferredSource = prefRes?.data?.preferred_source || 'eastmoney';
+        setSource(preferredSource);
+
+        // 并发加载基金详情、指定源估值、准确率历史和场内价格
         const [detailRes, estimateRes, accuracyRes, marketRes] = await Promise.all([
           fundsAPI.detail(code),
-          fundsAPI.estimate(code).catch(() => null),
+          fundsAPI.getEstimate(code, preferredSource).catch(() => null),
           fundsAPI.getAccuracy(code).catch(() => null),
           fundsAPI.marketQuote(code).catch(() => null)
         ]);
@@ -153,6 +185,11 @@ const FundDetailPage = () => {
         setEstimate(estimateRes?.data || null);
         setAccuracy(accuracyRes?.data || null);
         setMarketQuote(marketRes?.data || null);
+
+        // 尝试更新当日净值（静默失败）
+        fundsAPI.batchUpdateTodayNav([code]).catch(() => {
+          // 静默失败，不影响页面加载
+        });
 
         // 加载历史净值
         await loadNavHistory(timeRange);
@@ -197,11 +234,8 @@ const FundDetailPage = () => {
         smooth: true,
         markPoint: {
           data: operations.map(op => {
-            console.log('Processing operation:', op);
             // 找到操作日期在图表中的索引
             const dateIndex = navHistory.findIndex(item => item.nav_date === op.operation_date);
-            console.log(`Operation date: ${op.operation_date}, found at index: ${dateIndex}`);
-
             if (dateIndex === -1) return null;
 
             return {
@@ -267,7 +301,29 @@ const FundDetailPage = () => {
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       {/* 基础信息卡片 */}
-      <Card title="基金信息">
+      <Card
+        title="基金信息"
+        extra={
+          <Space wrap>
+            <Button icon={<RobotOutlined />} onClick={() => setAiModalVisible(true)}>AI 分析</Button>
+            <Select
+              value={source}
+              size="small"
+              style={{ width: 100 }}
+              onChange={async (newSource) => {
+                setSource(newSource);
+                await preferencesAPI.update(newSource).catch(() => { });
+                const res = await fundsAPI.getEstimate(code, newSource).catch(() => null);
+                setEstimate(res?.data || null);
+              }}
+              options={[
+                { label: '东方财富', value: 'eastmoney' },
+                { label: '养基宝', value: 'yangjibao' },
+              ]}
+            />
+          </Space>
+        }
+      >
         <Descriptions column={{ xs: 1, sm: 2, md: 3 }}>
           <Descriptions.Item label="基金代码">{fund.fund_code}</Descriptions.Item>
           <Descriptions.Item label="基金名称">{fund.fund_name}</Descriptions.Item>
@@ -384,7 +440,7 @@ const FundDetailPage = () => {
                   <span style={{ color, fontWeight: '500' }}>
                     {val > 0 ? '+' : ''}{rate}%
                   </span>
-                );
+                )
               }
             }
           ]}
@@ -469,6 +525,15 @@ const FundDetailPage = () => {
           />
         </Card>
       )}
+
+      {/* AI 分析 Modal */}
+      <AIAnalysisModal
+        open={aiModalVisible}
+        onClose={() => setAiModalVisible(false)}
+        contextType="fund"
+        contextData={buildAiContextData()}
+        title={`AI 分析 · ${fund?.fund_name || ''}`}
+      />
     </Space>
   );
 };

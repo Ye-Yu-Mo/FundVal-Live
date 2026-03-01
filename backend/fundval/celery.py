@@ -23,7 +23,15 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'update-fund-nav-daily': {
         'task': 'api.tasks.update_fund_nav',
-        'schedule': crontab(hour=18, minute=30),  # 每天 18:30 执行
+        'schedule': crontab(hour=18, minute=30),  # 每天 18:30 执行（昨日净值）
+    },
+    'update-fund-today-nav-evening': {
+        'task': 'api.tasks.update_fund_today_nav',
+        'schedule': crontab(hour=21, minute=30),  # 每天 21:30 执行（当日净值）
+    },
+    'update-fund-today-nav-night': {
+        'task': 'api.tasks.update_fund_today_nav',
+        'schedule': crontab(hour=23, minute=0),   # 每天 23:00 执行（当日净值）
     },
 }
 

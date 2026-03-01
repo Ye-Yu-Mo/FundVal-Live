@@ -119,23 +119,34 @@ jobs:
         working-directory: frontend
         run: npx cap sync android
 
-      - name: Create release keystore
+      - name: Create debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build Android APK + AAB (Release)
         working-directory: frontend/android
         run: |
           mkdir -p ~/.android
           echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 -d > ~/.android/release.keystore
-          echo "storeFile=$HOME/.android/release.keystore" > key.properties
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> key.properties
 
-      - name: Build Android APK (Release)
-        working-directory: frontend/android
-        run: ./gradlew assembleRelease
+          ./gradlew assembleRelease bundleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/.android/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
 
-      - name: Build Android AAB (Release)
-        working-directory: frontend/android
-        run: ./gradlew bundleRelease
+          # 验证签名
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            echo "SUCCESS: Signed APK found"
+          else
+            echo "ERROR: Signed APK not found, check signing configuration"
+            ls app/build/outputs/apk/release/
+            exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

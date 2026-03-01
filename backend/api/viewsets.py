@@ -3,11 +3,13 @@ API ViewSets
 
 实现所有 API 端点
 """
+import logging
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.shortcuts import get_object_or_404
+from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
 from decimal import Decimal
@@ -15,16 +17,20 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .models import (
     Fund, Account, Position, PositionOperation,
-    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory
+    Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
+    AIConfig, AIPromptTemplate,
 )
 from .serializers import (
     FundSerializer, AccountSerializer, PositionSerializer,
     PositionOperationSerializer, WatchlistSerializer, UserRegisterSerializer,
-    FundNavHistorySerializer, QueryNavSerializer
+    FundNavHistorySerializer, QueryNavSerializer,
+    AIConfigSerializer, AIPromptTemplateSerializer,
 )
 from .sources import SourceRegistry
 from .services import recalculate_all_positions
 from fundval.config import config
+
+logger = logging.getLogger(__name__)
 
 
 class FundViewSet(viewsets.ReadOnlyModelViewSet):
@@ -77,6 +83,22 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 {'error': f'数据源 {source_name} 不存在'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        # 养基宝需要注入用户 token
+        if source_name == 'yangjibao' and request.user.is_authenticated:
+            from .models import UserSourceCredential
+            credential = UserSourceCredential.objects.filter(
+                user=request.user,
+                source_name='yangjibao',
+                is_active=True,
+            ).first()
+            if credential:
+                source._token = credential.token
+            else:
+                return Response(
+                    {'error': '未登录养基宝，请先扫码登录'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         try:
             data = source.fetch_estimate(fund_code)
@@ -176,7 +198,8 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         }
         """
         fund_codes = request.data.get('fund_codes', [])
-        ttl_minutes = config.get('estimate_cache_ttl', 5)  # 从配置读取 TTL
+        source_name = request.data.get('source', 'eastmoney')
+        ttl_minutes = config.get('estimate_cache_ttl', 5)
 
         if not fund_codes:
             return Response({'error': '缺少 fund_codes 参数'}, status=status.HTTP_400_BAD_REQUEST)
@@ -216,7 +239,18 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 从数据源获取
         if need_fetch:
-            source = SourceRegistry.get_source('eastmoney')
+            source = SourceRegistry.get_source(source_name) or SourceRegistry.get_source('eastmoney')
+
+            # 养基宝需要注入用户 token
+            if source_name == 'yangjibao' and request.user.is_authenticated:
+                from .models import UserSourceCredential
+                credential = UserSourceCredential.objects.filter(
+                    user=request.user,
+                    source_name='yangjibao',
+                    is_active=True,
+                ).first()
+                if credential:
+                    source._token = credential.token
 
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {executor.submit(source.fetch_estimate, code): code
@@ -312,6 +346,96 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 except Exception as e:
                     results[code] = {
                         'fund_code': code,
+                        'error': f'获取净值失败: {str(e)}'
+                    }
+
+        return Response(results)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def batch_update_today_nav(self, request):
+        """
+        批量更新基金当日确认净值
+
+        请求体:
+        {
+            "fund_codes": ["000001", "000002", ...]
+        }
+
+        响应:
+        {
+            "000001": {
+                "fund_code": "000001",
+                "latest_nav": "1.2200",
+                "latest_nav_date": "2026-02-24",
+                "updated": true
+            },
+            "000002": {
+                "fund_code": "000002",
+                "updated": false,
+                "reason": "非当日净值"
+            },
+            ...
+        }
+        """
+        from datetime import date as date_type
+
+        fund_codes = request.data.get('fund_codes', [])
+
+        if not fund_codes:
+            return Response({'error': '缺少 fund_codes 参数'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 查询数据库
+        funds = Fund.objects.filter(fund_code__in=fund_codes)
+        fund_map = {f.fund_code: f for f in funds}
+
+        results = {}
+        source = SourceRegistry.get_source('eastmoney')
+        today = date_type.today()
+
+        # 并发获取当日净值
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(source.fetch_today_nav, code): code
+                      for code in fund_codes if code in fund_map}
+
+            for future in as_completed(futures):
+                code = futures[future]
+                try:
+                    data = future.result()
+                    fund = fund_map.get(code)
+
+                    if not data:
+                        results[code] = {
+                            'fund_code': code,
+                            'updated': False,
+                            'reason': '获取净值失败'
+                        }
+                        continue
+
+                    # 日期校验：只有当日净值才更新
+                    if data['nav_date'] != today:
+                        results[code] = {
+                            'fund_code': code,
+                            'updated': False,
+                            'reason': f'非当日净值（{data["nav_date"]}）'
+                        }
+                        continue
+
+                    if fund:
+                        # 更新数据库
+                        fund.latest_nav = data.get('nav')
+                        fund.latest_nav_date = data.get('nav_date')
+                        fund.save(update_fields=['latest_nav', 'latest_nav_date'])
+
+                        results[code] = {
+                            'fund_code': code,
+                            'latest_nav': str(data.get('nav')),
+                            'latest_nav_date': data.get('nav_date').isoformat() if data.get('nav_date') else None,
+                            'updated': True
+                        }
+                except Exception as e:
+                    results[code] = {
+                        'fund_code': code,
+                        'updated': False,
                         'error': f'获取净值失败: {str(e)}'
                     }
 
@@ -495,6 +619,88 @@ class AccountViewSet(viewsets.ModelViewSet):
         serializer = PositionSerializer(positions, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def delete_info(self, request, pk=None):
+        """获取账户删除信息（用于前端确认对话框）"""
+        from decimal import Decimal
+        import logging
+
+        logger = logging.getLogger(__name__)
+        account = self.get_object()
+
+        # 检查是否为默认账户
+        if account.is_default:
+            return Response({
+                'can_delete': False,
+                'is_default': True,
+                'message': '默认账户不能删除',
+                'children_count': 0,
+                'positions_count': 0,
+                'total_cost': '0.00',
+            })
+
+        # 统计子账户数量
+        children_count = account.children.count()
+
+        # 统计持仓数量和总成本（包括子账户的持仓）
+        all_account_ids = [account.id]
+        if children_count > 0:
+            all_account_ids.extend(account.children.values_list('id', flat=True))
+
+        positions = Position.objects.filter(account_id__in=all_account_ids)
+        positions_count = positions.count()
+        total_cost = positions.aggregate(
+            total=models.Sum('holding_cost')
+        )['total'] or Decimal('0')
+
+        logger.info(
+            f"Account delete info: user={request.user.username}, "
+            f"account={account.name}, children={children_count}, "
+            f"positions={positions_count}, cost={total_cost}"
+        )
+
+        return Response({
+            'can_delete': True,
+            'is_default': False,
+            'message': '',
+            'children_count': children_count,
+            'positions_count': positions_count,
+            'total_cost': str(total_cost),
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        """删除账户（增加安全检查和日志）"""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        account = self.get_object()
+
+        # 检查是否为默认账户
+        if account.is_default:
+            logger.warning(
+                f"Attempt to delete default account: user={request.user.username}, "
+                f"account={account.name}"
+            )
+            return Response(
+                {'detail': '默认账户不能删除'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 记录删除操作日志
+        children_count = account.children.count()
+        positions_count = Position.objects.filter(
+            account__in=[account.id] + list(account.children.values_list('id', flat=True))
+        ).count()
+
+        logger.info(
+            f"Deleting account: user={request.user.username}, "
+            f"account={account.name}, children={children_count}, "
+            f"positions={positions_count}"
+        )
+
+        # 执行删除
+        return super().destroy(request, *args, **kwargs)
+
 
 class PositionViewSet(viewsets.ReadOnlyModelViewSet):
     """持仓 ViewSet"""
@@ -506,10 +712,21 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         """只返回当前用户的持仓"""
         queryset = Position.objects.filter(account__user=self.request.user)
 
-        # 按账户过滤
-        account_id = self.request.query_params.get('account')
+        # 按账户过滤（兼容 account_id 和 account 两种参数名）
+        account_id = self.request.query_params.get('account_id') or self.request.query_params.get('account')
         if account_id:
-            queryset = queryset.filter(account_id=account_id)
+            # 如果是父账户，返回所有子账户的持仓
+            from .models import Account
+            try:
+                account = Account.objects.get(id=account_id, user=self.request.user)
+                if account.parent is None:
+                    # 父账户：返回所有子账户持仓
+                    queryset = queryset.filter(account__parent_id=account_id)
+                else:
+                    # 子账户：直接过滤
+                    queryset = queryset.filter(account_id=account_id)
+            except Account.DoesNotExist:
+                queryset = queryset.none()
 
         # 按基金过滤
         fund_code = self.request.query_params.get('fund_code')
@@ -530,6 +747,35 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         account_id = request.data.get('account_id')
         recalculate_all_positions(account_id=account_id)
         return Response({'message': '重算完成'})
+
+    @action(detail=True, methods=['delete'])
+    def clear(self, request, pk=None):
+        """清空持仓（删除所有操作流水）"""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        position = self.get_object()
+
+        account_id = position.account.id
+        fund_id = position.fund.id
+
+        # 删除所有操作流水
+        operations = PositionOperation.objects.filter(
+            account_id=account_id,
+            fund_id=fund_id
+        )
+        operation_count = operations.count()
+        operations.delete()
+
+        logger.info(
+            f"Cleared position: user={request.user.username}, "
+            f"account={position.account.name}, fund={position.fund.fund_code}, "
+            f"operations_deleted={operation_count}"
+        )
+
+        # 删除操作后会自动触发持仓重算（通过 signal）
+        # 持仓会变为 0 份额或被删除
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'])
     def history(self, request):
@@ -580,7 +826,7 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """删除操作需要管理员权限"""
-        if self.action == 'destroy':
+        if self.action in ['destroy', 'batch_delete']:
             return [IsAdminUser()]
         return super().get_permissions()
 
@@ -591,10 +837,18 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
         else:
             queryset = PositionOperation.objects.filter(account__user=self.request.user)
 
-        # 按账户过滤
-        account_id = self.request.query_params.get('account')
+        # 按账户过滤（兼容 account_id 和 account 两种参数名）
+        account_id = self.request.query_params.get('account_id') or self.request.query_params.get('account')
         if account_id:
-            queryset = queryset.filter(account_id=account_id)
+            from .models import Account
+            try:
+                account = Account.objects.get(id=account_id)
+                if account.parent is None:
+                    queryset = queryset.filter(account__parent_id=account_id)
+                else:
+                    queryset = queryset.filter(account_id=account_id)
+            except Account.DoesNotExist:
+                queryset = queryset.none()
 
         # 按基金过滤
         fund_code = self.request.query_params.get('fund_code')
@@ -608,6 +862,48 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def batch_delete(self, request):
+        """批量删除操作（管理员）"""
+        import logging
+        import uuid
+
+        logger = logging.getLogger(__name__)
+        operation_ids = request.data.get('operation_ids', [])
+
+        if not operation_ids:
+            return Response(
+                {'error': '操作 ID 列表不能为空'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 转换为 UUID 对象
+        try:
+            uuid_list = [uuid.UUID(op_id) if isinstance(op_id, str) else op_id for op_id in operation_ids]
+        except (ValueError, AttributeError) as e:
+            return Response(
+                {'error': f'无效的操作 ID: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 查询要删除的操作
+        operations = PositionOperation.objects.filter(id__in=uuid_list)
+        deleted_count = operations.count()
+
+        # 记录日志
+        logger.info(
+            f"Batch deleting operations: user={request.user.username}, "
+            f"count={deleted_count}, ids={operation_ids}"
+        )
+
+        # 删除操作（会自动触发持仓重算）
+        operations.delete()
+
+        return Response({
+            'deleted_count': deleted_count,
+            'message': f'成功删除 {deleted_count} 条操作记录'
+        })
 
 
 class WatchlistViewSet(viewsets.ModelViewSet):
@@ -933,3 +1229,342 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         results = batch_sync_nav_history(fund_codes, start_date, end_date)
 
         return Response(results)
+
+
+class SourceCredentialViewSet(viewsets.ViewSet):
+    """数据源凭证 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def qrcode(self, request):
+        """
+        获取登录二维码
+
+        POST /api/source-credentials/qrcode/
+        {
+            "source_name": "yangjibao"
+        }
+
+        响应:
+        {
+            "qr_id": "qr-123456",
+            "qr_url": "http://weixin.qq.com/q/..."
+        }
+        """
+        from .serializers import QRCodeLoginSerializer
+
+        serializer = QRCodeLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        source_name = serializer.validated_data['source_name']
+        source = SourceRegistry.get_source(source_name)
+
+        try:
+            qr_data = source.get_qrcode()
+
+            if qr_data is None:
+                return Response(
+                    {'error': f'数据源 {source_name} 不支持二维码登录'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            return Response(qr_data)
+        except Exception as e:
+            return Response(
+                {'error': f'获取二维码失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], url_path='qrcode/(?P<qr_id>[^/.]+)/state')
+    def qrcode_state(self, request, qr_id=None):
+        """
+        检查二维码扫码状态
+
+        GET /api/source-credentials/qrcode/{qr_id}/state/?source_name=yangjibao
+
+        响应:
+        {
+            "state": "waiting",  // waiting/scanned/confirmed/expired
+            "token": null
+        }
+
+        或（登录成功）:
+        {
+            "state": "confirmed",
+            "token": "xxx"
+        }
+        """
+        from .models import UserSourceCredential
+
+        source_name = request.query_params.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            return Response(
+                {'error': f'数据源 {source_name} 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            state_data = source.check_qrcode_state(qr_id)
+
+            # 如果登录成功，保存凭证
+            if state_data['state'] == 'confirmed' and state_data['token']:
+                token = state_data['token']
+
+                # 更新或创建凭证
+                credential, created = UserSourceCredential.objects.update_or_create(
+                    user=request.user,
+                    source_name=source_name,
+                    defaults={
+                        'token': token,
+                        'is_active': True,
+                    }
+                )
+
+                logger.info(f'用户 {request.user.username} 登录数据源 {source_name} 成功')
+
+            return Response(state_data)
+
+        except Exception as e:
+            return Response(
+                {'error': f'检查二维码状态失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def logout(self, request):
+        """
+        登出数据源
+
+        POST /api/source-credentials/logout/
+        {
+            "source_name": "yangjibao"
+        }
+        """
+        from .models import UserSourceCredential
+
+        source_name = request.data.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 停用凭证
+            credential = UserSourceCredential.objects.filter(
+                user=request.user,
+                source_name=source_name,
+                is_active=True
+            ).first()
+
+            if credential:
+                credential.is_active = False
+                credential.save()
+
+            # 调用数据源的 logout 方法
+            source = SourceRegistry.get_source(source_name)
+            if source:
+                source.logout()
+
+            return Response({'success': True})
+
+        except Exception as e:
+            return Response(
+                {'error': f'登出失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """
+        查询登录状态
+
+        GET /api/source-credentials/status/?source_name=yangjibao
+
+        响应:
+        {
+            "logged_in": true,
+            "source_name": "yangjibao",
+            "created_at": "2026-02-24T10:00:00Z"
+        }
+        """
+        from .models import UserSourceCredential
+        from .serializers import UserSourceCredentialSerializer
+
+        source_name = request.query_params.get('source_name')
+        if not source_name:
+            return Response(
+                {'error': '缺少 source_name 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        credential = UserSourceCredential.objects.filter(
+            user=request.user,
+            source_name=source_name,
+            is_active=True
+        ).first()
+
+        if credential:
+            serializer = UserSourceCredentialSerializer(credential)
+            return Response({
+                'logged_in': True,
+                **serializer.data
+            })
+        else:
+            return Response({
+                'logged_in': False,
+                'source_name': source_name
+            })
+
+    @action(detail=False, methods=['post'], url_path='import')
+    def import_from_yangjibao(self, request):
+        """
+        一键导入养基宝账户和持仓数据
+
+        POST /api/source-credentials/import/
+
+        响应:
+        {
+            "accounts_created": 2,
+            "accounts_skipped": 0,
+            "holdings_created": 5,
+            "holdings_skipped": 1,
+        }
+        """
+        from .models import UserSourceCredential
+        from .sources.yangjibao import YangJiBaoSource
+        from .services.import_yjb import import_from_yangjibao
+
+        credential = UserSourceCredential.objects.filter(
+            user=request.user,
+            source_name='yangjibao',
+            is_active=True,
+        ).first()
+
+        if not credential:
+            return Response(
+                {'error': '未登录养基宝，请先扫码登录'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = YangJiBaoSource()
+        source._token = credential.token
+
+        overwrite = request.data.get('overwrite', False)
+
+        try:
+            result = import_from_yangjibao(request.user, source, overwrite=overwrite)
+            return Response(result)
+        except Exception as e:
+            logger.error(f'养基宝导入失败: {e}')
+            return Response(
+                {'error': f'导入失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class UserPreferenceViewSet(viewsets.ViewSet):
+    """用户偏好 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    VALID_SOURCES = {'eastmoney', 'yangjibao'}
+
+    def list(self, request):
+        """
+        GET /api/preferences/
+        返回用户偏好，无记录时返回默认值
+        """
+        from .models import UserPreference
+
+        pref = UserPreference.objects.filter(user=request.user).first()
+        preferred_source = pref.preferred_source if pref else 'eastmoney'
+
+        return Response({'preferred_source': preferred_source})
+
+    def update(self, request, pk=None):
+        """
+        PUT /api/preferences/
+        更新用户偏好（不存在则创建）
+        """
+        from .models import UserPreference
+
+        preferred_source = request.data.get('preferred_source')
+
+        if not preferred_source or preferred_source not in self.VALID_SOURCES:
+            return Response(
+                {'error': f'无效的数据源，可选值：{", ".join(self.VALID_SOURCES)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pref, _ = UserPreference.objects.update_or_create(
+            user=request.user,
+            defaults={'preferred_source': preferred_source},
+        )
+
+        return Response({'preferred_source': pref.preferred_source})
+
+
+class AIConfigViewSet(viewsets.ViewSet):
+    """AI配置 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """
+        GET /api/ai/config/
+        返回当前用户AI配置，无记录时返回默认空值
+        """
+        config = AIConfig.objects.filter(user=request.user).first()
+        if config:
+            serializer = AIConfigSerializer(config)
+            return Response(serializer.data)
+        return Response({
+            'api_endpoint': '',
+            'api_key': '',
+            'model_name': 'gpt-4o-mini',
+        })
+
+    def update(self, request, pk=None):
+        """
+        PUT /api/ai/config/
+        创建或更新当前用户AI配置
+        """
+        serializer = AIConfigSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        config, _ = AIConfig.objects.update_or_create(
+            user=request.user,
+            defaults={
+                'api_endpoint': serializer.validated_data['api_endpoint'],
+                'api_key': serializer.validated_data['api_key'],
+                'model_name': serializer.validated_data.get('model_name', 'gpt-4o-mini'),
+            },
+        )
+        return Response(AIConfigSerializer(config).data)
+
+
+class AIPromptTemplateViewSet(viewsets.ModelViewSet):
+    """AI提示词模板 ViewSet"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AIPromptTemplateSerializer
+
+    def get_queryset(self):
+        queryset = AIPromptTemplate.objects.filter(user=self.request.user)
+        context_type = self.request.query_params.get('context_type')
+        if context_type:
+            queryset = queryset.filter(context_type=context_type)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

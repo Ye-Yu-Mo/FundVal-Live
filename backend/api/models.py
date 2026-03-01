@@ -443,6 +443,103 @@ class FundNavHistory(models.Model):
         return f'{self.fund.fund_code} - {self.nav_date}'
 
 
+class UserSourceCredential(models.Model):
+    """用户数据源凭证"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='source_credentials')
+    source_name = models.CharField(max_length=50, help_text='数据源名称（如 yangjibao）')
+    token = models.TextField(help_text='加密存储的 token')
+    is_active = models.BooleanField(default=True, help_text='是否激活')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_source_credential'
+        verbose_name = '用户数据源凭证'
+        verbose_name_plural = '用户数据源凭证'
+        unique_together = [['user', 'source_name']]
+        indexes = [
+            models.Index(fields=['user', 'source_name', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.source_name}'
+
+
+class UserPreference(models.Model):
+    """用户偏好设置"""
+
+    SOURCE_CHOICES = [
+        ('eastmoney', '东方财富'),
+        ('yangjibao', '养基宝'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preference')
+    preferred_source = models.CharField(
+        max_length=50,
+        choices=SOURCE_CHOICES,
+        default='eastmoney',
+    )
+
+    class Meta:
+        db_table = 'user_preference'
+        verbose_name = '用户偏好'
+        verbose_name_plural = '用户偏好'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.preferred_source}'
+
+
+class AIConfig(models.Model):
+    """用户AI配置"""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ai_config')
+    api_endpoint = models.CharField(max_length=500, help_text='OpenAI协议接口地址')
+    api_key = models.CharField(max_length=500, help_text='API Key')
+    model_name = models.CharField(max_length=100, default='gpt-4o-mini', help_text='模型名称')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_config'
+        verbose_name = 'AI配置'
+        verbose_name_plural = 'AI配置'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.model_name}'
+
+
+class AIPromptTemplate(models.Model):
+    """AI提示词模板"""
+
+    CONTEXT_CHOICES = [
+        ('fund', '基金分析'),
+        ('position', '持仓分析'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_templates')
+    name = models.CharField(max_length=100, help_text='模板名称')
+    context_type = models.CharField(max_length=20, choices=CONTEXT_CHOICES, help_text='分析维度')
+    system_prompt = models.TextField(help_text='系统提示词')
+    user_prompt = models.TextField(help_text='用户提示词（含占位符）')
+    is_default = models.BooleanField(default=False, help_text='是否为该类型的默认模板')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_prompt_template'
+        verbose_name = 'AI提示词模板'
+        verbose_name_plural = 'AI提示词模板'
+        unique_together = [['user', 'name']]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.name}'
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

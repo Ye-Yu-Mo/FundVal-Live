@@ -38,8 +38,9 @@ export const fundsAPI = {
   search: (keyword) => api.get('/funds/', { params: { search: keyword } }),
   getEstimate: (code, source) => api.get(`/funds/${code}/estimate/`, { params: { source } }),
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),
-  batchEstimate: (fundCodes) => api.post('/funds/batch_estimate/', { fund_codes: fundCodes }),
+  batchEstimate: (fundCodes, source = 'eastmoney') => api.post('/funds/batch_estimate/', { fund_codes: fundCodes, source }),
   batchUpdateNav: (fundCodes) => api.post('/funds/batch_update_nav/', { fund_codes: fundCodes }),
+  batchUpdateTodayNav: (fundCodes) => api.post('/funds/batch_update_today_nav/', { fund_codes: fundCodes }),
   queryNav: (fundCode, operationDate, before15) => api.post('/funds/query_nav/', {
     fund_code: fundCode,
     operation_date: operationDate,
@@ -61,6 +62,7 @@ export const accountsAPI = {
   create: (data) => api.post('/accounts/', data),
   update: (id, data) => api.put(`/accounts/${id}/`, data),
   delete: (id) => api.delete(`/accounts/${id}/`),
+  deleteInfo: (id) => api.get(`/accounts/${id}/delete_info/`),
 };
 
 // 持仓管理
@@ -70,6 +72,8 @@ export const positionsAPI = {
   createOperation: (data) => api.post('/positions/operations/', data),
   listOperations: (params) => api.get('/positions/operations/', { params }),
   deleteOperation: (id) => api.delete(`/positions/operations/${id}/`),
+  batchDeleteOperations: (operationIds) => api.post('/positions/operations/batch_delete/', { operation_ids: operationIds }),
+  clearPosition: (id) => api.delete(`/positions/${id}/clear/`),
   getHistory: (accountId, days = 30) => api.get('/positions/history/', {
     params: { account_id: accountId, days }
   }),
@@ -84,5 +88,40 @@ export const watchlistsAPI = {
   addItem: (id, fundCode) => api.post(`/watchlists/${id}/items/`, { fund_code: fundCode }),
   removeItem: (id, fundCode) => api.delete(`/watchlists/${id}/items/${fundCode}/`),
   reorder: (id, items) => api.put(`/watchlists/${id}/reorder/`, { items }),
+};
+
+// 用户偏好
+export const preferencesAPI = {
+  get: () => api.get('/preferences/'),
+  update: (preferredSource) => api.put('/preferences/', { preferred_source: preferredSource }),
+};
+
+// AI配置与分析
+export const aiAPI = {
+  getConfig: () => api.get('/ai/config/'),
+  updateConfig: (data) => api.put('/ai/config/', data),
+  listTemplates: (contextType) => api.get('/ai/templates/', { params: contextType ? { context_type: contextType } : {} }),
+  createTemplate: (data) => api.post('/ai/templates/', data),
+  updateTemplate: (id, data) => api.put(`/ai/templates/${id}/`, data),
+  deleteTemplate: (id) => api.delete(`/ai/templates/${id}/`),
+  analyze: (templateId, contextType, contextData) => api.post('/ai/analyze/', {
+    template_id: templateId,
+    context_type: contextType,
+    context_data: contextData,
+  }, { timeout: 120000 }),
+};
+
+// 数据源凭证
+export const sourceAPI = {
+  getQRCode: (sourceName) =>
+    api.post('/source-credentials/qrcode/', { source_name: sourceName }),
+  checkQRCodeState: (sourceName, qrId) =>
+    api.get(`/source-credentials/qrcode/${qrId}/state/`, { params: { source_name: sourceName } }),
+  logout: (sourceName) =>
+    api.post('/source-credentials/logout/', { source_name: sourceName }),
+  getStatus: (sourceName) =>
+    api.get('/source-credentials/status/', { params: { source_name: sourceName } }),
+  importFromYangJiBao: (overwrite = false) =>
+    api.post('/source-credentials/import/', { overwrite }),
 };
 
