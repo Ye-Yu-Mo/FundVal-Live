@@ -13,7 +13,7 @@ from django.db import transaction
 from ..models import Position, PositionOperation
 
 
-def recalculate_position(account_id, fund_id) -> Position:
+def recalculate_position(account_id, fund_id) -> Optional[Position]:
     """
     重新计算持仓汇总
 
@@ -22,7 +22,7 @@ def recalculate_position(account_id, fund_id) -> Position:
         fund_id: 基金 ID
 
     Returns:
-        Position: 更新后的持仓对象
+        Position: 更新后的持仓对象，清仓时返回 None
     """
     from ..models import Account, Fund
 
@@ -63,17 +63,22 @@ def recalculate_position(account_id, fund_id) -> Position:
 
     # 更新或创建 Position（使用对象而不是 ID）
     with transaction.atomic():
-        position, created = Position.objects.update_or_create(
-            account=account,
-            fund=fund,
-            defaults={
-                'holding_share': total_share,
-                'holding_cost': total_cost,
-                'holding_nav': holding_nav,
-            }
-        )
-
-    return position
+        if total_share > 0:
+            # 有持仓：更新或创建
+            position, created = Position.objects.update_or_create(
+                account=account,
+                fund=fund,
+                defaults={
+                    'holding_share': total_share,
+                    'holding_cost': total_cost,
+                    'holding_nav': holding_nav,
+                }
+            )
+            return position
+        else:
+            # 清仓：删除持仓记录
+            Position.objects.filter(account=account, fund=fund).delete()
+            return None
 
 
 def recalculate_all_positions(account_id: Optional[str] = None):
