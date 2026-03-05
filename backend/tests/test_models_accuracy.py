@@ -59,9 +59,9 @@ class TestEstimateAccuracyModel:
 
         record.calculate_error_rate()
 
-        # 误差率 = |1.1370 - 1.1490| / 1.1490 ≈ 0.010444
+        # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444（负数表示低估）
         assert record.error_rate is not None
-        assert abs(record.error_rate - Decimal('0.010444')) < Decimal('0.000001')
+        assert abs(record.error_rate - Decimal('-0.010444')) < Decimal('0.000001')
 
     def test_calculate_error_rate_zero_actual(self, fund):
         """测试实际净值为 0 时不计算误差率"""

@@ -30,7 +30,7 @@ class TestUpdateFundNavTask:
 
             # 验证调用了 update_nav 命令
             mock_call_command.assert_called_once_with('update_nav')
-            assert result == '净值更新完成'
+            assert result == '净值同步完成'
 
     def test_task_handles_command_error(self):
         """测试任务处理命令错误"""
@@ -52,7 +52,7 @@ class TestUpdateFundNavTask:
             with patch('api.tasks.logger') as mock_logger:
                 update_fund_nav()
 
-                mock_logger.info.assert_called_once_with('基金净值更新完成')
+                mock_logger.info.assert_called_once_with('基金昨日/最新净值同步完成')
 
     def test_task_logs_error(self):
         """测试任务记录错误日志"""
@@ -67,7 +67,7 @@ class TestUpdateFundNavTask:
 
                 mock_logger.error.assert_called_once()
                 call_args = mock_logger.error.call_args[0][0]
-                assert '基金净值更新失败' in call_args
+                assert '基金净值自动更新失败' in call_args
                 assert '测试错误' in call_args
 
 
@@ -95,15 +95,15 @@ class TestCeleryConfiguration:
         assert hasattr(app.conf, 'beat_schedule')
         beat_schedule = app.conf.beat_schedule
 
-        # 验证 update-fund-nav-daily 任务存在
-        assert 'update-fund-nav-daily' in beat_schedule
+        # 验证 update-fund-nav-task 任务存在
+        assert 'update-fund-nav-task' in beat_schedule
 
-        task_config = beat_schedule['update-fund-nav-daily']
+        task_config = beat_schedule['update-fund-nav-task']
         assert task_config['task'] == 'api.tasks.update_fund_nav'
 
-        # 验证调度时间（每天 18:30）
+        # 验证调度时间（每天 22:30）
         schedule = task_config['schedule']
-        assert schedule.hour == {18}
+        assert schedule.hour == {22}
         assert schedule.minute == {30}
 
     def test_celery_timezone_configured(self):
@@ -135,7 +135,7 @@ class TestCeleryIntegration:
 
         with patch('api.tasks.call_command'):
             result = update_fund_nav()
-            assert result == '净值更新完成'
+            assert result == '净值同步完成'
 
     def test_task_can_be_called_async(self):
         """测试任务可以异步调用"""
@@ -159,7 +159,7 @@ class TestCeleryIntegration:
 
         # 验证命令被调用
         mock_call_command.assert_called_once_with('update_nav')
-        assert result == '净值更新完成'
+        assert result == '净值同步完成'
 
 
 @pytest.mark.django_db

@@ -90,14 +90,19 @@ class TestQueryNav:
 
     def test_query_nav_weekend_before_15(self, client, fund, nav_history):
         """周末 15:00 前操作应查询上周五的净值"""
+        from unittest.mock import patch
+
         # 2024-01-06 是周六，15:00 前应查询 2024-01-05（周五）
         # 但我们的测试数据只有 2024-01-02，没有 2024-01-05
         # 所以应该 fallback 到 Fund.latest_nav
-        response = client.post('/api/funds/query_nav/', {
-            'fund_code': '000001',
-            'operation_date': '2024-01-06',
-            'before_15': True,
-        }, format='json')
+
+        # Mock sync_nav_history 避免实际同步修改 fund 数据
+        with patch('api.services.nav_history.sync_nav_history', return_value=0):
+            response = client.post('/api/funds/query_nav/', {
+                'fund_code': '000001',
+                'operation_date': '2024-01-06',
+                'before_15': True,
+            }, format='json')
 
         assert response.status_code == 200
         # 应该 fallback 到 Fund.latest_nav
@@ -127,12 +132,16 @@ class TestQueryNav:
 
     def test_query_nav_fallback_to_latest(self, client, fund):
         """历史净值不存在时应 fallback 到 Fund.latest_nav"""
-        # 查询一个没有历史净值的日期
-        response = client.post('/api/funds/query_nav/', {
-            'fund_code': '000001',
-            'operation_date': '2024-01-20',
-            'before_15': True,
-        }, format='json')
+        from unittest.mock import patch
+
+        # Mock sync_nav_history 避免实际同步修改 fund 数据
+        with patch('api.services.nav_history.sync_nav_history', return_value=0):
+            # 查询一个没有历史净值的日期
+            response = client.post('/api/funds/query_nav/', {
+                'fund_code': '000001',
+                'operation_date': '2024-01-20',
+                'before_15': True,
+            }, format='json')
 
         assert response.status_code == 200
         assert response.data['fund_code'] == '000001'

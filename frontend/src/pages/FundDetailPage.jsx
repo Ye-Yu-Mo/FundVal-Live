@@ -389,7 +389,7 @@ const FundDetailPage = () => {
             <Statistic
               title="场内溢价"
               value={premium || '-'}
-              precision={6}
+              precision={2}
               suffix={premium !== null ? '%' : ''}
               valueStyle={{
                 color: premium >= 0 ? '#cf1322' : '#3f8600',

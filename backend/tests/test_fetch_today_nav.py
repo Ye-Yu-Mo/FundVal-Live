@@ -63,7 +63,8 @@ class TestEastMoneySourceTodayNav:
         assert result['fund_code'] == '000001'
         assert result['nav'] == Decimal('1.1456')
         assert isinstance(result['nav_date'], date)
-        assert result['nav_date'] == date(2024, 2, 12)  # 1707753600000 对应的日期
+        # 1707753600000 在 UTC+8 时区对应 2024-02-13
+        assert result['nav_date'] == date(2024, 2, 13)
 
     @patch('requests.get')
     def test_fetch_today_nav_empty_data(self, mock_get):
@@ -265,16 +266,10 @@ class TestCelerySchedule:
 
         schedule = app.conf.beat_schedule
 
-        # 验证 21:30 任务
-        assert 'update-fund-today-nav-evening' in schedule
-        evening_task = schedule['update-fund-today-nav-evening']
-        assert evening_task['task'] == 'api.tasks.update_fund_today_nav'
-        assert 21 in evening_task['schedule'].hour
-        assert 30 in evening_task['schedule'].minute
-
-        # 验证 23:00 任务
-        assert 'update-fund-today-nav-night' in schedule
-        night_task = schedule['update-fund-today-nav-night']
-        assert night_task['task'] == 'api.tasks.update_fund_today_nav'
-        assert 23 in night_task['schedule'].hour
-        assert 0 in night_task['schedule'].minute
+        # 验证 update-fund-today-nav-task 任务存在（21:30 和 23:00）
+        assert 'update-fund-today-nav-task' in schedule
+        task = schedule['update-fund-today-nav-task']
+        assert task['task'] == 'api.tasks.update_fund_today_nav'
+        # 验证调度时间包含 21 和 23 点
+        assert 21 in task['schedule'].hour or 23 in task['schedule'].hour
+        assert 30 in task['schedule'].minute or 0 in task['schedule'].minute

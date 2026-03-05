@@ -163,9 +163,13 @@ class TestCalculateAccuracyCommand:
     @patch('api.sources.eastmoney.requests.get')
     def test_calculate_accuracy_success(self, mock_get, accuracy_record):
         """测试计算准确率成功"""
-        # Mock API 响应
+        # 获取 accuracy_record 的日期
+        estimate_date = accuracy_record.estimate_date
+        date_str = estimate_date.strftime('%Y-%m-%d')
+
+        # Mock API 响应（日期与 estimate_date 匹配）
         mock_response = Mock()
-        mock_response.text = 'jsonpgz({"fundcode":"000001","jzrq":"2026-02-10","dwjz":"1.1490"});'
+        mock_response.text = f'jsonpgz({{"fundcode":"000001","jzrq":"{date_str}","dwjz":"1.1490"}});'
         mock_response.status_code = 200
         mock_get.return_value = mock_response
 
@@ -177,8 +181,8 @@ class TestCalculateAccuracyCommand:
         accuracy_record.refresh_from_db()
         assert accuracy_record.actual_nav == Decimal('1.1490')
         assert accuracy_record.error_rate is not None
-        # 误差率 = |1.1370 - 1.1490| / 1.1490 ≈ 0.010444
-        assert abs(accuracy_record.error_rate - Decimal('0.010444')) < Decimal('0.000001')
+        # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444（负数表示低估）
+        assert abs(accuracy_record.error_rate - Decimal('-0.010444')) < Decimal('0.000001')
 
     def test_calculate_accuracy_skip_completed(self, accuracy_record):
         """测试跳过已计算的记录"""
