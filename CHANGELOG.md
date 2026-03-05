@@ -1,0 +1,86 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v2.0.15] - 2026-03-05
+
+### Added
+- **全局数据源配置**：在设置页面统一管理数据源偏好，影响所有估值相关页面
+  - 新增 `PreferenceContext` 全局状态管理
+  - 设置页面新增"数据源设置"卡片
+  - 支持切换东方财富/养基宝数据源
+  - 数据源变化时自动刷新所有页面的估值数据
+- **前端版权声明**：所有页面底部显示版权信息和 GitHub 链接
+  - 新增 `Footer` 组件
+  - 顶部导航栏添加 GitHub 图标链接
+  - 支持桌面端和移动端布局
+
+### Changed
+- **简化 UI**：移除基金查询和基金详情页面的数据源选择器
+  - 数据源统一在设置页面管理
+  - 页面更简洁，减少重复控件
+- **持仓查询优化**：持仓的预估市值、今日盈亏使用全局配置的数据源
+  - 监听数据源变化，自动刷新估值
+- **账户管理优化**：账户汇总数据使用全局配置的数据源
+  - 监听数据源变化，自动刷新汇总数据
+
+### Fixed
+- **清仓后持仓记录自动清理**：清仓时自动删除 Position 记录，不再显示全 0 占位符
+- **Docker 构建问题**：降级 Node.js 版本（22 → 20 LTS）修复 ARM64 镜像构建时的 QEMU 非法指令错误
+
+### Documentation
+- 更新 README 架构图为 Mermaid 格式，展示完整的系统架构
+- 新增问题排查手册 (`docs/问题排查.md`)，涵盖 10 大类常见问题
+- README 添加问题排查手册的显著引用
+
+---
+
+## [v2.0.14] - 2026-03-01
+
+### Added
+- **场内溢价监控**：支持 ETF/LOF 场内实时价格查询和溢价率计算
+  - 新增 Sina 数据源（新浪财经实时行情）
+  - 基金详情页面显示场内价格、场内涨跌、场内溢价
+  - 溢价率计算公式：(场内价格 - 实时估值) / 实时估值
+- **估值准确率追踪**：记录每日估值误差，统计各数据源准确率
+  - 新增 `capture_estimate_snapshot` 定时任务（15:05 捕捉收盘估值）
+  - 新增 `audit_accuracy` 定时任务（23:00 审计准确率）
+  - 基金详情页面显示历史估值记录表格
+- **日期保护逻辑**：防止历史数据覆盖当日净值
+  - `update_nav` 命令增加日期校验
+  - `calculate_accuracy` 命令增加日期强校验
+
+### Changed
+- **误差率计算逻辑**：从无符号改为有符号（正数=高估，负数=低估）
+  - 便于分析数据源的估值偏向
+- **Celery Beat 定时任务优化**：
+  - 估值快照捕捉时间调整为 15:05（原 15:00）
+  - 删除多余的 `day_of_week` 限制（任务内已有交易日判断）
+  - 添加缺失的 `update_fund_today_nav` 定时任务（21:30 和 23:00）
+
+### Fixed
+- **Sina 市场代码判断逻辑**：修复 sh/sz 前缀识别错误
+  - 深圳 ETF（159xxx）被错误识别为上海的问题已修复
+- **溢价率显示精度**：从 6 位小数改为 2 位小数
+  - 场内价格 3 位 + 估值 4 位，有效数字最多 2 位
+- **测试修复**：更新 8 个测试用例的期望值
+  - 日志消息、误差率符号、时间戳、mock 隔离
+
+### Removed
+- **Docker 配置回退**：保持远程镜像 `jasamine/fundval-*:latest`
+  - 不破坏 README 中的快速启动流程
+
+---
+
+## Legend
+
+- **Added**: 新功能
+- **Changed**: 功能变更
+- **Deprecated**: 即将废弃的功能
+- **Removed**: 已移除的功能
+- **Fixed**: Bug 修复
+- **Security**: 安全相关修复
+- **Documentation**: 文档更新
