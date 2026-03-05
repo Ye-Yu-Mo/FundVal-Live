@@ -8,8 +8,10 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
+  GithubOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import Footer from '../components/Footer';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -92,12 +94,22 @@ const MainLayout = ({ children }) => {
           }}
         >
           <div style={{ fontSize: 16, fontWeight: 'bold' }}>Fundval</div>
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <UserOutlined />
-              <span>{user?.username}</span>
-            </Space>
-          </Dropdown>
+          <Space>
+            <a
+              href="https://github.com/Ye-Yu-Mo/FundVal-Live"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', fontSize: 18 }}
+            >
+              <GithubOutlined />
+            </a>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Space style={{ cursor: 'pointer' }}>
+                <UserOutlined />
+                <span>{user?.username}</span>
+              </Space>
+            </Dropdown>
+          </Space>
         </Header>
 
         {/* 内容区 */}
@@ -111,6 +123,7 @@ const MainLayout = ({ children }) => {
           }}
         >
           {children}
+          <Footer />
         </Content>
 
         {/* 底部导航栏 */}
@@ -195,16 +208,27 @@ const MainLayout = ({ children }) => {
             zIndex: 999,
           }}
         >
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <UserOutlined />
-              <span>{user?.username}</span>
-            </Space>
-          </Dropdown>
+          <Space>
+            <a
+              href="https://github.com/Ye-Yu-Mo/FundVal-Live"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', fontSize: 18 }}
+            >
+              <GithubOutlined />
+            </a>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Space style={{ cursor: 'pointer' }}>
+                <UserOutlined />
+                <span>{user?.username}</span>
+              </Space>
+            </Dropdown>
+          </Space>
         </Header>
         <Content style={{ marginTop: 64, padding: 24, background: '#f0f2f5', minHeight: 'calc(100vh - 64px)' }}>
           {children}
         </Content>
+        <Footer />
       </Layout>
     </Layout>
   );
