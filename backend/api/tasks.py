@@ -78,7 +78,96 @@ def capture_estimate_snapshot():
 
 
 @shared_task
-def audit_accuracy():
+def check_notification_rules():
+    """
+    检查通知规则并发送通知
+
+    每 5 分钟执行一次，检查所有激活的通知规则，
+    判断是否触发条件，发送通知并记录日志。
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    from decimal import Decimal
+    from api.models import NotificationRule, NotificationLog
+    from api.notifications import ChannelRegistry
+
+    rules = NotificationRule.objects.filter(is_active=True).select_related(
+        'fund', 'user'
+    ).prefetch_related('channels')
+
+    triggered = 0
+    sent = 0
+
+    for rule in rules:
+        fund = rule.fund
+        if fund.estimate_growth is None:
+            continue
+
+        growth = Decimal(str(fund.estimate_growth))
+
+        # 判断是否触发
+        triggered_flag = False
+        if rule.rule_type == 'growth_up' and growth >= rule.threshold:
+            triggered_flag = True
+        elif rule.rule_type == 'growth_down' and growth <= -rule.threshold:
+            triggered_flag = True
+
+        if not triggered_flag:
+            continue
+
+        triggered += 1
+
+        # 检查冷却时间
+        cooldown_cutoff = timezone.now() - timedelta(minutes=rule.cooldown_minutes)
+        recent_log = NotificationLog.objects.filter(
+            rule=rule,
+            trigger_time__gte=cooldown_cutoff,
+            status='success',
+        ).exists()
+
+        if recent_log:
+            logger.debug(f'规则 {rule.id} 在冷却期内，跳过')
+            continue
+
+        # 构建通知内容
+        direction = '涨幅' if rule.rule_type == 'growth_up' else '跌幅'
+        title = f'基金{direction}提醒：{fund.fund_name}'
+        content = (
+            f'{fund.fund_name}（{fund.fund_code}）当前{direction} {abs(growth):.2f}%，'
+            f'已超过您设定的阈值 {rule.threshold}%。'
+        )
+
+        # 逐渠道发送
+        for channel_obj in rule.channels.filter(is_active=True):
+            channel_impl = ChannelRegistry.get_channel(channel_obj.channel_type)
+            if not channel_impl:
+                logger.warning(f'未找到渠道实现：{channel_obj.channel_type}')
+                continue
+
+            success = False
+            error_msg = None
+            try:
+                success = channel_impl.send(title, content, channel_obj.config)
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f'发送通知异常：rule={rule.id}, channel={channel_obj.id}, 错误：{e}')
+
+            NotificationLog.objects.create(
+                rule=rule,
+                channel=channel_obj,
+                fund_code=fund.fund_code,
+                fund_name=fund.fund_name,
+                growth=growth,
+                status='success' if success else 'failed',
+                error_message=error_msg,
+            )
+
+            if success:
+                sent += 1
+
+    logger.info(f'通知检查完成：触发 {triggered} 条规则，发送 {sent} 条通知')
+    return f'触发 {triggered} 条，发送 {sent} 条'
+
     """
     审计估值准确率
     

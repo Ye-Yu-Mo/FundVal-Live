@@ -126,3 +126,25 @@ export const sourceAPI = {
     api.post('/source-credentials/import/', { overwrite }),
 };
 
+// 通知渠道
+export const notificationChannelsAPI = {
+  list: () => api.get('/notification-channels/'),
+  create: (data) => api.post('/notification-channels/', data),
+  update: (id, data) => api.patch(`/notification-channels/${id}/`, data),
+  delete: (id) => api.delete(`/notification-channels/${id}/`),
+  test: (id) => api.post(`/notification-channels/${id}/test/`),
+};
+
+// 通知规则
+export const notificationRulesAPI = {
+  list: () => api.get('/notification-rules/'),
+  create: (data) => api.post('/notification-rules/', data),
+  update: (id, data) => api.patch(`/notification-rules/${id}/`, data),
+  delete: (id) => api.delete(`/notification-rules/${id}/`),
+};
+
+// 通知记录
+export const notificationLogsAPI = {
+  list: (params) => api.get('/notification-logs/', { params }),
+};
+

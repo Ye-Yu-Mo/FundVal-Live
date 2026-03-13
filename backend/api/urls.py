@@ -13,6 +13,9 @@ router.register(r'users', viewsets.UserViewSet, basename='user')
 router.register(r'nav-history', viewsets.FundNavHistoryViewSet, basename='nav-history')
 router.register(r'source-credentials', viewsets.SourceCredentialViewSet, basename='source-credential')
 router.register(r'ai/templates', viewsets.AIPromptTemplateViewSet, basename='ai-template')
+router.register(r'notification-channels', viewsets.NotificationChannelViewSet, basename='notification-channel')
+router.register(r'notification-rules', viewsets.NotificationRuleViewSet, basename='notification-rule')
+router.register(r'notification-logs', viewsets.NotificationLogViewSet, basename='notification-log')
 
 urlpatterns = [
     # 系统管理

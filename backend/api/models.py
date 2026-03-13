@@ -540,6 +540,104 @@ class AIPromptTemplate(models.Model):
         return f'{self.user.username} - {self.name}'
 
 
+class NotificationChannel(models.Model):
+    """通知渠道配置"""
+
+    CHANNEL_TYPE_CHOICES = [
+        ('webhook', 'Webhook'),
+        ('email', 'Email'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_channels')
+    channel_type = models.CharField(max_length=20, choices=CHANNEL_TYPE_CHOICES)
+    config = models.JSONField(help_text='渠道配置（webhook_url 或 email）')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_channel'
+        verbose_name = '通知渠道'
+        verbose_name_plural = '通知渠道'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.get_channel_type_display()}'
+
+
+class NotificationRule(models.Model):
+    """通知规则"""
+
+    RULE_TYPE_CHOICES = [
+        ('growth_up', '涨幅超过'),
+        ('growth_down', '跌幅超过'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_rules')
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='notification_rules')
+    rule_type = models.CharField(max_length=20, choices=RULE_TYPE_CHOICES)
+    threshold = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        help_text='阈值（百分比，如 5.00 表示 5%）'
+    )
+    channels = models.ManyToManyField(NotificationChannel, related_name='rules')
+    is_active = models.BooleanField(default=True)
+    cooldown_minutes = models.IntegerField(default=60, help_text='冷却时间（分钟）')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_rule'
+        verbose_name = '通知规则'
+        verbose_name_plural = '通知规则'
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(threshold__gte=0),
+                name='threshold_non_negative',
+                violation_error_message='阈值必须非负'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cooldown_minutes__gte=0),
+                name='cooldown_non_negative',
+                violation_error_message='冷却时间必须非负'
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.fund.fund_name} {self.get_rule_type_display()} {self.threshold}%'
+
+
+class NotificationLog(models.Model):
+    """通知记录"""
+
+    STATUS_CHOICES = [
+        ('success', '成功'),
+        ('failed', '失败'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rule = models.ForeignKey(NotificationRule, on_delete=models.CASCADE, related_name='logs')
+    channel = models.ForeignKey(NotificationChannel, on_delete=models.CASCADE, related_name='logs')
+    trigger_time = models.DateTimeField(auto_now_add=True, db_index=True)
+    fund_code = models.CharField(max_length=10)
+    fund_name = models.CharField(max_length=100)
+    growth = models.DecimalField(max_digits=10, decimal_places=2, help_text='触发时的涨跌幅（%）')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    error_message = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'notification_log'
+        verbose_name = '通知记录'
+        verbose_name_plural = '通知记录'
+        indexes = [
+            models.Index(fields=['rule', 'trigger_time']),
+        ]
+
+    def __str__(self):
+        return f'{self.fund_name} {self.growth}% - {self.get_status_display()}'
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

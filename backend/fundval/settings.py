@@ -204,5 +204,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'api.tasks.update_fund_today_nav',
         'schedule': crontab(minute=30, hour='21,23'),  # 21:30 和 23:00
     },
+    'check-notification-rules': {
+        'task': 'api.tasks.check_notification_rules',
+        'schedule': crontab(minute='*/5'),  # 每 5 分钟
+    },
 }
 

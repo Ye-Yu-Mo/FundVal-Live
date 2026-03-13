@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography, Alert } from 'antd';
+import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography, Alert, Switch, InputNumber } from 'antd';
 import {
   SaveOutlined, ReloadOutlined, CloudServerOutlined,
   QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined, ImportOutlined,
-  PlusOutlined, EditOutlined, DeleteOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, BellOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
-import { sourceAPI, aiAPI } from '../api';
+import { sourceAPI, aiAPI, fundsAPI, notificationChannelsAPI, notificationRulesAPI } from '../api';
 import { usePreference } from '../contexts/PreferenceContext';
 
 const { TextArea } = Input;
@@ -298,6 +298,416 @@ const AITemplatesCard = () => {
 const POLL_INTERVAL = 2000;
 const POLL_TIMEOUT = 120000;
 
+// ─── 通知渠道管理 ────────────────────────────────────────────────────────────
+
+const NotificationChannelsCard = () => {
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingChannel, setEditingChannel] = useState(null);
+  const [testingId, setTestingId] = useState(null);
+  const [form] = Form.useForm();
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await notificationChannelsAPI.list();
+      setChannels(res.data);
+    } catch {
+      message.error('加载通知渠道失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleOpenModal = (channel = null) => {
+    setEditingChannel(channel);
+    if (channel) {
+      form.setFieldsValue({
+        channel_type: channel.channel_type,
+        webhook_url: channel.config?.webhook_url || '',
+        smtp_host: channel.config?.smtp_host || '',
+        smtp_port: channel.config?.smtp_port || 465,
+        smtp_ssl: channel.config?.smtp_ssl !== false,
+        username: channel.config?.username || '',
+        password: channel.config?.password || '',
+        from_email: channel.config?.from_email || '',
+        to_email: channel.config?.to_email || '',
+        is_active: channel.is_active,
+      });
+    } else {
+      form.resetFields();
+      form.setFieldsValue({ channel_type: 'webhook', is_active: true });
+    }
+    setModalVisible(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      const config = values.channel_type === 'webhook'
+        ? { webhook_url: values.webhook_url }
+        : {
+            smtp_host: values.smtp_host,
+            smtp_port: values.smtp_port,
+            smtp_ssl: values.smtp_ssl,
+            username: values.username,
+            password: values.password,
+            from_email: values.from_email || values.username,
+            to_email: values.to_email,
+          };
+      const data = { channel_type: values.channel_type, config, is_active: values.is_active };
+
+      if (editingChannel) {
+        await notificationChannelsAPI.update(editingChannel.id, data);
+        message.success('更新成功');
+      } else {
+        await notificationChannelsAPI.create(data);
+        message.success('创建成功');
+      }
+      setModalVisible(false);
+      load();
+    } catch (err) {
+      if (!err.errorFields) message.error('操作失败');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await notificationChannelsAPI.delete(id);
+      message.success('删除成功');
+      load();
+    } catch {
+      message.error('删除失败');
+    }
+  };
+
+  const handleTest = async (id) => {
+    setTestingId(id);
+    try {
+      await notificationChannelsAPI.test(id);
+      message.success('测试通知发送成功');
+    } catch {
+      message.error('测试通知发送失败，请检查渠道配置');
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const channelTypeLabel = { webhook: 'Webhook', email: 'Email' };
+
+  const columns = [
+    {
+      title: '类型',
+      dataIndex: 'channel_type',
+      key: 'channel_type',
+      render: (v) => <Tag>{channelTypeLabel[v] || v}</Tag>,
+    },
+    {
+      title: '配置',
+      key: 'config',
+      render: (_, r) => r.channel_type === 'webhook'
+        ? r.config?.webhook_url
+        : `${r.config?.smtp_host} → ${r.config?.to_email}`,
+      ellipsis: true,
+    },
+    {
+      title: '状态',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (v) => v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 180,
+      render: (_, r) => (
+        <Space size="small">
+          <Button size="small" icon={<SendOutlined />} loading={testingId === r.id} onClick={() => handleTest(r.id)}>测试</Button>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>编辑</Button>
+          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)} okText="确定" cancelText="取消">
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const channelType = Form.useWatch('channel_type', form);
+
+  return (
+    <Card
+      title={<Space><BellOutlined />通知渠道</Space>}
+      extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>添加渠道</Button>}
+    >
+      <Table
+        dataSource={channels}
+        rowKey="id"
+        columns={columns}
+        loading={loading}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: '暂无通知渠道' }}
+      />
+
+      <Modal
+        title={editingChannel ? '编辑渠道' : '添加渠道'}
+        open={modalVisible}
+        onOk={handleSubmit}
+        onCancel={() => setModalVisible(false)}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="channel_type" label="渠道类型" rules={[{ required: true }]}>
+            <Select options={[{ value: 'webhook', label: 'Webhook' }, { value: 'email', label: 'Email' }]} />
+          </Form.Item>
+          {channelType === 'webhook' && (
+            <Form.Item name="webhook_url" label="Webhook URL" rules={[{ required: true, message: '请输入 Webhook URL' }, { type: 'url', message: '请输入有效的 URL' }]}>
+              <Input placeholder="https://example.com/webhook" />
+            </Form.Item>
+          )}
+          {channelType === 'email' && (
+            <>
+              <Form.Item name="smtp_host" label="SMTP 服务器" rules={[{ required: true, message: '请输入 SMTP 服务器地址' }]} extra="例如：smtp.qq.com / smtp.gmail.com / smtp.163.com">
+                <Input placeholder="smtp.qq.com" />
+              </Form.Item>
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item name="smtp_port" label="端口" style={{ width: '40%' }} initialValue={465}>
+                  <InputNumber style={{ width: '100%' }} placeholder="465" />
+                </Form.Item>
+                <Form.Item name="smtp_ssl" label="SSL" valuePropName="checked" style={{ width: '60%', paddingLeft: 12 }} initialValue={true}>
+                  <Switch checkedChildren="SSL" unCheckedChildren="STARTTLS" />
+                </Form.Item>
+              </Space.Compact>
+              <Form.Item name="username" label="用户名（邮箱地址）" rules={[{ required: true, message: '请输入用户名' }, { type: 'email', message: '请输入有效的邮箱' }]}>
+                <Input placeholder="your@qq.com" />
+              </Form.Item>
+              <Form.Item name="password" label="密码 / 授权码" rules={[{ required: true, message: '请输入密码或授权码' }]} extra="QQ/163/Gmail 等需使用授权码，非登录密码">
+                <Input.Password placeholder="授权码" />
+              </Form.Item>
+              <Form.Item name="to_email" label="收件人邮箱" rules={[{ required: true, message: '请输入收件人邮箱' }, { type: 'email', message: '请输入有效的邮箱' }]}>
+                <Input placeholder="recipient@example.com" />
+              </Form.Item>
+              <Form.Item name="from_email" label="发件人邮箱（可选）" extra="留空则使用用户名作为发件人">
+                <Input placeholder="your@qq.com" />
+              </Form.Item>
+            </>
+          )}
+          <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+};
+
+// ─── 通知规则管理 ────────────────────────────────────────────────────────────
+
+const NotificationRulesCard = () => {
+  const [rules, setRules] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [funds, setFunds] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
+  const [form] = Form.useForm();
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [rulesRes, channelsRes] = await Promise.all([
+        notificationRulesAPI.list(),
+        notificationChannelsAPI.list(),
+      ]);
+      setRules(rulesRes.data);
+      setChannels(channelsRes.data);
+    } catch {
+      message.error('加载通知规则失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleFundSearch = async (keyword) => {
+    if (!keyword) return;
+    try {
+      const res = await fundsAPI.search(keyword);
+      setFunds(res.data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleOpenModal = (rule = null) => {
+    setEditingRule(rule);
+    if (rule) {
+      form.setFieldsValue({
+        fund_code: rule.fund_code,
+        rule_type: rule.rule_type,
+        threshold: parseFloat(rule.threshold),
+        cooldown_minutes: rule.cooldown_minutes,
+        channel_ids: rule.channels.map(c => c.id),
+        is_active: rule.is_active,
+      });
+    } else {
+      form.resetFields();
+      form.setFieldsValue({ rule_type: 'growth_up', cooldown_minutes: 60, is_active: true });
+    }
+    setModalVisible(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      if (editingRule) {
+        await notificationRulesAPI.update(editingRule.id, values);
+        message.success('更新成功');
+      } else {
+        await notificationRulesAPI.create(values);
+        message.success('创建成功');
+      }
+      setModalVisible(false);
+      load();
+    } catch (err) {
+      if (!err.errorFields) message.error('操作失败');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await notificationRulesAPI.delete(id);
+      message.success('删除成功');
+      load();
+    } catch {
+      message.error('删除失败');
+    }
+  };
+
+  const ruleTypeLabel = { growth_up: '涨幅超过', growth_down: '跌幅超过' };
+
+  const columns = [
+    {
+      title: '基金',
+      key: 'fund',
+      render: (_, r) => `${r.fund_name}（${r.fund_code}）`,
+    },
+    {
+      title: '触发条件',
+      key: 'condition',
+      render: (_, r) => `${ruleTypeLabel[r.rule_type]} ${r.threshold}%`,
+    },
+    {
+      title: '通知渠道',
+      key: 'channels',
+      render: (_, r) => r.channels.map(c => (
+        <Tag key={c.id}>{c.channel_type === 'webhook' ? 'Webhook' : 'Email'}</Tag>
+      )),
+    },
+    {
+      title: '冷却',
+      dataIndex: 'cooldown_minutes',
+      key: 'cooldown_minutes',
+      render: (v) => `${v} 分钟`,
+    },
+    {
+      title: '状态',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (v) => v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      render: (_, r) => (
+        <Space size="small">
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>编辑</Button>
+          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)} okText="确定" cancelText="取消">
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const channelOptions = channels.map(c => ({
+    value: c.id,
+    label: c.channel_type === 'webhook'
+      ? `Webhook: ${c.config?.webhook_url?.slice(0, 30)}...`
+      : `Email: ${c.config?.email}`,
+  }));
+
+  return (
+    <Card
+      title={<Space><BellOutlined />通知规则</Space>}
+      extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>添加规则</Button>}
+    >
+      {channels.length === 0 && (
+        <Alert message="请先添加通知渠道，再配置通知规则" type="warning" showIcon style={{ marginBottom: 12 }} />
+      )}
+      <Table
+        dataSource={rules}
+        rowKey="id"
+        columns={columns}
+        loading={loading}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: '暂无通知规则' }}
+      />
+
+      <Modal
+        title={editingRule ? '编辑规则' : '添加规则'}
+        open={modalVisible}
+        onOk={handleSubmit}
+        onCancel={() => setModalVisible(false)}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="fund" label="基金" rules={[{ required: true, message: '请选择基金' }]}>
+            <Select
+              showSearch
+              placeholder="输入基金代码或名称搜索"
+              filterOption={false}
+              onSearch={handleFundSearch}
+              options={funds.results
+                ? funds.results.map(f => ({ value: f.id, label: `${f.fund_name}（${f.fund_code}）` }))
+                : (Array.isArray(funds) ? funds.map(f => ({ value: f.id, label: `${f.fund_name}（${f.fund_code}）` })) : [])
+              }
+            />
+          </Form.Item>
+          <Form.Item name="rule_type" label="触发条件" rules={[{ required: true }]}>
+            <Select options={[
+              { value: 'growth_up', label: '涨幅超过' },
+              { value: 'growth_down', label: '跌幅超过' },
+            ]} />
+          </Form.Item>
+          <Form.Item name="threshold" label="阈值（%）" rules={[{ required: true, message: '请输入阈值' }]}>
+            <InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} placeholder="例如：5 表示 5%" />
+          </Form.Item>
+          <Form.Item name="channel_ids" label="通知渠道" rules={[{ required: true, message: '请选择至少一个渠道' }]}>
+            <Select mode="multiple" options={channelOptions} placeholder="选择通知渠道" />
+          </Form.Item>
+          <Form.Item name="cooldown_minutes" label="冷却时间（分钟）" extra="同一规则触发后，冷却时间内不重复通知">
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+};
+
 const YangJiBaoLogin = () => {
   const [status, setStatus] = useState(null);   // null | 'logged_in' | 'logged_out'
   const [qrUrl, setQrUrl] = useState(null);
@@ -580,6 +990,8 @@ const SettingsPage = () => {
 
       <AIConfigCard />
       <AITemplatesCard />
+      <NotificationChannelsCard />
+      <NotificationRulesCard />
 
       {isNative && (
         <Card title="系统设置">

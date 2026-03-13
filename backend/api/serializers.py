@@ -9,7 +9,8 @@ from datetime import date
 from .models import (
     Fund, Account, Position, PositionOperation,
     Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
-    UserSourceCredential, AIConfig, AIPromptTemplate
+    UserSourceCredential, AIConfig, AIPromptTemplate,
+    NotificationChannel, NotificationRule, NotificationLog,
 )
 
 User = get_user_model()
@@ -335,3 +336,81 @@ class AIPromptTemplateSerializer(serializers.ModelSerializer):
             'user_prompt', 'is_default', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class NotificationChannelSerializer(serializers.ModelSerializer):
+    """通知渠道序列化器"""
+
+    class Meta:
+        model = NotificationChannel
+        fields = ['id', 'channel_type', 'config', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        channel_type = data.get('channel_type', getattr(self.instance, 'channel_type', None))
+        config = data.get('config', getattr(self.instance, 'config', {}))
+
+        if channel_type == 'webhook' and not config.get('webhook_url'):
+            raise serializers.ValidationError({'config': 'Webhook 渠道需要提供 webhook_url'})
+        if channel_type == 'email':
+            required = ['smtp_host', 'username', 'password', 'to_email']
+            missing = [f for f in required if not config.get(f)]
+            if missing:
+                raise serializers.ValidationError({'config': f'Email 渠道缺少必要字段：{", ".join(missing)}'})
+        return data
+
+
+class NotificationRuleSerializer(serializers.ModelSerializer):
+    """通知规则序列化器"""
+
+    fund_name = serializers.CharField(source='fund.fund_name', read_only=True)
+    fund_code = serializers.CharField(source='fund.fund_code', read_only=True)
+    channels = NotificationChannelSerializer(many=True, read_only=True)
+    channel_ids = serializers.ListField(
+        child=serializers.UUIDField(), write_only=True, required=False
+    )
+
+    class Meta:
+        model = NotificationRule
+        fields = [
+            'id', 'fund', 'fund_code', 'fund_name',
+            'rule_type', 'threshold', 'channels', 'channel_ids',
+            'is_active', 'cooldown_minutes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        channel_ids = validated_data.pop('channel_ids', [])
+        rule = super().create(validated_data)
+        if channel_ids:
+            channels = NotificationChannel.objects.filter(
+                id__in=channel_ids, user=rule.user
+            )
+            rule.channels.set(channels)
+        return rule
+
+    def update(self, instance, validated_data):
+        channel_ids = validated_data.pop('channel_ids', None)
+        rule = super().update(instance, validated_data)
+        if channel_ids is not None:
+            channels = NotificationChannel.objects.filter(
+                id__in=channel_ids, user=rule.user
+            )
+            rule.channels.set(channels)
+        return rule
+
+
+class NotificationLogSerializer(serializers.ModelSerializer):
+    """通知记录序列化器"""
+
+    channel_type = serializers.CharField(source='channel.channel_type', read_only=True)
+    rule_type = serializers.CharField(source='rule.rule_type', read_only=True)
+
+    class Meta:
+        model = NotificationLog
+        fields = [
+            'id', 'fund_code', 'fund_name', 'growth',
+            'status', 'error_message', 'trigger_time',
+            'channel_type', 'rule_type',
+        ]
+        read_only_fields = fields

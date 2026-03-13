@@ -19,12 +19,14 @@ from .models import (
     Fund, Account, Position, PositionOperation,
     Watchlist, WatchlistItem, EstimateAccuracy, FundNavHistory,
     AIConfig, AIPromptTemplate,
+    NotificationChannel, NotificationRule, NotificationLog,
 )
 from .serializers import (
     FundSerializer, AccountSerializer, PositionSerializer,
     PositionOperationSerializer, WatchlistSerializer, UserRegisterSerializer,
     FundNavHistorySerializer, QueryNavSerializer,
     AIConfigSerializer, AIPromptTemplateSerializer,
+    NotificationChannelSerializer, NotificationRuleSerializer, NotificationLogSerializer,
 )
 from .sources import SourceRegistry
 from .services import recalculate_all_positions
@@ -1585,3 +1587,68 @@ class AIPromptTemplateViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class NotificationChannelViewSet(viewsets.ModelViewSet):
+    """通知渠道 ViewSet"""
+
+    serializer_class = NotificationChannelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return NotificationChannel.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def test(self, request, pk=None):
+        """发送测试通知"""
+        channel_obj = self.get_object()
+        from .notifications import ChannelRegistry
+        channel_impl = ChannelRegistry.get_channel(channel_obj.channel_type)
+        if not channel_impl:
+            return Response(
+                {'error': f'未找到渠道实现：{channel_obj.channel_type}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        success = channel_impl.send(
+            title='Fundval 通知测试',
+            content='这是一条测试通知，如果您收到此消息，说明通知渠道配置正确。',
+            config=channel_obj.config,
+        )
+        if success:
+            return Response({'message': '测试通知发送成功'})
+        return Response({'error': '测试通知发送失败，请检查渠道配置'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationRuleViewSet(viewsets.ModelViewSet):
+    """通知规则 ViewSet"""
+
+    serializer_class = NotificationRuleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return NotificationRule.objects.filter(
+            user=self.request.user
+        ).select_related('fund').prefetch_related('channels')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """通知记录 ViewSet（只读）"""
+
+    serializer_class = NotificationLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = NotificationLog.objects.filter(
+            rule__user=self.request.user
+        ).select_related('rule', 'channel').order_by('-trigger_time')
+
+        rule_id = self.request.query_params.get('rule_id')
+        if rule_id:
+            qs = qs.filter(rule_id=rule_id)
+        return qs
