@@ -822,6 +822,7 @@ const PositionsPage = () => {
       dataIndex: 'holding_share',
       key: 'holding_share',
       width: 120,
+      sorter: (a, b) => parseFloat(a.holding_share || 0) - parseFloat(b.holding_share || 0),
       render: (value) => formatMoney(value),
     },
     {
@@ -829,12 +830,18 @@ const PositionsPage = () => {
       dataIndex: 'holding_cost',
       key: 'holding_cost',
       width: 120,
+      sorter: (a, b) => parseFloat(a.holding_cost || 0) - parseFloat(b.holding_cost || 0),
       render: (value) => formatMoney(value),
     },
     {
       title: '持仓市值',
       key: 'holding_value',
       width: 120,
+      sorter: (a, b) => {
+        const va = parseFloat(a.holding_share || 0) * parseFloat(a.fund?.latest_nav || 0);
+        const vb = parseFloat(b.holding_share || 0) * parseFloat(b.fund?.latest_nav || 0);
+        return va - vb;
+      },
       render: (_, record) => {
         const value = parseFloat(record.holding_share || 0) * parseFloat(record.fund?.latest_nav || 0);
         return formatMoney(value);
@@ -845,6 +852,7 @@ const PositionsPage = () => {
       dataIndex: 'pnl',
       key: 'pnl',
       width: 120,
+      sorter: (a, b) => parseFloat(a.pnl || 0) - parseFloat(b.pnl || 0),
       render: (value) => {
         const num = parseFloat(value || 0);
         return (
@@ -858,6 +866,11 @@ const PositionsPage = () => {
       title: '盈亏率',
       key: 'pnl_rate',
       width: 100,
+      sorter: (a, b) => {
+        const ra = parseFloat(a.holding_cost || 0) === 0 ? 0 : parseFloat(a.pnl || 0) / parseFloat(a.holding_cost);
+        const rb = parseFloat(b.holding_cost || 0) === 0 ? 0 : parseFloat(b.pnl || 0) / parseFloat(b.holding_cost);
+        return ra - rb;
+      },
       render: (_, record) => {
         const cost = parseFloat(record.holding_cost || 0);
         const pnl = parseFloat(record.pnl || 0);
@@ -886,15 +899,18 @@ const PositionsPage = () => {
     {
       title: '预估盈亏',
       key: 'estimate_pnl',
-      width: 120,
+      width: 140,
       render: (_, record) => {
         const estimateNav = record.fund?.estimate_nav;
         if (!estimateNav) return '-';
         const estimateValue = parseFloat(record.holding_share || 0) * parseFloat(estimateNav);
-        const pnl = estimateValue - parseFloat(record.holding_cost || 0);
+        const cost = parseFloat(record.holding_cost || 0);
+        const pnl = estimateValue - cost;
+        const rate = cost === 0 ? null : pnl / cost;
         return (
           <span style={{ color: pnl >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(pnl)}
+            {rate !== null && <span style={{ fontSize: '12px' }}> ({formatPercent(rate)})</span>}
           </span>
         );
       },
@@ -903,19 +919,20 @@ const PositionsPage = () => {
     {
       title: '今日盈亏',
       key: 'today_pnl',
-      width: 120,
+      width: 140,
       render: (_, record) => {
         const latestNav = record.fund?.latest_nav;
         const estimateNav = record.fund?.estimate_nav;
         if (!latestNav || !estimateNav) return '-';
-        const todayPnl = parseFloat(record.holding_share || 0) * (parseFloat(estimateNav) - parseFloat(latestNav));
-
-        // 判断是否是预估值：如果 estimate_nav 存在且不等于 latest_nav，则是预估
+        const share = parseFloat(record.holding_share || 0);
+        const todayPnl = share * (parseFloat(estimateNav) - parseFloat(latestNav));
+        const todayRate = parseFloat(latestNav) === 0 ? null : (parseFloat(estimateNav) - parseFloat(latestNav)) / parseFloat(latestNav);
         const isEstimate = estimateNav && estimateNav !== latestNav;
 
         return (
           <span style={{ color: todayPnl >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(todayPnl)}
+            {todayRate !== null && <span style={{ fontSize: '12px' }}> ({formatPercent(todayRate)})</span>}
             {isEstimate && <span style={{ color: '#999', fontSize: '12px' }}> (预估)</span>}
           </span>
         );
