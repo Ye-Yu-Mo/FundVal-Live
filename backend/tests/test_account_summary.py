@@ -120,7 +120,7 @@ class TestChildAccountSummary:
         assert child_account.today_pnl_rate is None
 
     def test_child_account_missing_estimate_nav(self, child_account, fund_without_estimate):
-        """测试缺失估值数据返回 null"""
+        """测试全部持仓缺失估值时，估值相关字段返回 0"""
         from api.models import Position
 
         Position.objects.create(
@@ -135,12 +135,9 @@ class TestChildAccountSummary:
         assert child_account.holding_cost == Decimal('1000')
         assert child_account.holding_value == Decimal('200')  # 100 * 2.0
 
-        # 估值相关字段为 None
-        assert child_account.estimate_value is None
-        assert child_account.estimate_pnl is None
-        assert child_account.estimate_pnl_rate is None
-        assert child_account.today_pnl is None
-        assert child_account.today_pnl_rate is None
+        # 全部持仓缺失估值，估值相关字段返回 0（不影响显示，前端显示 '-'）
+        assert child_account.estimate_value == Decimal('0')
+        assert child_account.today_pnl == Decimal('0')
 
     def test_child_account_partial_estimate_data(self, child_account, fund_with_estimate, fund_without_estimate):
         """测试部分持仓缺失估值数据"""
@@ -168,12 +165,10 @@ class TestChildAccountSummary:
         assert child_account.holding_cost == Decimal('2000')
         assert child_account.holding_value == Decimal('250')
 
-        # 估值相关字段为 None（因为有持仓缺失估值）
-        assert child_account.estimate_value is None
-        assert child_account.estimate_pnl is None
-        assert child_account.estimate_pnl_rate is None
-        assert child_account.today_pnl is None
-        assert child_account.today_pnl_rate is None
+        # 部分持仓缺失估值，只汇总有估值的部分
+        # fund_with_estimate: 100份 * 1.6 = 160，today_pnl = 100 * (1.6 - 1.5) = 10
+        assert child_account.estimate_value == Decimal('160')
+        assert child_account.today_pnl == Decimal('10')
 
 
 @pytest.mark.django_db

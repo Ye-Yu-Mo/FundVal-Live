@@ -171,19 +171,22 @@ class Account(models.Model):
         """预估市值"""
         from decimal import Decimal
         if self.parent is None:
-            # 父账户：汇总所有子账户
+            # 父账户：汇总所有子账户，跳过 None
             values = [child.estimate_value for child in self.children.all()]
-            if None in values:
-                return None
-            return sum(values, Decimal('0'))
+            non_null = [v for v in values if v is not None]
+            if not non_null:
+                return Decimal('0')
+            return sum(non_null, Decimal('0'))
         else:
-            # 子账户：汇总所有持仓
+            # 子账户：汇总所有持仓，跳过缺失估值的持仓
             total = Decimal('0')
+            has_any = False
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None:
-                    return None  # 任一持仓缺失估值，返回 None
+                    continue
                 total += pos.fund.estimate_nav * pos.holding_share
-            return total if self.positions.exists() else Decimal('0')
+                has_any = True
+            return total if has_any else (Decimal('0') if not self.positions.exists() else Decimal('0'))
 
     @property
     def estimate_pnl(self):
@@ -206,19 +209,22 @@ class Account(models.Model):
         """今日盈亏"""
         from decimal import Decimal
         if self.parent is None:
-            # 父账户：汇总所有子账户
+            # 父账户：汇总所有子账户，跳过 None
             values = [child.today_pnl for child in self.children.all()]
-            if None in values:
-                return None
-            return sum(values, Decimal('0'))
+            non_null = [v for v in values if v is not None]
+            if not non_null:
+                return Decimal('0')
+            return sum(non_null, Decimal('0'))
         else:
-            # 子账户：汇总所有持仓
+            # 子账户：汇总所有持仓，跳过缺失估值的持仓
             total = Decimal('0')
+            has_any = False
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None or pos.fund.latest_nav is None:
-                    return None  # 任一持仓缺失估值，返回 None
+                    continue  # 跳过缺失估值的持仓，不影响其他持仓的计算
                 total += pos.holding_share * (pos.fund.estimate_nav - pos.fund.latest_nav)
-            return total if self.positions.exists() else Decimal('0')
+                has_any = True
+            return total if has_any else (Decimal('0') if self.positions.exists() else Decimal('0'))
 
     @property
     def today_pnl_rate(self):

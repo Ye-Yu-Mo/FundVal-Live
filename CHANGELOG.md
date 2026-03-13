@@ -1,9 +1,52 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+变更记录
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)
+
+版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)
+
+---
+
+## 版本号说明
+
+- **主版本号（Major）**：不兼容的 API 变更或架构重构
+- **次版本号（Minor）**：向后兼容的功能新增（新模块、新页面、新接口）
+- **修订号（Patch）**：向后兼容的问题修正、小优化、文档更新
+
+---
+
+## [v2.1.0] - 2026-03-13
+
+### Added
+
+- **多渠道通知系统**：基金涨跌幅触发自动通知
+  - 支持 Webhook 渠道，自动识别飞书/钉钉/企业微信格式
+  - 支持 Email 渠道，用户自定义 SMTP 配置（兼容 QQ/163/Gmail 等）
+  - 通知规则支持涨幅/跌幅阈值、冷却时间配置
+  - Celery 定时任务每 5 分钟检查一次规则
+  - 通知记录可查询（成功/失败状态、错误信息）
+  - 设置页面新增"通知渠道"和"通知规则"管理卡片
+
+- **指数基金成分股持仓**：基金详情页展示成分股实时行情
+  - 从东方财富获取持仓权重（Top 10）
+  - 批量查询实时价格和涨跌幅
+  - 支持按持仓占比、涨跌幅排序
+  - 仅对指数型/ETF 基金显示，含刷新按钮
+
+### Fixed
+
+- **今日盈亏计算**：部分持仓缺失估值净值时，不再导致整个账户今日盈亏显示为空
+  - 改为跳过缺失估值的持仓，只汇总有数据的部分
+  - 同样修复预估市值的相同问题
+
+### Changed
+
+- **Email 渠道配置**：从依赖 Django 全局 SMTP 配置改为用户自定义 SMTP
+  - 每个渠道独立配置 SMTP 服务器、端口、SSL/STARTTLS、授权码
+  - 支持发件人/收件人分离配置
+
+---
 
 ## [v2.0.15] - 2026-03-05
 
