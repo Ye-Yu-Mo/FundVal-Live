@@ -7,7 +7,7 @@ echo "=========================================="
 
 # 等待数据库就绪
 echo "Waiting for database..."
-while ! pg_isready -h db -U $POSTGRES_USER > /dev/null 2>&1; do
+while ! pg_isready -h ${POSTGRES_HOST:-db} -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER > /dev/null 2>&1; do
     sleep 1
 done
 echo "✓ Database ready"

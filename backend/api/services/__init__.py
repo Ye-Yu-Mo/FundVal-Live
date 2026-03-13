@@ -47,11 +47,24 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
         elif op.operation_type == 'SELL':
             # 卖出：按比例减少成本
             if total_share > 0:
+                # 防止超卖
+                sell_share = min(op.share, total_share)
+
                 cost_per_share = total_cost / total_share
-                total_share -= op.share
-                total_cost -= op.share * cost_per_share
+                total_share -= sell_share
+                total_cost -= sell_share * cost_per_share
                 # 四舍五入到 2 位小数
                 total_cost = total_cost.quantize(Decimal('0.01'))
+
+                # 超卖警告
+                if op.share > sell_share:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f'超卖警告: 账户 {account_id} 基金 {fund_id} '
+                        f'操作日期 {op.operation_date} 尝试卖出 {op.share} 份，'
+                        f'但只有 {sell_share} 份可卖'
+                    )
 
     # 计算持仓净值（加权平均）
     if total_share > 0:

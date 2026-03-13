@@ -86,6 +86,11 @@ CELERY_LOGLEVEL=info  # 日志级别：debug, info, warning, error
 - `CELERY_LOGLEVEL`：生产环境建议使用 `warning` 减少日志输出
 - 高负载场景可使用 `POSTGRES_IMAGE=postgres:16` 替代 alpine 版本
 
+**自定义数据库端口**（可选）：
+如需从宿主机直接访问数据库（调试/备份），需同时修改两处：
+1. 在 `.env` 中设置 `POSTGRES_PORT=5432`（或其他端口）
+2. 在 `docker-compose.yml` 中取消注释 `db.ports` 配置行
+
 #### 3. 启动服务
 
 ```bash
