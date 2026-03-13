@@ -21,7 +21,7 @@ import {
   AutoComplete,
   Space,
 } from 'antd';
-import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined } from '@ant-design/icons';
+import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons';
 import { positionsAPI, fundsAPI, aiAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
@@ -1004,6 +1004,18 @@ const PositionsPage = () => {
           onClick={() => setAiModalVisible(true)}
         >
           AI 分析
+        </Button>
+        <Button
+          icon={<SyncOutlined />}
+          style={{ marginLeft: 8, marginBottom: 16 }}
+          disabled={!selectedAccountId}
+          loading={loading}
+          onClick={() => {
+            loadAccounts();
+            loadPositions(selectedAccountId);
+          }}
+        >
+          刷新
         </Button>
 
         <Row gutter={16}>
