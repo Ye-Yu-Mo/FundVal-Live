@@ -474,3 +474,8 @@ class YangJiBaoSource(BaseEstimateSource):
         """获取历史净值（养基宝暂不支持）"""
         return []
 
+    def fetch_index_holdings(self, fund_code: str) -> list:
+        """养基宝没有成分股接口，fallback 到东方财富"""
+        from .eastmoney import EastMoneySource
+        return EastMoneySource().fetch_index_holdings(fund_code)
+

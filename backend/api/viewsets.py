@@ -129,6 +129,23 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
     @action(detail=True, methods=['get'])
+    def index_holdings(self, request, fund_code=None):
+        """获取基金持仓成分股（指数/ETF 基金）"""
+        source_name = request.query_params.get('source', 'eastmoney')
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            source = SourceRegistry.get_source('eastmoney')
+        if not source:
+            return Response({'holdings': []})
+
+        try:
+            holdings = source.fetch_index_holdings(fund_code)
+            return Response({'fund_code': fund_code, 'holdings': holdings})
+        except Exception as e:
+            logger.error(f'获取成分股失败：{fund_code}, 错误：{e}')
+            return Response({'fund_code': fund_code, 'holdings': []})
+
+    @action(detail=True, methods=['get'])
     def accuracy(self, request, fund_code=None):
         """获取基金各数据源准确率"""
         fund = self.get_object()

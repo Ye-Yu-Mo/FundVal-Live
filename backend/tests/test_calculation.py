@@ -192,8 +192,8 @@ class TestPositionCalculation:
 
         position = recalculate_position(account.id, fund.id)
 
-        assert position.holding_share == Decimal('0')
-        assert position.holding_cost == Decimal('0')
+        # 清仓后返回 None（删除持仓记录）
+        assert position is None
 
     def test_multiple_buy_sell_operations(self, account, fund):
         """测试多次买卖混合操作"""

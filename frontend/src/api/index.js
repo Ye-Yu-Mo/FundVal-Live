@@ -54,6 +54,7 @@ export const fundsAPI = {
     start_date: startDate,
     end_date: endDate
   }),
+  indexHoldings: (fundCode, source = 'eastmoney') => api.get(`/funds/${fundCode}/index_holdings/`, { params: { source } }),
 };
 
 // 账户管理

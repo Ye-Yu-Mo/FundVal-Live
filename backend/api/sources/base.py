@@ -131,7 +131,7 @@ class BaseEstimateSource(ABC):
     def fetch_market_quote(self, fund_code: str) -> Dict:
         """
         获取场内实时价格（非必选实现）
-        
+
         Returns:
             dict: {
                 'fund_code': str,
@@ -141,3 +141,20 @@ class BaseEstimateSource(ABC):
             }
         """
         return None
+
+    def fetch_index_holdings(self, fund_code: str) -> list:
+        """
+        获取基金持仓成分股（非必选实现）
+
+        Returns:
+            list of dict: [
+                {
+                    'stock_code': str,
+                    'stock_name': str,
+                    'weight': Decimal,
+                    'price': Decimal,
+                    'change_percent': Decimal,
+                }
+            ]
+        """
+        return []

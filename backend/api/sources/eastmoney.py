@@ -20,6 +20,8 @@ class EastMoneySource(BaseEstimateSource):
     ESTIMATE_URL = 'http://fundgz.1234567.com.cn/js/{code}.js'
     FUND_LIST_URL = 'http://fund.eastmoney.com/js/fundcode_search.js'
     HISTORY_URL = 'http://fund.eastmoney.com/pingzhongdata/{code}.js'
+    FUND_HOLDINGS_URL = 'https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition'
+    STOCK_QUOTE_URL = 'http://push2.eastmoney.com/api/qt/ulist.np/get'
 
     def get_source_name(self) -> str:
         return 'eastmoney'
@@ -339,4 +341,99 @@ class EastMoneySource(BaseEstimateSource):
             return []
         except Exception as e:
             logger.error(f'获取历史净值失败（未知错误）：{fund_code}, 错误：{e}')
+            return []
+
+    def fetch_index_holdings(self, fund_code: str) -> list:
+        """
+        获取基金持仓成分股（含实时行情）
+
+        先从 FundMNInverstPosition 获取持仓权重，
+        再批量查询 ulist.np 获取实时价格和涨跌幅。
+
+        Returns:
+            list of dict: [
+                {
+                    'stock_code': str,
+                    'stock_name': str,
+                    'weight': Decimal,       # 持仓占比 %
+                    'price': Decimal,        # 当前价格
+                    'change_percent': Decimal,  # 涨跌幅 %
+                }
+            ]
+            失败时返回空列表。
+        """
+        try:
+            # Step 1: 获取持仓权重
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/91.0.4472.120 Mobile Safari/537.36',
+                'Referer': 'https://fundmobapi.eastmoney.com/',
+            }
+            resp = requests.get(
+                self.FUND_HOLDINGS_URL,
+                params={
+                    'FCODE': fund_code,
+                    'deviceid': 'x',
+                    'plat': 'Android',
+                    'product': 'EFund',
+                    'version': '1.0.0',
+                },
+                headers=headers,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            if not data.get('Success') or not data.get('Datas'):
+                return []
+
+            stocks = data['Datas'].get('fundStocks', [])
+            if not stocks:
+                return []
+
+            # Step 2: 批量查询实时行情
+            # NEWTEXCH: 0=深市, 1=沪市（push2 接口格式）
+            secids = [f"{s['NEWTEXCH']}.{s['GPDM']}" for s in stocks]
+            quote_resp = requests.get(
+                self.STOCK_QUOTE_URL,
+                params={
+                    'secids': ','.join(secids),
+                    'fields': 'f12,f14,f2,f3',
+                    'fltt': '2',
+                },
+                timeout=10,
+            )
+            quote_resp.raise_for_status()
+            quote_data = quote_resp.json()
+
+            # 构建行情字典 {stock_code: {price, change_percent}}
+            quotes = {}
+            for item in quote_data.get('data', {}).get('diff', []):
+                quotes[item['f12']] = {
+                    'price': Decimal(str(item['f2'])) if item.get('f2') not in (None, '-') else None,
+                    'change_percent': Decimal(str(item['f3'])) if item.get('f3') not in (None, '-') else None,
+                }
+
+            # Step 3: 合并结果
+            result = []
+            for s in stocks:
+                code = s['GPDM']
+                q = quotes.get(code, {})
+                result.append({
+                    'stock_code': code,
+                    'stock_name': s['GPJC'],
+                    'weight': Decimal(str(s['JZBL'])),
+                    'price': q.get('price'),
+                    'change_percent': q.get('change_percent'),
+                })
+
+            return result
+
+        except requests.RequestException as e:
+            logger.error(f'获取基金持仓失败（网络错误）：{fund_code}, 错误：{e}')
+            return []
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f'获取基金持仓失败（数据格式错误）：{fund_code}, 错误：{e}')
+            return []
+        except Exception as e:
+            logger.error(f'获取基金持仓失败（未知错误）：{fund_code}, 错误：{e}')
             return []

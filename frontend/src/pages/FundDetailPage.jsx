@@ -13,7 +13,7 @@ import {
   Button,
   Table,
 } from 'antd';
-import { RobotOutlined } from '@ant-design/icons';
+import { RobotOutlined, SyncOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { fundsAPI, positionsAPI } from '../api';
 import AIAnalysisModal from '../components/AIAnalysisModal';
@@ -32,6 +32,8 @@ const FundDetailPage = () => {
   const [operations, setOperations] = useState([]);
   const [timeRange, setTimeRange] = useState('1M');
   const [chartLoading, setChartLoading] = useState(false);
+  const [holdings, setHoldings] = useState([]);
+  const [holdingsLoading, setHoldingsLoading] = useState(false);
 
   // AI 分析
   const [aiModalVisible, setAiModalVisible] = useState(false);
@@ -162,6 +164,24 @@ const FundDetailPage = () => {
     }
   };
 
+  // 加载成分股持仓
+  const loadHoldings = async (fundType) => {
+    // 只加载指数基金和 ETF 的成分股
+    if (!fundType || (!fundType.includes('指数') && !fundType.includes('ETF'))) {
+      setHoldings([]);
+      return;
+    }
+    setHoldingsLoading(true);
+    try {
+      const response = await fundsAPI.indexHoldings(code, preferredSource);
+      setHoldings(response.data.holdings || []);
+    } catch (error) {
+      setHoldings([]);
+    } finally {
+      setHoldingsLoading(false);
+    }
+  };
+
   // 页面加载
   useEffect(() => {
     const loadData = async () => {
@@ -180,6 +200,9 @@ const FundDetailPage = () => {
         setEstimate(estimateRes?.data || null);
         setAccuracy(accuracyRes?.data || null);
         setMarketQuote(marketRes?.data || null);
+
+        // 加载成分股（指数/ETF 基金）
+        loadHoldings(detailRes.data?.fund_type);
 
         // 尝试更新当日净值（静默失败）
         fundsAPI.batchUpdateTodayNav([code]).catch(() => {
@@ -499,6 +522,77 @@ const FundDetailPage = () => {
                   </span>
                 )
               }
+            ]}
+          />
+        </Card>
+      )}
+
+      {/* 成分股持仓 */}
+      {(holdings.length > 0 || holdingsLoading) && (
+        <Card
+          title="成分股持仓"
+          extra={
+            <Button
+              icon={<SyncOutlined />}
+              size="small"
+              loading={holdingsLoading}
+              onClick={() => loadHoldings(fund?.fund_type)}
+            >
+              刷新
+            </Button>
+          }
+        >
+          <Table
+            dataSource={holdings}
+            rowKey="stock_code"
+            loading={holdingsLoading}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            scroll={{ x: 'max-content' }}
+            columns={[
+              {
+                title: '股票代码',
+                dataIndex: 'stock_code',
+                key: 'stock_code',
+                width: 100,
+              },
+              {
+                title: '股票名称',
+                dataIndex: 'stock_name',
+                key: 'stock_name',
+                width: 120,
+              },
+              {
+                title: '持仓占比',
+                dataIndex: 'weight',
+                key: 'weight',
+                width: 100,
+                sorter: (a, b) => parseFloat(a.weight) - parseFloat(b.weight),
+                defaultSortOrder: 'descend',
+                render: (v) => `${parseFloat(v).toFixed(2)}%`,
+              },
+              {
+                title: '当前价格',
+                dataIndex: 'price',
+                key: 'price',
+                width: 100,
+                render: (v) => v != null ? `¥${parseFloat(v).toFixed(2)}` : '-',
+              },
+              {
+                title: '涨跌幅',
+                dataIndex: 'change_percent',
+                key: 'change_percent',
+                width: 100,
+                sorter: (a, b) => parseFloat(a.change_percent || 0) - parseFloat(b.change_percent || 0),
+                render: (v) => {
+                  if (v == null) return '-';
+                  const num = parseFloat(v);
+                  return (
+                    <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      {num >= 0 ? '+' : ''}{num.toFixed(2)}%
+                    </span>
+                  );
+                },
+              },
             ]}
           />
         </Card>
