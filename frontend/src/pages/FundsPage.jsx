@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Input, Button, Space, message, Typography, Modal, Select } from 'antd';
+import { Card, Table, Input, Button, Space, message, Typography, Modal, Select, List, Grid, Pagination } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, EyeOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Resizable } from 'react-resizable';
@@ -8,6 +8,7 @@ import { fundsAPI, watchlistsAPI } from '../api';
 import { usePreference } from '../contexts/PreferenceContext';
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 // 可调整大小的表头组件
 const ResizableTitle = (props) => {
@@ -38,6 +39,8 @@ const ResizableTitle = (props) => {
 const FundsPage = () => {
   const navigate = useNavigate();
   const { preferredSource } = usePreference();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [loading, setLoading] = useState(false);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [funds, setFunds] = useState([]);
@@ -57,7 +60,7 @@ const FundsPage = () => {
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState({
     fund_code: 80,
-    fund_name: window.innerWidth < 768 ? 150 : 200,
+    fund_name: 200,
     latest_nav: 110,
     estimate_nav: 90,
     estimate_growth: 80,
@@ -359,27 +362,92 @@ const FundsPage = () => {
         />
       </Space>
 
-      <Table
-        columns={columns}
-        dataSource={funds}
-        rowKey="fund_code"
-        loading={loading || estimateLoading}
-        scroll={{ x: 'max-content' }}
-        components={{
-          header: {
-            cell: ResizableTitle,
-          },
-        }}
-        pagination={{
-          current: page,
-          pageSize: pageSize,
-          total: total,
-          onChange: handlePageChange,
-          showSizeChanger: false,
-          showTotal: (total) => `共 ${total} 条`,
-          simple: window.innerWidth < 768,
-        }}
-      />
+      {isMobile ? (
+        <>
+          <List
+            dataSource={funds}
+            loading={loading || estimateLoading}
+            renderItem={(fund) => {
+              const estimate = estimates[fund.fund_code];
+              const growth = estimate?.estimate_growth ? parseFloat(estimate.estimate_growth) : null;
+              const color = growth !== null ? (growth >= 0 ? '#cf1322' : '#3f8600') : '#999';
+              const prefix = growth !== null && growth >= 0 ? '+' : '';
+
+              return (
+                <Card
+                  key={fund.fund_code}
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                  data-testid="fund-card"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 500, marginBottom: 4 }}>{fund.fund_name}</div>
+                      <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>{fund.fund_code}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>最新净值: {fund.latest_nav ? Number(fund.latest_nav).toFixed(4) : '-'}</span>
+                        <Text strong style={{ color, fontSize: '13px' }}>
+                          {growth !== null ? `${prefix}${growth.toFixed(2)}%` : '-'}
+                        </Text>
+                      </div>
+                      {estimate?.estimate_nav && (
+                        <div style={{ fontSize: 12, color: '#999' }}>
+                          实时估值: {Number(estimate.estimate_nav).toFixed(4)}
+                        </div>
+                      )}
+                    </div>
+                    <Space size="small" direction="vertical">
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => handleViewDetail(fund.fund_code)}
+                      />
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<StarOutlined />}
+                        onClick={() => handleAddToWatchlist(fund)}
+                      />
+                    </Space>
+                  </div>
+                </Card>
+              );
+            }}
+          />
+          <Pagination
+            current={page}
+            pageSize={pageSize}
+            total={total}
+            onChange={handlePageChange}
+            showSizeChanger={false}
+            simple
+            style={{ textAlign: 'center', marginTop: 16 }}
+          />
+        </>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={funds}
+          rowKey="fund_code"
+          loading={loading || estimateLoading}
+          scroll={{ x: 'max-content' }}
+          components={{
+            header: {
+              cell: ResizableTitle,
+            },
+          }}
+          pagination={{
+            current: page,
+            pageSize: pageSize,
+            total: total,
+            onChange: handlePageChange,
+            showSizeChanger: false,
+            showTotal: (total) => `共 ${total} 条`,
+            simple: isMobile,
+          }}
+        />
+      )}
 
       {/* 添加到自选 Modal */}
       <Modal
@@ -389,6 +457,7 @@ const FundsPage = () => {
         onCancel={() => setWatchlistModalVisible(false)}
         okText="添加"
         cancelText="取消"
+        width={isMobile ? '95vw' : 520}
       >
         <p>基金：{selectedFund?.fund_code} - {selectedFund?.fund_name}</p>
         <Select
