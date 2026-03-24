@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography, Alert, Switch, InputNumber } from 'antd';
+import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography, Alert, Switch, InputNumber, List, Grid } from 'antd';
 import {
   SaveOutlined, ReloadOutlined, CloudServerOutlined,
   QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined, ImportOutlined,
@@ -11,6 +11,7 @@ import { usePreference } from '../contexts/PreferenceContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const FUND_PLACEHOLDERS = [
   { key: '{{fund_code}}', desc: '基金代码' },
@@ -38,6 +39,8 @@ const POSITION_PLACEHOLDERS = [
 ];
 
 const DataSourceCard = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { preferredSource, updatePreference } = usePreference();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -61,7 +64,7 @@ const DataSourceCard = () => {
 
   return (
     <Card title="数据源设置">
-      <Form form={form} layout="vertical" style={{ maxWidth: 600 }}>
+      <Form form={form} layout="vertical" style={{ maxWidth: isMobile ? '100%' : 600 }}>
         <Form.Item
           label="默认数据源"
           name="preferred_source"
@@ -145,6 +148,8 @@ const AIConfigCard = () => {
 };
 
 const AITemplatesCard = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -250,7 +255,7 @@ const AITemplatesCard = () => {
         open={modalVisible}
         onOk={handleOk}
         onCancel={() => setModalVisible(false)}
-        width={800}
+        width={isMobile ? '95vw' : 800}
         okText="保存"
         cancelText="取消"
       >
@@ -301,6 +306,8 @@ const POLL_TIMEOUT = 120000;
 // ─── 通知渠道管理 ────────────────────────────────────────────────────────────
 
 const NotificationChannelsCard = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -442,15 +449,49 @@ const NotificationChannelsCard = () => {
       title={<Space><BellOutlined />通知渠道</Space>}
       extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>添加渠道</Button>}
     >
-      <Table
-        dataSource={channels}
-        rowKey="id"
-        columns={columns}
-        loading={loading}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: '暂无通知渠道' }}
-      />
+      {isMobile ? (
+        <List
+          dataSource={channels}
+          loading={loading}
+          locale={{ emptyText: '暂无通知渠道' }}
+          renderItem={(channel) => (
+            <Card
+              key={channel.id}
+              size="small"
+              style={{ marginBottom: 8 }}
+              data-testid="channel-card"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>{channel.name}</div>
+                  <div style={{ marginBottom: 4 }}>
+                    <Tag color="blue">{channel.channel_type}</Tag>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    状态: {channel.is_active ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>}
+                  </div>
+                </div>
+                <Space size="small" direction="vertical">
+                  <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(channel)}>编辑</Button>
+                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(channel.id)}>
+                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Popconfirm>
+                </Space>
+              </div>
+            </Card>
+          )}
+        />
+      ) : (
+        <Table
+          dataSource={channels}
+          rowKey="id"
+          columns={columns}
+          loading={loading}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: '暂无通知渠道' }}
+        />
+      )}
 
       <Modal
         title={editingChannel ? '编辑渠道' : '添加渠道'}
@@ -460,6 +501,7 @@ const NotificationChannelsCard = () => {
         okText="保存"
         cancelText="取消"
         destroyOnClose
+        width={isMobile ? '95vw' : 600}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="channel_type" label="渠道类型" rules={[{ required: true }]}>
@@ -509,6 +551,8 @@ const NotificationChannelsCard = () => {
 // ─── 通知规则管理 ────────────────────────────────────────────────────────────
 
 const NotificationRulesCard = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [rules, setRules] = useState([]);
   const [channels, setChannels] = useState([]);
   const [funds, setFunds] = useState([]);
@@ -652,15 +696,47 @@ const NotificationRulesCard = () => {
       {channels.length === 0 && (
         <Alert message="请先添加通知渠道，再配置通知规则" type="warning" showIcon style={{ marginBottom: 12 }} />
       )}
-      <Table
-        dataSource={rules}
-        rowKey="id"
-        columns={columns}
-        loading={loading}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: '暂无通知规则' }}
-      />
+      {isMobile ? (
+        <List
+          dataSource={rules}
+          loading={loading}
+          locale={{ emptyText: '暂无通知规则' }}
+          renderItem={(rule) => (
+            <Card
+              key={rule.id}
+              size="small"
+              style={{ marginBottom: 8 }}
+              data-testid="rule-card"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>{rule.name || rule.fund_name}</div>
+                  <div style={{ marginBottom: 4 }}>
+                    <Tag color="blue">{rule.trigger_type}</Tag>
+                    {rule.is_active ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>}
+                  </div>
+                </div>
+                <Space size="small" direction="vertical">
+                  <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(rule)}>编辑</Button>
+                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(rule.id)}>
+                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Popconfirm>
+                </Space>
+              </div>
+            </Card>
+          )}
+        />
+      ) : (
+        <Table
+          dataSource={rules}
+          rowKey="id"
+          columns={columns}
+          loading={loading}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: '暂无通知规则' }}
+        />
+      )}
 
       <Modal
         title={editingRule ? '编辑规则' : '添加规则'}
@@ -670,6 +746,7 @@ const NotificationRulesCard = () => {
         okText="保存"
         cancelText="取消"
         destroyOnClose
+        width={isMobile ? '95vw' : 600}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="fund" label="基金" rules={[{ required: true, message: '请选择基金' }]}>
