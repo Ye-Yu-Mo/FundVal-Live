@@ -80,6 +80,7 @@ const MainLayout = ({ children }) => {
           style={{
             background: '#fff',
             padding: '0 16px',
+            paddingTop: 'env(safe-area-inset-top)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -89,8 +90,7 @@ const MainLayout = ({ children }) => {
             left: 0,
             right: 0,
             zIndex: 1000,
-            height: 56,
-            lineHeight: '56px',
+            height: 'calc(56px + env(safe-area-inset-top))',
           }}
         >
           <div style={{ fontSize: 16, fontWeight: 'bold' }}>Fundval</div>
@@ -115,11 +115,11 @@ const MainLayout = ({ children }) => {
         {/* 内容区 */}
         <Content
           style={{
-            marginTop: 56,
-            marginBottom: 56,
+            marginTop: 'calc(56px + env(safe-area-inset-top))',
+            marginBottom: 'calc(56px + env(safe-area-inset-bottom))',
             padding: 12,
             background: '#f0f2f5',
-            minHeight: 'calc(100vh - 112px)',
+            minHeight: 'calc(100vh - 112px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
           }}
         >
           {children}
@@ -136,7 +136,8 @@ const MainLayout = ({ children }) => {
             background: '#fff',
             borderTop: '1px solid #f0f0f0',
             zIndex: 1000,
-            height: 56,
+            height: 'calc(56px + env(safe-area-inset-bottom))',
+            paddingBottom: 'env(safe-area-inset-bottom)',
           }}
         >
           <Menu

@@ -15,6 +15,8 @@ import {
   Space,
   AutoComplete,
   Typography,
+  List,
+  Grid,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Resizable } from 'react-resizable';
@@ -22,6 +24,7 @@ import 'react-resizable/css/styles.css';
 import { watchlistsAPI, fundsAPI } from '../api';
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 // 可调整大小的表头组件
 const ResizableTitle = (props) => {
@@ -63,6 +66,8 @@ const WatchlistContent = ({
   columns,
   navigate,
   components,
+  isMobile,
+  handleRemoveFund,
 }) => {
   if (!watchlist) {
     return <Empty description="请选择自选列表" />;
@@ -71,9 +76,9 @@ const WatchlistContent = ({
   return (
     <div>
       {/* 搜索添加基金 */}
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16, width: isMobile ? '100%' : 'auto' }} wrap>
         <AutoComplete
-          style={{ width: 300 }}
+          style={{ width: isMobile ? '100%' : 300 }}
           options={fundOptions}
           onSearch={handleSearch}
           onSelect={handleAddFund}
@@ -106,6 +111,47 @@ const WatchlistContent = ({
             在上方搜索框添加基金到自选列表
           </p>
         </Empty>
+      ) : isMobile ? (
+        <List
+          dataSource={fundsData}
+          loading={fundsLoading}
+          renderItem={(item) => (
+            <Card
+              key={item.fund_code}
+              size="small"
+              style={{ marginBottom: 8 }}
+              data-testid="fund-card"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>{item.fund_name}</div>
+                  <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+                    <a onClick={() => navigate(`/dashboard/funds/${item.fund_code}`)}>{item.fund_code}</a>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span>最新净值: {item.latest_nav ? `¥${parseFloat(item.latest_nav).toFixed(4)}` : '-'}</span>
+                    <span style={{ color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      {item.estimate_growth !== null && item.estimate_growth !== undefined
+                        ? `${item.estimate_growth >= 0 ? '+' : ''}${parseFloat(item.estimate_growth).toFixed(2)}%`
+                        : '-'}
+                    </span>
+                  </div>
+                  {item.estimate_nav && (
+                    <div style={{ fontSize: 12, color: '#999' }}>
+                      估算净值: ¥{parseFloat(item.estimate_nav).toFixed(4)}
+                    </div>
+                  )}
+                </div>
+                <Popconfirm
+                  title="确定移除？"
+                  onConfirm={() => handleRemoveFund(item.fund_code)}
+                >
+                  <Button type="link" danger size="small">移除</Button>
+                </Popconfirm>
+              </div>
+            </Card>
+          )}
+        />
       ) : (
         <Table
           columns={columns}
@@ -124,6 +170,9 @@ const WatchlistContent = ({
 
 const WatchlistsPage = () => {
   const navigate = useNavigate();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [watchlists, setWatchlists] = useState([]);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -138,8 +187,8 @@ const WatchlistsPage = () => {
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState({
     fund_code: 100,
-    fund_name: window.innerWidth < 768 ? 120 : 200,
-    latest_nav: window.innerWidth < 768 ? 100 : 140,
+    fund_name: 200,
+    latest_nav: 140,
     estimate_nav: 100,
     estimate_growth: 100,
     action: 80,
@@ -475,6 +524,7 @@ const WatchlistsPage = () => {
           }}
           okText="创建"
           cancelText="取消"
+          width={isMobile ? '95vw' : 520}
         >
           <Form form={form} layout="vertical">
             <Form.Item
@@ -550,6 +600,8 @@ const WatchlistsPage = () => {
                   cell: ResizableTitle,
                 },
               }}
+              isMobile={isMobile}
+              handleRemoveFund={handleRemoveFund}
             />
           ),
         }))}
@@ -565,6 +617,7 @@ const WatchlistsPage = () => {
         }}
         okText="创建"
         cancelText="取消"
+        width={isMobile ? '95vw' : 520}
       >
         <Form form={form} layout="vertical">
           <Form.Item
