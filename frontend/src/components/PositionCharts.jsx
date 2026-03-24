@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Tabs, Radio, Empty, Spin, message } from 'antd';
+import { Card, Tabs, Radio, Empty, Spin, message, Grid } from 'antd';
 import {
   LineChart,
   Line,
@@ -17,7 +17,11 @@ import {
 } from 'recharts';
 import { positionsAPI } from '../api';
 
+const { useBreakpoint } = Grid;
+
 const PositionCharts = ({ positions, accountId }) => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [timeRange, setTimeRange] = useState('30d'); // 30d, 90d, all
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -32,25 +36,16 @@ const PositionCharts = ({ positions, accountId }) => {
 
   // 计算账户总市值和总成本
   const totalValue = positions.reduce((sum, p) => sum + calculateMarketValue(p), 0);
-  const totalCost = positions.reduce((sum, p) => sum + parseFloat(p.holding_cost || 0), 0);
-
-  // 调试信息
-  console.log('Positions sample:', positions[0]);
-  console.log('Total value:', totalValue);
-  console.log('Total cost:', totalCost);
 
   // 获取历史数据
   const fetchHistory = async (accountId, days) => {
     if (!accountId) return;
-
-    console.log('请求历史数据 - accountId:', accountId, 'days:', days);
 
     setHistoryLoading(true);
     setHistoryError(null);
 
     try {
       const response = await positionsAPI.getHistory(accountId, days);
-      console.log('历史市值 API 响应:', response.data);
       setHistoryData(response.data);
     } catch (error) {
       setHistoryError(error.response?.data?.error || '加载失败');
@@ -74,8 +69,6 @@ const PositionCharts = ({ positions, accountId }) => {
     value: item.value,
     cost: item.cost
   }));
-
-  console.log('趋势图数据:', trendData);
 
   // 仓位分布数据（按基金类型）
   // 将复杂的基金类型映射到简单分类
@@ -103,7 +96,6 @@ const PositionCharts = ({ positions, accountId }) => {
   positions.forEach(p => {
     const type = mapFundType(p.fund_type);
     const value = calculateMarketValue(p);
-    console.log(`Position: ${p.fund_name}, type: ${p.fund_type} -> ${type}, market_value: ${value}`);
     if (!typeMap[type]) {
       typeMap[type] = 0;
     }
@@ -111,17 +103,12 @@ const PositionCharts = ({ positions, accountId }) => {
   });
 
   const distributionData = Object.entries(typeMap)
-    .filter(([_, value]) => value > 0) // 过滤掉 0 值
+    .filter(([_, value]) => value > 0)
     .map(([name, value]) => ({
       name,
       value: parseFloat(value.toFixed(2)),
       percent: totalValue > 0 ? ((value / totalValue) * 100).toFixed(2) : '0',
     }));
-
-  // 调试信息
-  console.log('Distribution data:', distributionData);
-  console.log('Total value:', totalValue);
-  console.log('Positions:', positions.length);
 
   // 收益排行数据
   const rankingData = positions
@@ -133,6 +120,13 @@ const PositionCharts = ({ positions, accountId }) => {
 
   // 饼图颜色
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  // Y 轴数字格式化
+  const formatYAxis = (value) => {
+    if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    return value.toFixed(0);
+  };
 
   // 自定义 Tooltip
   const CustomTooltip = ({ active, payload, label }) => {
@@ -204,8 +198,14 @@ const PositionCharts = ({ positions, accountId }) => {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
+                <XAxis
+                  dataKey="date"
+                  interval={isMobile ? 'preserveStartEnd' : 'preserveEnd'}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? 'end' : 'middle'}
+                  height={isMobile ? 50 : 30}
+                />
+                <YAxis tickFormatter={formatYAxis} width={50} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 <Line
@@ -239,9 +239,9 @@ const PositionCharts = ({ positions, accountId }) => {
                 data={distributionData}
                 cx="50%"
                 cy="50%"
-                labelLine={true}
-                label={(entry) => `${entry.name} ${entry.percent}%`}
-                outerRadius={120}
+                labelLine={!isMobile}
+                label={isMobile ? false : (entry) => `${entry.name} ${entry.percent}%`}
+                outerRadius={isMobile ? 80 : 120}
                 dataKey="value"
                 nameKey="name"
               >
@@ -266,7 +266,7 @@ const PositionCharts = ({ positions, accountId }) => {
           <BarChart data={rankingData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
-            <YAxis />
+            <YAxis tickFormatter={formatYAxis} width={50} />
             <Tooltip
               formatter={(value) => `¥${value.toFixed(2)}`}
               labelStyle={{ color: '#000' }}

@@ -20,6 +20,8 @@ import {
   InputNumber,
   AutoComplete,
   Space,
+  List,
+  Grid,
 } from 'antd';
 import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons';
 import { positionsAPI, fundsAPI, aiAPI } from '../api';
@@ -28,9 +30,13 @@ import { usePreference } from '../contexts/PreferenceContext';
 import PositionCharts from '../components/PositionCharts';
 import AIAnalysisModal from '../components/AIAnalysisModal';
 
+const { useBreakpoint } = Grid;
+
 const PositionsPage = () => {
   const [searchParams] = useSearchParams();
   const { preferredSource } = usePreference();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const {
     accounts: allAccounts,
     loading: accountsLoading,
@@ -1018,22 +1024,22 @@ const PositionsPage = () => {
           刷新
         </Button>
 
-        <Row gutter={16}>
-          <Col span={6}>
+        <Row gutter={[16, 16]}>
+          <Col span={isMobile ? 12 : 6}>
             <Statistic
               title="持仓总成本"
               value={statistics.holding_cost}
               prefix="¥"
             />
           </Col>
-          <Col span={6}>
+          <Col span={isMobile ? 12 : 6}>
             <Statistic
               title="持仓总市值"
               value={statistics.holding_value}
               prefix="¥"
             />
           </Col>
-          <Col span={6}>
+          <Col span={isMobile ? 12 : 6}>
             <Statistic
               title="总盈亏"
               value={statistics.pnl}
@@ -1048,7 +1054,7 @@ const PositionsPage = () => {
               }}
             />
           </Col>
-          <Col span={6}>
+          <Col span={isMobile ? 12 : 6}>
             <Statistic
               title="今日盈亏 (预估)"
               value={statistics.today_pnl}
@@ -1094,25 +1100,88 @@ const PositionsPage = () => {
           <Radio.Button value="其他">其他</Radio.Button>
         </Radio.Group>
 
-        <Table
-          columns={columns}
-          dataSource={getFilteredPositions()}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          locale={{
-            emptyText: (
-              <Empty
-                description={
-                  fundTypeFilter === 'all'
-                    ? '暂无持仓，点击右上角「添加操作」开始记录'
-                    : `暂无${fundTypeFilter}型基金持仓`
-                }
-              />
-            ),
-          }}
-        />
+        {isMobile ? (
+          <List
+            dataSource={getFilteredPositions()}
+            loading={loading}
+            locale={{
+              emptyText: (
+                <Empty
+                  description={
+                    fundTypeFilter === 'all'
+                      ? '暂无持仓，点击右上角「添加操作」开始记录'
+                      : `暂无${fundTypeFilter}型基金持仓`
+                  }
+                />
+              ),
+            }}
+            renderItem={(position) => (
+              <Card
+                key={position.id}
+                size="small"
+                style={{ marginBottom: 8 }}
+                data-testid="position-card"
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>{position.fund?.fund_name}</div>
+                    <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+                      {position.fund?.fund_code} <Tag color="blue">{position.fund?.fund_type}</Tag>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span>持仓份额: {position.holding_share}</span>
+                      <span>成本: ¥{position.holding_cost ? parseFloat(position.holding_cost).toFixed(2) : '-'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>市值: ¥{position.holding_value ? parseFloat(position.holding_value).toFixed(2) : '-'}</span>
+                      <span style={{ color: parseFloat(position.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                        {position.pnl !== null && position.pnl !== undefined
+                          ? `${parseFloat(position.pnl) >= 0 ? '+' : ''}¥${parseFloat(position.pnl).toFixed(2)} (${formatPercent(position.pnl_rate)})`
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                  <Space size="small" direction="vertical">
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => handleOpenOperationModal(position, 'BUY')}
+                    >
+                      加仓
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => handleOpenOperationModal(position, 'SELL')}
+                    >
+                      减仓
+                    </Button>
+                  </Space>
+                </div>
+              </Card>
+            )}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={getFilteredPositions()}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            scroll={{ x: 'max-content' }}
+            locale={{
+              emptyText: (
+                <Empty
+                  description={
+                    fundTypeFilter === 'all'
+                      ? '暂无持仓，点击右上角「添加操作」开始记录'
+                      : `暂无${fundTypeFilter}型基金持仓`
+                  }
+                />
+              ),
+            }}
+          />
+        )}
       </Card>
 
       <Card
@@ -1132,26 +1201,67 @@ const PositionsPage = () => {
           )
         }
       >
-        <Table
-          columns={operationColumns}
-          dataSource={operations}
-          rowKey="id"
-          loading={operationsLoading}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          rowSelection={{
-            selectedRowKeys: selectedOperationIds,
-            onChange: (selectedRowKeys) => setSelectedOperationIds(selectedRowKeys),
-            getCheckboxProps: (record) => ({
-              disabled: false,
-            }),
-          }}
-          locale={{
-            emptyText: (
-              <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />
-            ),
-          }}
-        />
+        {isMobile ? (
+          <List
+            dataSource={operations}
+            loading={operationsLoading}
+            locale={{
+              emptyText: (
+                <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />
+              ),
+            }}
+            renderItem={(operation) => (
+              <Card
+                key={operation.id}
+                size="small"
+                style={{ marginBottom: 8 }}
+                data-testid="operation-card"
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ marginBottom: 4 }}>
+                      <Tag color={operation.operation_type === 'BUY' ? 'green' : 'red'}>
+                        {operation.operation_type === 'BUY' ? '买入' : '卖出'}
+                      </Tag>
+                      <span style={{ marginLeft: 8, color: '#999', fontSize: 12 }}>{operation.date}</span>
+                    </div>
+                    <div style={{ marginBottom: 4 }}>
+                      份额: {operation.share} | 净值: ¥{operation.nav}
+                    </div>
+                    <div>金额: ¥{operation.amount}</div>
+                  </div>
+                  <Popconfirm
+                    title="确定删除？"
+                    onConfirm={() => handleDeleteOperation(operation.id)}
+                  >
+                    <Button type="link" danger size="small">删除</Button>
+                  </Popconfirm>
+                </div>
+              </Card>
+            )}
+          />
+        ) : (
+          <Table
+            columns={operationColumns}
+            dataSource={operations}
+            rowKey="id"
+            loading={operationsLoading}
+            pagination={false}
+            scroll={{ x: 'max-content' }}
+            rowSelection={{
+              selectedRowKeys: selectedOperationIds,
+              onChange: (selectedRowKeys) => setSelectedOperationIds(selectedRowKeys),
+              getCheckboxProps: (record) => ({
+                disabled: false,
+              }),
+            }}
+            locale={{
+              emptyText: (
+                <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />
+              ),
+            }}
+          />
+        )}
       </Card>
 
       {/* 建仓 Modal */}
@@ -1162,7 +1272,7 @@ const PositionsPage = () => {
         onCancel={() => setBuildModalVisible(false)}
         okText="确定"
         cancelText="取消"
-        width={600}
+        width={isMobile ? '95vw' : 600}
       >
         <Form
           form={buildForm}
@@ -1338,7 +1448,7 @@ const PositionsPage = () => {
         onCancel={() => setOperationModalVisible(false)}
         okText="确定"
         cancelText="取消"
-        width={600}
+        width={isMobile ? '95vw' : 600}
       >
         <Form
           form={operationForm}
