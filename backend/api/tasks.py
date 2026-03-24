@@ -168,9 +168,12 @@ def check_notification_rules():
     logger.info(f'通知检查完成：触发 {triggered} 条规则，发送 {sent} 条通知')
     return f'触发 {triggered} 条，发送 {sent} 条'
 
+
+@shared_task
+def audit_accuracy():
     """
     审计估值准确率
-    
+
     每个交易晚间执行，计算所有捕捉到的快照与最终净值的误差。
     """
     from api.utils.trading_calendar import is_trading_day
@@ -182,7 +185,6 @@ def check_notification_rules():
         return '非交易日'
 
     try:
-        # 调用 management command 执行审计
         call_command('calculate_accuracy', date=today.isoformat())
         logger.info(f'{today} 准确率审计完成')
         return '审计完成'

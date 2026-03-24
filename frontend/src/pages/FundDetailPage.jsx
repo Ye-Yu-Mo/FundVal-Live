@@ -322,7 +322,7 @@ const FundDetailPage = () => {
       <Card
         title="基金信息"
         extra={
-          <Button icon={<RobotOutlined />} onClick={() => setAiModalVisible(true)}>AI 分析</Button>
+          <Button type="primary" icon={<RobotOutlined />} onClick={() => setAiModalVisible(true)}>AI 分析</Button>
         }
       >
         <Descriptions column={{ xs: 1, sm: 2, md: 3 }}>

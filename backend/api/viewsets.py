@@ -1588,6 +1588,57 @@ class AIPromptTemplateViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def list(self, request, *args, **kwargs):
+        # 首次访问且无任何模板时，自动创建默认模板
+        if not AIPromptTemplate.objects.filter(user=request.user).exists():
+            _create_default_templates(request.user)
+        return super().list(request, *args, **kwargs)
+
+
+def _create_default_templates(user):
+    """为新用户创建默认提示词模板"""
+    AIPromptTemplate.objects.bulk_create([
+        AIPromptTemplate(
+            user=user,
+            name='基金趋势分析',
+            context_type='fund',
+            is_default=True,
+            system_prompt='你是一位专业的基金分析师，擅长分析基金净值走势和市场趋势。请基于提供的数据给出客观、简洁的分析，避免主观投资建议。',
+            user_prompt=(
+                '请分析以下基金的近期表现：\n\n'
+                '基金代码：{{fund_code}}\n'
+                '基金名称：{{fund_name}}\n'
+                '基金类型：{{fund_type}}\n'
+                '最新净值：{{latest_nav}}\n'
+                '今日估值涨跌：{{estimate_growth}}%\n\n'
+                '近期净值数据：\n{{nav_history}}\n\n'
+                '请从以下维度分析：\n'
+                '1. 近期净值走势特征\n'
+                '2. 今日估值表现\n'
+                '3. 需要关注的风险点'
+            ),
+        ),
+        AIPromptTemplate(
+            user=user,
+            name='持仓健康度分析',
+            context_type='position',
+            is_default=True,
+            system_prompt='你是一位专业的资产配置顾问，擅长分析投资组合的风险与收益结构。请基于提供的持仓数据给出客观分析。',
+            user_prompt=(
+                '请分析以下投资组合的健康度：\n\n'
+                '账户名称：{{account_name}}\n'
+                '总持仓成本：{{holding_cost}} 元\n'
+                '当前市值：{{holding_value}} 元\n'
+                '总盈亏：{{pnl}} 元（{{pnl_rate}}%）\n\n'
+                '持仓明细：\n{{positions}}\n\n'
+                '请从以下维度分析：\n'
+                '1. 整体盈亏状况\n'
+                '2. 持仓集中度风险\n'
+                '3. 各基金表现对比'
+            ),
+        ),
+    ])
+
 
 class NotificationChannelViewSet(viewsets.ModelViewSet):
     """通知渠道 ViewSet"""

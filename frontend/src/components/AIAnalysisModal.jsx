@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Modal, Select, Button, Space, Spin, Empty, Alert, Typography } from 'antd';
 import { RobotOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { aiAPI } from '../api';
 
-const { Text } = Typography;
+const { Text, Link } = Typography;
 
 /**
  * AI 分析 Modal
@@ -17,6 +18,7 @@ const { Text } = Typography;
  *   title: string
  */
 const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 分析' }) => {
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -108,8 +110,16 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
           <Alert
             type="warning"
             showIcon
-            title="暂无可用模板"
-            description={<span>请先在 <Text strong>设置 → 提示词模板</Text> 中创建 {contextType === 'fund' ? '基金分析' : '持仓分析'} 类型的模板。</span>}
+            message="暂无可用模板"
+            description={
+              <span>
+                请先在{' '}
+                <Link onClick={() => { handleClose(); navigate('/dashboard/settings?tab=ai-templates'); }}>
+                  设置 → 提示词模板
+                </Link>
+                {' '}中创建 {contextType === 'fund' ? '基金分析' : '持仓分析'} 类型的模板。
+              </span>
+            }
           />
         )}
 
