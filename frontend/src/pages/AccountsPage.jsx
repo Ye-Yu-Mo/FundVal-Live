@@ -467,7 +467,8 @@ const AccountsPage = () => {
                       </Row>
                     </div>
                     <Space size="small" direction="vertical">
-                      <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>                      <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
+                      <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>
+                      <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
                       <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
                     </Space>
                   </div>
@@ -548,7 +549,8 @@ const AccountsPage = () => {
                         </Row>
                       </div>
                       <Space size="small" direction="vertical">
-                        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>                        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
+                        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>
+                        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
                         <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
                       </Space>
                     </div>
