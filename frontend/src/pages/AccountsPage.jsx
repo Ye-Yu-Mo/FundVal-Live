@@ -16,13 +16,19 @@ import {
   Row,
   Col,
   Alert,
+  List,
+  Grid,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
 import { accountsAPI } from '../api';
 
+const { useBreakpoint } = Grid;
+
 const AccountsPage = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const navigate = useNavigate();
   const { preferredSource } = usePreference();
   const {
@@ -437,14 +443,47 @@ const AccountsPage = () => {
             </Row>
           </Card>
 
-          <Table
-            columns={columns}
-            dataSource={getParentAccounts()}
-            rowKey="id"
-            loading={loading}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-          />
+          {isMobile ? (
+            <List
+              dataSource={getParentAccounts()}
+              loading={loading}
+              locale={{ emptyText: '暂无账户' }}
+              renderItem={(account) => (
+                <Card
+                  key={account.id}
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                  data-testid="parent-account-card"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                        {account.name}
+                        {account.is_default && <Tag color="blue" style={{ marginLeft: 8 }}>默认</Tag>}
+                      </div>
+                      <Row gutter={8}>
+                        <Col xs={12}><Statistic title="持仓市值" value={formatMoney(account.holding_value)} prefix="¥" valueStyle={{ fontSize: 14 }} /></Col>
+                        <Col xs={12}><Statistic title="总盈亏" value={formatMoney(account.pnl)} prefix="¥" valueStyle={{ fontSize: 14, color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }} /></Col>
+                      </Row>
+                    </div>
+                    <Space size="small" direction="vertical">
+                      <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>                      <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
+                      <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
+                    </Space>
+                  </div>
+                </Card>
+              )}
+            />
+          ) : (
+            <Table
+              columns={columns}
+              dataSource={getParentAccounts()}
+              rowKey="id"
+              loading={loading}
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -455,13 +494,13 @@ const AccountsPage = () => {
               style={{ marginBottom: 16 }}
             >
               <Row gutter={16}>
-                <Col span={6}>
+                <Col xs={12} sm={6}>
                   <Statistic title="持仓成本" value={formatMoney(getSelectedParent().holding_cost)} prefix="¥" />
                 </Col>
-                <Col span={6}>
+                <Col xs={12} sm={6}>
                   <Statistic title="持仓市值" value={formatMoney(getSelectedParent().holding_value)} prefix="¥" />
                 </Col>
-                <Col span={6}>
+                <Col xs={12} sm={6}>
                   <Statistic
                     title="总盈亏"
                     value={getSelectedParent().pnl}
@@ -472,7 +511,7 @@ const AccountsPage = () => {
                     )}
                   />
                 </Col>
-                <Col span={6}>
+                <Col xs={12} sm={6}>
                   <Statistic
                     title="收益率"
                     value={getSelectedParent().pnl_rate}
@@ -488,15 +527,45 @@ const AccountsPage = () => {
           )}
 
           <div data-testid="child-accounts-list">
-            <Table
-              columns={columns}
-              dataSource={getChildAccounts()}
-              rowKey="id"
-              loading={loading}
-              pagination={false}
-              scroll={{ x: 'max-content' }}
-              locale={{ emptyText: '暂无子账户' }}
-            />
+            {isMobile ? (
+              <List
+                dataSource={getChildAccounts()}
+                loading={loading}
+                locale={{ emptyText: '暂无子账户' }}
+                renderItem={(account) => (
+                  <Card
+                    key={account.id}
+                    size="small"
+                    style={{ marginBottom: 8 }}
+                    data-testid="child-account-card"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, marginBottom: 4 }}>{account.name}</div>
+                        <Row gutter={8}>
+                          <Col xs={12}><Statistic title="持仓市值" value={formatMoney(account.holding_value)} prefix="¥" valueStyle={{ fontSize: 14 }} /></Col>
+                          <Col xs={12}><Statistic title="总盈亏" value={formatMoney(account.pnl)} prefix="¥" valueStyle={{ fontSize: 14, color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }} /></Col>
+                        </Row>
+                      </div>
+                      <Space size="small" direction="vertical">
+                        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>                        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
+                        <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
+                      </Space>
+                    </div>
+                  </Card>
+                )}
+              />
+            ) : (
+              <Table
+                columns={columns}
+                dataSource={getChildAccounts()}
+                rowKey="id"
+                loading={loading}
+                pagination={false}
+                scroll={{ x: 'max-content' }}
+                locale={{ emptyText: '暂无子账户' }}
+              />
+            )}
           </div>
         </>
       )}
@@ -508,6 +577,7 @@ const AccountsPage = () => {
         onCancel={() => setModalVisible(false)}
         okText="确定"
         cancelText="取消"
+        width={isMobile ? '95vw' : 520}
       >
         <Form
           form={form}
