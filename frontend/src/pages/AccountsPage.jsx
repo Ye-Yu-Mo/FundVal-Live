@@ -116,6 +116,17 @@ const AccountsPage = () => {
     }
   };
 
+  // 设为默认账户
+  const handleSetDefault = async (account) => {
+    try {
+      await updateAccount(account.id, { name: account.name, is_default: true });
+      await loadAccounts(true);
+      message.success(`已将「${account.name}」设为默认账户`);
+    } catch {
+      message.error('设置失败');
+    }
+  };
+
   // 删除账户
   const handleDelete = async (id) => {
     try {
@@ -317,7 +328,7 @@ const AccountsPage = () => {
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 180,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -329,6 +340,15 @@ const AccountsPage = () => {
               onClick={() => navigate(`/dashboard/positions?account=${record.id}`)}
             >
               持仓
+            </Button>
+          )}
+          {!record.parent && !record.is_default && (
+            <Button
+              type="link"
+              size="small"
+              onClick={() => handleSetDefault(record)}
+            >
+              设为默认
             </Button>
           )}
           <Button
@@ -371,10 +391,10 @@ const AccountsPage = () => {
       }
     >
       {!showAllSummary && (
-        <Space orientation="vertical" style={{ width: '100%', marginBottom: 16 }}>
+        <Space style={{ marginBottom: 16 }}>
           <Select
             data-testid="parent-account-selector"
-            style={{ width: 300 }}
+            style={{ width: 200 }}
             placeholder="选择父账户"
             value={selectedParentId}
             onChange={setSelectedParentId}
@@ -383,6 +403,11 @@ const AccountsPage = () => {
               value: a.id,
             }))}
           />
+          {getSelectedParent() && !getSelectedParent().is_default && (
+            <Button onClick={() => handleSetDefault(getSelectedParent())}>
+              设为默认
+            </Button>
+          )}
         </Space>
       )}
 
@@ -468,6 +493,9 @@ const AccountsPage = () => {
                     </div>
                     <Space size="small" direction="vertical">
                       <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>
+                      {!account.is_default && (
+                        <Button size="small" onClick={() => handleSetDefault(account)}>设为默认</Button>
+                      )}
                       <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
                       <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
                     </Space>
