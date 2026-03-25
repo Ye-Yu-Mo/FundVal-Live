@@ -1,6 +1,6 @@
 [package]
 name = "fundval"
-version = "2.1.1"
+version = "2.2.0"
 description = "Fundval - 基金估值与资产管理系统"
 authors = ["you"]
 edition = "2021"

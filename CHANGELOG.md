@@ -16,7 +16,44 @@
 
 ---
 
+## [v2.2.0] - 2026-03-25
+
+### Added
+
+- **小倍养基数据源**：手机号 + 短信验证码登录，支持估值、净值、持仓导入
+  - 新增 `XiaoBeiYangJiSource` 实现，与东方财富、养基宝并列为第三方数据源
+  - 手机号登录 API：`POST /api/source-credentials/phone/send-sms/` 发送验证码，`POST /api/source-credentials/phone/verify/` 验证登录
+  - 持仓导入自动按 `accountId` 分组，每个交易账户映射为一个子账户（无 accountId 归入「默认账户」）
+  - 设置页面新增「小倍养基」登录组件：手机号输入 + 60 秒倒计时 + 一键导入/退出登录
+  - 数据源偏好下拉框新增「小倍养基」选项
+  - 非交易时段估值 fallback：`valuation=0` 时自动使用昨日净值，不返回空值
+
+- **账户默认切换**：可将任意父账户设为默认账户
+  - 父账户 Select 下拉框旁显示「设为默认」按钮（仅当前选中非默认时出现）
+  - 全部汇总视图的父账户列表（表格和移动端卡片）同样支持设为默认
+
+- **AI 分析默认模板**：首次打开 AI 分析时自动创建两个内置提示词模板
+  - 「基金趋势分析」：分析近期走势与市场环境
+  - 「持仓健康度分析」：分析持仓结构与风险暴露
+  - 无模板时 Alert 引导用户跳转设置页面创建
+
+### Changed
+
+- **数据源登录抽象**：`BaseEstimateSource` 新增 `get_login_type()` / `send_sms()` / `verify_phone()` 接口，支持 `none` / `qrcode` / `phone` 三种登录模式
+  - `/api/source-credentials/status/` 响应新增 `login_type` 字段，前端据此渲染不同登录 UI
+  - 已有数据源（东方财富 `none`，养基宝 `qrcode`）无需改动，向后兼容
+
+- **AI 分析入口**：分析按钮改为 `type="primary"` 样式，提升视觉显眼度
+
+### Fixed
+
+- **`audit_accuracy` 死代码**：函数体位于 `check_notification_rules` 的 `return` 之后，永远不会执行。修复为独立的 `@shared_task`，在 Celery Beat 中单独调度
+- **`SourceRegistry` 单例污染**：注册表原先存储数据源实例，多个并发请求共享同一实例导致 token/union_id 互相覆盖。改为存储类，每次 `get_source()` 返回新实例
+
+---
+
 ## [v2.1.1] - 2026-03-24
+
 
 ### Changed
 
