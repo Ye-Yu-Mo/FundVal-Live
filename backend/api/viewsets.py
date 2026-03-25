@@ -1448,12 +1448,112 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                 'source_name': source_name
             })
 
+    @action(detail=False, methods=['post'], url_path='phone/send-sms')
+    def phone_send_sms(self, request):
+        """
+        发送手机验证码
+
+        POST /api/source-credentials/phone/send-sms/
+        {
+            "source_name": "xiaobeiyangji",
+            "phone": "13800138000"
+        }
+        """
+        source_name = request.data.get('source_name')
+        phone = request.data.get('phone')
+
+        if not source_name or not phone:
+            return Response(
+                {'error': '缺少 source_name 或 phone 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            return Response(
+                {'error': f'数据源 {source_name} 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if source.get_login_type() != 'phone':
+            return Response(
+                {'error': f'数据源 {source_name} 不支持手机号登录'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            source.send_sms(phone)
+            return Response({'message': '验证码已发送'})
+        except Exception as e:
+            return Response(
+                {'error': f'发送验证码失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], url_path='phone/verify')
+    def phone_verify(self, request):
+        """
+        手机号验证码登录
+
+        POST /api/source-credentials/phone/verify/
+        {
+            "source_name": "xiaobeiyangji",
+            "phone": "13800138000",
+            "code": "123456"
+        }
+        """
+        from .models import UserSourceCredential
+
+        source_name = request.data.get('source_name')
+        phone = request.data.get('phone')
+        code = request.data.get('code')
+
+        if not source_name or not phone or not code:
+            return Response(
+                {'error': '缺少 source_name、phone 或 code 参数'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            return Response(
+                {'error': f'数据源 {source_name} 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if source.get_login_type() != 'phone':
+            return Response(
+                {'error': f'数据源 {source_name} 不支持手机号登录'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            login_result = source.verify_phone(phone, code)
+            token = login_result['token']
+
+            UserSourceCredential.objects.update_or_create(
+                user=request.user,
+                source_name=source_name,
+                defaults={'token': token, 'is_active': True},
+            )
+
+            logger.info(f'用户 {request.user.username} 登录数据源 {source_name} 成功')
+            return Response({'message': '登录成功', 'source_name': source_name})
+        except Exception as e:
+            return Response(
+                {'error': f'登录失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['post'], url_path='import')
     def import_from_yangjibao(self, request):
         """
-        一键导入养基宝账户和持仓数据
+        一键导入持仓数据
 
         POST /api/source-credentials/import/
+        {
+            "source_name": "yangjibao"  // 可选，默认 yangjibao
+        }
 
         响应:
         {
@@ -1464,31 +1564,45 @@ class SourceCredentialViewSet(viewsets.ViewSet):
         }
         """
         from .models import UserSourceCredential
-        from .sources.yangjibao import YangJiBaoSource
-        from .services.import_yjb import import_from_yangjibao
+
+        source_name = request.data.get('source_name', 'yangjibao')
+        overwrite = request.data.get('overwrite', False)
 
         credential = UserSourceCredential.objects.filter(
             user=request.user,
-            source_name='yangjibao',
+            source_name=source_name,
             is_active=True,
         ).first()
 
         if not credential:
             return Response(
-                {'error': '未登录养基宝，请先扫码登录'},
+                {'error': f'未登录 {source_name}，请先登录'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        source = YangJiBaoSource()
+        source = SourceRegistry.get_source(source_name)
+        if not source:
+            return Response(
+                {'error': f'数据源 {source_name} 不存在'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         source._token = credential.token
 
-        overwrite = request.data.get('overwrite', False)
-
         try:
-            result = import_from_yangjibao(request.user, source, overwrite=overwrite)
+            if source_name == 'xiaobeiyangji':
+                from .services.import_xiaobeiyangji import import_from_xiaobeiyangji
+                result = import_from_xiaobeiyangji(request.user, source, overwrite=overwrite)
+            else:
+                from .sources.yangjibao import YangJiBaoSource
+                from .services.import_yjb import import_from_yangjibao
+                yjb_source = YangJiBaoSource()
+                yjb_source._token = credential.token
+                result = import_from_yangjibao(request.user, yjb_source, overwrite=overwrite)
+
             return Response(result)
         except Exception as e:
-            logger.error(f'养基宝导入失败: {e}')
+            logger.error(f'{source_name} 导入失败: {e}')
             return Response(
                 {'error': f'导入失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
