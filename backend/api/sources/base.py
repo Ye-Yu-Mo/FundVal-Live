@@ -74,42 +74,68 @@ class BaseEstimateSource(ABC):
         """
         pass
 
-    @abstractmethod
+    def get_login_type(self) -> str:
+        """
+        数据源的登录类型
+
+        Returns:
+            'none'   — 不需要登录（如东方财富）
+            'qrcode' — 二维码扫码登录（如养基宝）
+            'phone'  — 手机号 + 短信验证码登录（如小倍养基）
+        """
+        return 'none'
+
     def get_qrcode(self) -> Dict:
         """
-        获取登录二维码（用于需要登录的数据源）
+        获取登录二维码（login_type='qrcode' 的数据源实现）
 
         Returns:
-            dict: {
-                'qr_id': str,
-                'qr_url': str,
-            }
-            如果数据源不支持二维码登录，返回 None
+            dict: {'qr_id': str, 'qr_url': str}
+            不支持二维码登录的数据源返回 None
         """
-        pass
+        return None
 
-    @abstractmethod
     def check_qrcode_state(self, qr_id: str) -> Dict:
         """
-        检查二维码扫码状态
-
-        Args:
-            qr_id: 二维码ID
+        检查二维码扫码状态（login_type='qrcode' 的数据源实现）
 
         Returns:
-            dict: {
-                'state': str,  # waiting/scanned/confirmed/expired
-                'token': str,  # 仅 state=confirmed 时有值
-            }
+            dict: {'state': str, 'token': str}
+            不支持二维码登录的数据源返回 None
         """
+        return None
+
+    def logout(self):
+        """登出（清除 token），不需要登录的数据源无操作"""
         pass
 
-    @abstractmethod
-    def logout(self):
+    def send_sms(self, phone: str) -> None:
         """
-        登出（清除 token）
+        发送短信验证码（login_type='phone' 的数据源实现）
+
+        Args:
+            phone: 手机号
+
+        Raises:
+            NotImplementedError: 数据源不支持手机号登录
         """
-        pass
+        raise NotImplementedError(f'{self.get_source_name()} 不支持手机号登录')
+
+    def verify_phone(self, phone: str, code: str) -> dict:
+        """
+        手机号 + 验证码登录（login_type='phone' 的数据源实现）
+
+        Args:
+            phone: 手机号
+            code:  短信验证码
+
+        Returns:
+            dict: {'token': str, 'union_id': str}
+
+        Raises:
+            NotImplementedError: 数据源不支持手机号登录
+        """
+        raise NotImplementedError(f'{self.get_source_name()} 不支持手机号登录')
 
     @abstractmethod
     def fetch_fund_list(self) -> list:

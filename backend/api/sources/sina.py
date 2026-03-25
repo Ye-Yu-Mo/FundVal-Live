@@ -28,17 +28,8 @@ class SinaStockSource(BaseEstimateSource):
         """sina 源不支持确权净值查询，仅支持实时行情"""
         return None
 
-    def get_qrcode(self) -> Optional[Dict]:
-        """不需要 QR 登录"""
-        return None
-
-    def check_qrcode_state(self, qr_id: str) -> Optional[Dict]:
-        """不需要扫码"""
-        return None
-
-    def logout(self):
-        """无需登出"""
-        pass
+    def get_login_type(self) -> str:
+        return 'none'
 
     def fetch_fund_list(self) -> list:
         return []

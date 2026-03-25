@@ -1425,6 +1425,9 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        source = SourceRegistry.get_source(source_name)
+        login_type = source.get_login_type() if source else 'none'
+
         credential = UserSourceCredential.objects.filter(
             user=request.user,
             source_name=source_name,
@@ -1435,11 +1438,13 @@ class SourceCredentialViewSet(viewsets.ViewSet):
             serializer = UserSourceCredentialSerializer(credential)
             return Response({
                 'logged_in': True,
+                'login_type': login_type,
                 **serializer.data
             })
         else:
             return Response({
                 'logged_in': False,
+                'login_type': login_type,
                 'source_name': source_name
             })
 

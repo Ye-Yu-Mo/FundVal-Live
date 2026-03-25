@@ -25,6 +25,9 @@ class YangJiBaoSource(BaseEstimateSource):
     def get_source_name(self) -> str:
         return 'yangjibao'
 
+    def get_login_type(self) -> str:
+        return 'qrcode'
+
     def _generate_sign(self, path: str, timestamp: int) -> str:
         """
         生成 API 签名

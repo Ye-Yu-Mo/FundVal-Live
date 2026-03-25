@@ -108,10 +108,13 @@ class TestAIPromptTemplateViewSet:
         self.client.force_authenticate(user=self.user)
 
     def test_list_templates_empty(self):
-        """无模板时返回空列表"""
+        """无模板时自动创建默认模板并返回"""
         response = self.client.get('/api/ai/templates/')
         assert response.status_code == 200
-        assert response.data == []
+        assert len(response.data) == 2
+        names = {t['name'] for t in response.data}
+        assert '基金趋势分析' in names
+        assert '持仓健康度分析' in names
 
     def test_list_templates_only_own(self):
         """只返回当前用户的模板"""

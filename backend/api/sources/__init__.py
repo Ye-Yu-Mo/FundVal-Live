@@ -7,17 +7,20 @@ from .base import BaseEstimateSource
 from .eastmoney import EastMoneySource
 from .sina import SinaStockSource
 from .yangjibao import YangJiBaoSource
+from .xiaobeiyangji import XiaoBeiYangJiSource
 from .registry import SourceRegistry
 
 # 自动注册数据源
 SourceRegistry.register(EastMoneySource())
 SourceRegistry.register(SinaStockSource())
 SourceRegistry.register(YangJiBaoSource())
+SourceRegistry.register(XiaoBeiYangJiSource())
 
 __all__ = [
     'BaseEstimateSource',
     'EastMoneySource',
     'SinaStockSource',
     'YangJiBaoSource',
+    'XiaoBeiYangJiSource',
     'SourceRegistry',
 ]
