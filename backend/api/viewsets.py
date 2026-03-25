@@ -1614,7 +1614,7 @@ class UserPreferenceViewSet(viewsets.ViewSet):
 
     permission_classes = [IsAuthenticated]
 
-    VALID_SOURCES = {'eastmoney', 'yangjibao'}
+    VALID_SOURCES = {'eastmoney', 'yangjibao', 'xiaobeiyangji'}
 
     def list(self, request):
         """

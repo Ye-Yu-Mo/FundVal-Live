@@ -73,6 +73,7 @@ const DataSourceCard = () => {
           <Select>
             <Select.Option value="eastmoney">东方财富</Select.Option>
             <Select.Option value="yangjibao">养基宝</Select.Option>
+            <Select.Option value="xiaobeiyangji">小倍养基</Select.Option>
           </Select>
         </Form.Item>
         <Alert
@@ -1009,6 +1010,181 @@ const YangJiBaoLogin = () => {
   );
 };
 
+const SMS_COOLDOWN = 60;
+
+const XiaoBeiYangJiLogin = () => {
+  const [status, setStatus] = useState(null);
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef(null);
+
+  useEffect(() => {
+    sourceAPI.getStatus('xiaobeiyangji')
+      .then(res => setStatus(res.data.logged_in ? 'logged_in' : 'logged_out'))
+      .catch(() => setStatus('logged_out'));
+    return () => clearInterval(countdownRef.current);
+  }, []);
+
+  const startCountdown = () => {
+    setCountdown(SMS_COOLDOWN);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendSms = async () => {
+    if (!phone) { message.warning('请输入手机号'); return; }
+    setSmsLoading(true);
+    try {
+      await sourceAPI.sendSms('xiaobeiyangji', phone);
+      message.success('验证码已发送');
+      startCountdown();
+    } catch (e) {
+      message.error(e.response?.data?.error || '发送失败');
+    } finally {
+      setSmsLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!phone || !code) { message.warning('请输入手机号和验证码'); return; }
+    setLoginLoading(true);
+    try {
+      await sourceAPI.verifyPhone('xiaobeiyangji', phone, code);
+      setStatus('logged_in');
+      setPhone('');
+      setCode('');
+      message.success('小倍养基登录成功');
+    } catch (e) {
+      message.error(e.response?.data?.error || '登录失败，请检查验证码');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      await sourceAPI.logout('xiaobeiyangji');
+      setStatus('logged_out');
+      setImportResult(null);
+      message.success('已退出小倍养基');
+    } catch {
+      message.error('退出失败');
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
+
+  const handleImport = () => {
+    Modal.confirm({
+      title: '导入小倍养基持仓',
+      content: (
+        <div>
+          <p>请选择导入方式：</p>
+          <ul style={{ paddingLeft: 20, color: '#666' }}>
+            <li><b>新建账户</b>：跳过已有持仓记录，仅新增</li>
+            <li><b>覆盖账户</b>：清空已有持仓流水后重新导入</li>
+          </ul>
+        </div>
+      ),
+      okText: '新建账户',
+      cancelText: '覆盖账户',
+      onOk: () => doImport(false),
+      onCancel: () => doImport(true),
+    });
+  };
+
+  const doImport = async (overwrite) => {
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const res = await sourceAPI.importHoldings('xiaobeiyangji', overwrite);
+      setImportResult(res.data);
+      message.success(`导入完成：新增 ${res.data.holdings_created} 条持仓`);
+    } catch (e) {
+      message.error(e.response?.data?.error || '导入失败');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span>小倍养基</span>
+        {status === 'logged_in' && <Tag icon={<CheckCircleOutlined />} color="success">已登录</Tag>}
+        {status === 'logged_out' && <Tag icon={<CloseCircleOutlined />} color="default">未登录</Tag>}
+        {status === null && <Tag>检查中...</Tag>}
+      </div>
+
+      {status === 'logged_in' ? (
+        <Space direction="vertical" size={12}>
+          <Space>
+            <Button icon={<ImportOutlined />} onClick={handleImport} loading={importLoading} type="primary">
+              一键导入持仓
+            </Button>
+            <Button icon={<LogoutOutlined />} onClick={handleLogout} loading={logoutLoading} danger>
+              退出登录
+            </Button>
+          </Space>
+          {importResult && (
+            <div style={{ color: '#666', fontSize: 12 }}>
+              新增账户 {importResult.accounts_created}，跳过 {importResult.accounts_skipped}；
+              新增持仓 {importResult.holdings_created}，跳过 {importResult.holdings_skipped}
+            </div>
+          )}
+        </Space>
+      ) : status === 'logged_out' ? (
+        <Space direction="vertical" size={8}>
+          <Space.Compact>
+            <Input
+              placeholder="手机号"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              style={{ width: 160 }}
+              maxLength={11}
+            />
+            <Button
+              onClick={handleSendSms}
+              loading={smsLoading}
+              disabled={countdown > 0}
+              style={{ width: 120 }}
+            >
+              {countdown > 0 ? `重新发送(${countdown}s)` : '发送验证码'}
+            </Button>
+          </Space.Compact>
+          <Space.Compact>
+            <Input
+              placeholder="验证码"
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              style={{ width: 160 }}
+              maxLength={6}
+              onPressEnter={handleLogin}
+            />
+            <Button type="primary" onClick={handleLogin} loading={loginLoading} style={{ width: 120 }}>
+              登录
+            </Button>
+          </Space.Compact>
+        </Space>
+      ) : null}
+    </div>
+  );
+};
+
 const SettingsPage = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -1059,10 +1235,13 @@ const SettingsPage = () => {
       <DataSourceCard />
 
       <Card title="数据源管理">
+        <Divider orientation="left" plain style={{ marginTop: 0 }}>养基宝</Divider>
         <YangJiBaoLogin />
         <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
           注：养基宝数据源仅支持查询您持仓中的基金估值
         </div>
+        <Divider orientation="left" plain>小倍养基</Divider>
+        <XiaoBeiYangJiLogin />
       </Card>
 
       <AIConfigCard />

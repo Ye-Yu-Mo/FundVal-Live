@@ -124,6 +124,12 @@ export const sourceAPI = {
     api.get('/source-credentials/status/', { params: { source_name: sourceName } }),
   importFromYangJiBao: (overwrite = false) =>
     api.post('/source-credentials/import/', { overwrite }),
+  sendSms: (sourceName, phone) =>
+    api.post('/source-credentials/phone/send-sms/', { source_name: sourceName, phone }),
+  verifyPhone: (sourceName, phone, code) =>
+    api.post('/source-credentials/phone/verify/', { source_name: sourceName, phone, code }),
+  importHoldings: (sourceName, overwrite = false) =>
+    api.post('/source-credentials/import/', { source_name: sourceName, overwrite }),
 };
 
 // 通知渠道
