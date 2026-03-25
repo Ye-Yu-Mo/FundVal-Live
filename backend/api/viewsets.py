@@ -1587,7 +1587,10 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        source._token = credential.token
+        if source_name == 'xiaobeiyangji' and hasattr(source, 'set_token'):
+            source.set_token(credential.token)
+        else:
+            source._token = credential.token
 
         try:
             if source_name == 'xiaobeiyangji':

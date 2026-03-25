@@ -27,6 +27,18 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
     # 基础属性
     # ─────────────────────────────────────────────
 
+    def set_token(self, token: str):
+        """设置 token 并自动从 JWT payload 提取 union_id"""
+        import json, base64
+        self._token = token
+        try:
+            payload = token.split('.')[1]
+            payload += '=' * (4 - len(payload) % 4)
+            decoded = json.loads(base64.b64decode(payload))
+            self._union_id = decoded.get('unionId')
+        except Exception:
+            logger.warning('无法从 token 解析 unionId，_union_id 未设置')
+
     def get_source_name(self) -> str:
         return 'xiaobeiyangji'
 
@@ -276,6 +288,12 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
     # 持仓导入
     # ─────────────────────────────────────────────
 
+    def fetch_accounts(self) -> List[Dict]:
+        """获取账户列表"""
+        self._require_login()
+        data = self._request('POST', '/yangji-api/api/get-account-list', json=self._common_body())
+        return data.get('accountList', []) if data else []
+
     def fetch_holdings(self) -> List[Dict]:
         self._require_login()
         try:
@@ -317,6 +335,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
                     'amount': money,
                     'earnings': earnings,
                     'operation_date': operation_date,
+                    'account_id': item.get('accountId'),  # None = 默认账户
                 })
 
             return result

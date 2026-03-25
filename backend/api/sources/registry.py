@@ -1,57 +1,37 @@
 """
 数据源注册表
 """
-from typing import Optional, List
+from typing import Optional, List, Type
 from .base import BaseEstimateSource
 
 
 class SourceRegistry:
-    """数据源注册表（单例）"""
+    """数据源注册表
 
-    _sources = {}
+    存储数据源的类（而非实例），每次 get_source 返回新实例，
+    避免多请求共享同一实例导致 token/状态互相覆盖。
+    """
+
+    _classes: dict = {}
 
     @classmethod
     def register(cls, source: BaseEstimateSource):
-        """
-        注册数据源
-
-        Args:
-            source: 数据源实例
-        """
+        """注册数据源（传入实例，存储其类）"""
         name = source.get_source_name()
-        cls._sources[name] = source
+        cls._classes[name] = type(source)
 
     @classmethod
     def get_source(cls, name: str) -> Optional[BaseEstimateSource]:
-        """
-        获取数据源
-
-        Args:
-            name: 数据源名称
-
-        Returns:
-            数据源实例，如果不存在返回 None
-        """
-        return cls._sources.get(name)
+        """返回新的数据源实例（每次调用都是新对象）"""
+        klass = cls._classes.get(name)
+        return klass() if klass else None
 
     @classmethod
     def list_sources(cls) -> List[str]:
-        """
-        列出所有数据源
-
-        Returns:
-            数据源名称列表
-        """
-        return list(cls._sources.keys())
+        return list(cls._classes.keys())
 
     @classmethod
     def get_default_source(cls) -> Optional[BaseEstimateSource]:
-        """
-        获取默认数据源（第一个注册的）
-
-        Returns:
-            数据源实例
-        """
-        if cls._sources:
-            return list(cls._sources.values())[0]
+        if cls._classes:
+            return list(cls._classes.values())[0]()
         return None

@@ -1001,7 +1001,7 @@ const YangJiBaoLogin = () => {
 
           {qrUrl && (
             <div style={{ color: '#888', fontSize: 12 }}>
-              用养基宝 App 扫码登录
+              用 微信 扫码登录
             </div>
           )}
         </Space>

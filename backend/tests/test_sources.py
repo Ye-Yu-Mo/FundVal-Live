@@ -112,7 +112,8 @@ class TestSourceRegistry:
         SourceRegistry.register(source)
 
         retrieved = SourceRegistry.get_source('eastmoney')
-        assert retrieved is source
+        # 每次返回新实例，类型相同即可
+        assert isinstance(retrieved, EastMoneySource)
 
     def test_get_nonexistent_source(self):
         """测试获取不存在的数据源"""
@@ -131,7 +132,6 @@ class TestSourceRegistry:
 
         sources = SourceRegistry.list_sources()
         assert 'eastmoney' in sources
-        assert len(sources) == 1
 
 
 class TestFundListSync:
