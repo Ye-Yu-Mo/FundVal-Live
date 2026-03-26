@@ -41,14 +41,22 @@ check_running() {
 # 启动 Redis（如果需要）
 start_redis() {
     echo "检查 Redis..."
-    if command -v redis-server &> /dev/null; then
-        if check_running "redis"; then
-            echo -e "${YELLOW}Redis 已在运行${NC}"
-        else
-            echo "启动 Redis..."
-            redis-server --daemonize yes --pidfile "$PID_DIR/redis.pid" --logfile "$LOG_DIR/redis.log"
-            echo -e "${GREEN}✓ Redis 已启动${NC}"
+    if command -v redis-cli &> /dev/null && redis-cli ping > /dev/null 2>&1; then
+        # Redis 已在运行（可能是系统级别启动的），记录其 pid
+        local redis_pid
+        redis_pid=$(redis-cli info server 2>/dev/null | grep "^os_dependent_pid:" | tr -d '\r' | cut -d: -f2)
+        if [ -z "$redis_pid" ]; then
+            redis_pid=$(pgrep -x redis-server | head -1)
         fi
+        if [ -n "$redis_pid" ]; then
+            echo "$redis_pid" > "$PID_DIR/redis.pid"
+        fi
+        echo -e "${YELLOW}Redis 已在运行${NC}"
+    elif command -v redis-server &> /dev/null; then
+        echo "启动 Redis..."
+        redis-server --daemonize yes --pidfile "$PID_DIR/redis.pid" --logfile "$LOG_DIR/redis.log"
+        sleep 1
+        echo -e "${GREEN}✓ Redis 已启动${NC}"
     else
         echo -e "${YELLOW}⚠ Redis 未安装，Celery 功能将不可用${NC}"
     fi
