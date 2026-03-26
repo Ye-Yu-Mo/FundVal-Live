@@ -15,25 +15,26 @@ echo "=========================================="
 echo ""
 
 check_service() {
-    local service=$1
-    local pid_file="$PID_DIR/$service.pid"
+    local pid_key=$1
+    local display=$2
+    local pid_file="$PID_DIR/$pid_key.pid"
 
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
         if ps -p "$pid" > /dev/null 2>&1; then
-            echo -e "$service: ${GREEN}运行中${NC} (PID: $pid)"
+            echo -e "$display: ${GREEN}运行中${NC} (PID: $pid)"
         else
-            echo -e "$service: ${RED}未运行${NC} (PID 文件存在但进程不存在)"
+            echo -e "$display: ${RED}未运行${NC} (PID 文件存在但进程不存在)"
         fi
     else
-        echo -e "$service: ${RED}未运行${NC}"
+        echo -e "$display: ${RED}未运行${NC}"
     fi
 }
 
-check_service "Redis"
-check_service "Celery Worker"
-check_service "Celery Beat"
-check_service "Django"
+check_service "redis" "Redis"
+check_service "celery-worker" "Celery Worker"
+check_service "celery-beat" "Celery Beat"
+check_service "django" "Django"
 
 echo ""
 echo "查看日志:"
