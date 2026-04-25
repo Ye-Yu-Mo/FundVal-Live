@@ -60,7 +60,9 @@ curl -O https://raw.githubusercontent.com/Ye-Yu-Mo/FundVal-Live/main/.env.exampl
 cp .env.example .env
 ```
 
-#### 2. 修改配置（可选）
+#### 2. 修改配置
+
+**请注意**：如果你是在**服务器**，**NAS**等机器上部署（非本机访问情况下），需要修改`ALLOWED_HOSTS`项目，`ALLOWED_HOSTS=*`
 
 编辑 `.env` 文件，自定义配置：
 
