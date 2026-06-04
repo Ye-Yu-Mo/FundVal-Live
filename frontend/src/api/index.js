@@ -58,6 +58,8 @@ export const fundsAPI = {
   holdingsRealtime: (fundCode) => api.get(`/funds/${fundCode}/holdings-realtime/`),
   estimateIntraday: (fundCode, source = 'eastmoney') => api.get(`/funds/${fundCode}/estimate-intraday/`, { params: { source } }),
   compare: (codes) => api.get('/funds/compare/', { params: { codes: codes.join(',') } }),
+  marketIndices: () => api.get('/funds/market-indices/'),
+  rankings: (params) => api.get('/funds/rankings/', { params }),
 };
 
 // 账户管理

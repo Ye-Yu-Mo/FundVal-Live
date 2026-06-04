@@ -130,6 +130,12 @@ const ComparePage = () => {
     })),
   ];
 
+  const PRESET_GROUPS = [
+    { label: '白酒 vs 新能源 vs 半导体', codes: '161725,012414,014193' },
+    { label: '沪深300 vs 中证500 vs 创业板', codes: '510300,510500,159915' },
+    { label: '黄金 vs 债券', codes: '000218,007194' },
+  ];
+
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Card title="基金 PK 对比" extra={
@@ -137,6 +143,16 @@ const ComparePage = () => {
           <Button onClick={handleImportFromWatchlist}>从自选导入</Button>
         </Space>
       }>
+        <Space style={{ marginBottom: 8 }} wrap>
+          <span style={{ color: '#999' }}>热门组合：</span>
+          {PRESET_GROUPS.map(g => (
+            <Button key={g.codes} size="small" onClick={() => {
+              const codes = g.codes.split(',');
+              setSelectedCodes(codes);
+              loadCompare(codes);
+            }}>{g.label}</Button>
+          ))}
+        </Space>
         <Space style={{ marginBottom: 16 }} wrap>
           {selectedCodes.map((code, i) => (
             <Button key={code} size="small" type="primary"

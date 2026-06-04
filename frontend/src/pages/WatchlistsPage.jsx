@@ -184,6 +184,15 @@ const WatchlistsPage = () => {
   const [fundOptions, setFundOptions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [groupGrowths, setGroupGrowths] = useState({});
+  const [indices, setIndices] = useState([]);
+
+  const loadIndices = async () => {
+    try {
+      const { data } = await fundsAPI.marketIndices();
+      setIndices(data.indices || []);
+    } catch {}
+  };
+  useEffect(() => { loadIndices(); const i = setInterval(loadIndices, 30000); return () => clearInterval(i); }, []);
 
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState({
@@ -559,6 +568,25 @@ const WatchlistsPage = () => {
 
   // 有自选列表
   return (
+    <>
+      {indices.length > 0 && (
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 16, overflowX: 'auto' }}>
+            {indices.map(idx => {
+              const chg = idx.change_percent ? parseFloat(idx.change_percent) : null;
+              return (
+                <div key={idx.code} style={{ textAlign: 'center', minWidth: 100 }}>
+                  <div style={{ fontSize: 12, color: '#999' }}>{idx.name}</div>
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{idx.price || '-'}</div>
+                  <div style={{ fontSize: 13, color: chg != null ? (chg >= 0 ? '#cf1322' : '#3f8600') : '#999' }}>
+                    {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     <Card
       title="自选列表"
       extra={
@@ -659,6 +687,7 @@ const WatchlistsPage = () => {
         </Form>
       </Modal>
     </Card>
+  </>
   );
 };
 

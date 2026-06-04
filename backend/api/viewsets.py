@@ -147,6 +147,88 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             logger.error(f'获取成分股失败：{fund_code}, 错误：{e}')
             return Response({'fund_code': fund_code, 'holdings': []})
 
+    @action(detail=False, methods=['get'], url_path='market-indices')
+    def market_indices(self, request):
+        """GET /api/funds/market-indices/ — 大盘指数实时行情"""
+        indices = [
+            ('sh000001', '上证指数'),
+            ('sz399001', '深证成指'),
+            ('sz399006', '创业板指'),
+            ('sh000688', '科创50'),
+        ]
+        sina = SourceRegistry.get_source('sina')
+        result = []
+        import requests as req
+        for code, name in indices:
+            price = change = None
+            try:
+                url = f'http://hq.sinajs.cn/list={code}'
+                resp = req.get(url, headers={'Referer': 'http://finance.sina.com.cn'}, timeout=10)
+                resp.encoding = 'gbk'
+                import re
+                match = re.search(r'"(.*)"', resp.text)
+                if match and match.group(1):
+                    parts = match.group(1).split(',')
+                    if len(parts) >= 4:
+                        current_price = parts[3]
+                        prev_close = parts[2]
+                        if current_price and current_price != '0.000':
+                            price = current_price
+                            if prev_close and prev_close != '0.000':
+                                change = round((float(current_price) - float(prev_close)) / float(prev_close) * 100, 2)
+            except Exception:
+                pass
+            result.append({
+                'code': code, 'name': name,
+                'price': str(price) if price else None,
+                'change_percent': str(change) if change is not None else None,
+            })
+        return Response({'indices': result})
+
+    @action(detail=False, methods=['get'], url_path='rankings')
+    def rankings(self, request):
+        """GET /api/funds/rankings/?type=gain&category=股票型 — 排行榜"""
+        from django.db.models import Count, Avg
+        from django.core.paginator import Paginator
+
+        rank_type = request.query_params.get('type', 'gain')
+        category = request.query_params.get('category', '')
+        page = int(request.query_params.get('page', 1))
+        page_size = 20
+
+        if rank_type == 'popular':
+            queryset = Fund.objects.annotate(
+                pos_count=Count('positions')
+            ).filter(pos_count__gt=0).order_by('-pos_count')
+        elif rank_type == 'accuracy':
+            queryset = Fund.objects.annotate(
+                avg_error=Avg('accuracy_records__error_rate')
+            ).filter(avg_error__isnull=False).order_by('avg_error')
+        else:
+            queryset = Fund.objects.exclude(estimate_growth__isnull=True).order_by('-estimate_growth')
+
+        if category:
+            queryset = queryset.filter(fund_type__icontains=category)
+
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(page)
+
+        results = []
+        for f in page_obj:
+            item = {
+                'fund_code': f.fund_code, 'fund_name': f.fund_name,
+                'fund_type': f.fund_type,
+                'latest_nav': str(f.latest_nav) if f.latest_nav else None,
+                'estimate_growth': str(f.estimate_growth) if f.estimate_growth else None,
+            }
+            if rank_type == 'popular':
+                item['pos_count'] = getattr(f, 'pos_count', 0)
+            if rank_type == 'accuracy':
+                item['avg_error'] = str(round(getattr(f, 'avg_error', 0) or 0, 4))
+            results.append(item)
+
+        return Response({'count': paginator.count, 'results': results})
+
     @action(detail=False, methods=['get'], url_path='compare')
     def compare(self, request):
         """GET /api/funds/compare/?codes=000001,161725 — 多基金对比"""

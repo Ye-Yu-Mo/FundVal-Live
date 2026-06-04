@@ -15,6 +15,7 @@ import WatchlistsPage from './pages/WatchlistsPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
 import ComparePage from './pages/ComparePage';
+import RankingsPage from './pages/RankingsPage';
 import { isAuthenticated, getUser } from './utils/auth';
 import { AuthProvider } from './contexts/AuthContext';
 import { AccountProvider } from './contexts/AccountContext';
@@ -132,6 +133,16 @@ function AppInner() {
                   <PrivateRoute>
                     <MainLayout>
                       <SettingsPage />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/dashboard/rankings"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <RankingsPage />
                     </MainLayout>
                   </PrivateRoute>
                 }
