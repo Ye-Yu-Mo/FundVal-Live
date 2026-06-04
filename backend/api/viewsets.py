@@ -2232,7 +2232,7 @@ class AdminViewSet(viewsets.ViewSet):
             'position_count': Position.objects.count(),
             'nav_history_count': FundNavHistory.objects.count(),
             'latest_estimate_time': latest_estimate_time,
-            'version': '2.4.1',
+            'version': '2.5.0',
         })
 
     @action(detail=False, methods=['post'], url_path=r'tasks/(?P<task_name>[^/.]+)')

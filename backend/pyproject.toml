@@ -1,6 +1,6 @@
 [project]
 name = "fundval"
-version = "2.4.1"
+version = "2.5.0"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
