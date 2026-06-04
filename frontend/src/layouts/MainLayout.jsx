@@ -32,48 +32,23 @@ const MainLayout = ({ children }) => {
   // 判断是否为移动端（< 768px）
   const isMobile = !screens.md;
 
-  const menuItems = [
-    {
-      key: '/dashboard/watchlists',
-      icon: <StarOutlined />,
-      label: isMobile ? '自选' : '自选列表',
-    },
-    {
-      key: '/dashboard/positions',
-      icon: <PieChartOutlined />,
-      label: isMobile ? '持仓' : '持仓查询',
-    },
-    {
-      key: '/dashboard/accounts',
-      icon: <AccountBookOutlined />,
-      label: isMobile ? '账户' : '账户管理',
-    },
-    {
-      key: '/dashboard/rankings',
-      icon: <TrophyOutlined />,
-      label: isMobile ? '排行' : '排行榜',
-    },
-    {
-      key: '/dashboard/compare',
-      icon: <RadarChartOutlined />,
-      label: isMobile ? '对比' : '基金对比',
-    },
-    {
-      key: '/dashboard/funds',
-      icon: <FundOutlined />,
-      label: isMobile ? '基金' : '基金查询',
-    },
-    {
-      key: '/dashboard/settings',
-      icon: <SettingOutlined />,
-      label: isMobile ? '设置' : '系统设置',
-    },
-    ...(user?.role === 'admin' ? [{
-      key: '/dashboard/admin',
-      icon: <UserOutlined />,
-      label: isMobile ? '管理' : '用户管理',
-    }] : []),
+  const desktopMenuItems = [
+    { key: '/dashboard/watchlists', icon: <StarOutlined />, label: '自选列表' },
+    { key: '/dashboard/market', icon: <FundOutlined />, label: '行情中心' },
+    { key: '/dashboard/positions', icon: <PieChartOutlined />, label: '持仓查询' },
+    { key: '/dashboard/compare', icon: <RadarChartOutlined />, label: '基金对比' },
+    { key: '/dashboard/accounts', icon: <AccountBookOutlined />, label: '账户管理' },
+    { key: '/dashboard/settings', icon: <SettingOutlined />, label: '系统设置' },
+    ...(user?.role === 'admin' ? [{ key: '/dashboard/admin', icon: <UserOutlined />, label: '用户管理' }] : []),
   ];
+  const mobileMenuItems = [
+    { key: '/dashboard/watchlists', icon: <StarOutlined />, label: '自选' },
+    { key: '/dashboard/market', icon: <FundOutlined />, label: '行情' },
+    { key: '/dashboard/positions', icon: <PieChartOutlined />, label: '持仓' },
+    { key: '/dashboard/compare', icon: <RadarChartOutlined />, label: '对比' },
+    { key: '/dashboard/profile', icon: <UserOutlined />, label: '我的' },
+  ];
+  const menuItems = isMobile ? mobileMenuItems : desktopMenuItems;
 
   const handleMenuClick = ({ key }) => {
     navigate(key);

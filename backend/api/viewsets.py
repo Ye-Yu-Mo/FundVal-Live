@@ -201,8 +201,9 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 pos_count=Count('positions')
             ).filter(pos_count__gt=0).order_by('-pos_count')
         elif rank_type == 'accuracy':
+            from django.db.models.functions import Abs
             queryset = Fund.objects.annotate(
-                avg_error=Avg('accuracy_records__error_rate')
+                avg_error=Avg(Abs('accuracy_records__error_rate'))
             ).filter(avg_error__isnull=False).order_by('avg_error')
         else:
             queryset = Fund.objects.exclude(estimate_growth__isnull=True).order_by('-estimate_growth')

@@ -16,6 +16,8 @@ import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
 import ComparePage from './pages/ComparePage';
 import RankingsPage from './pages/RankingsPage';
+import MarketPage from './pages/MarketPage';
+import ProfilePage from './pages/ProfilePage';
 import { isAuthenticated, getUser } from './utils/auth';
 import { AuthProvider } from './contexts/AuthContext';
 import { AccountProvider } from './contexts/AccountContext';
@@ -133,6 +135,26 @@ function AppInner() {
                   <PrivateRoute>
                     <MainLayout>
                       <SettingsPage />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/dashboard/market"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <MarketPage />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/dashboard/profile"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ProfilePage />
                     </MainLayout>
                   </PrivateRoute>
                 }

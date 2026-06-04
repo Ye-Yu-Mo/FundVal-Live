@@ -82,10 +82,11 @@ const WatchlistContent = ({
           options={fundOptions}
           onSearch={handleSearch}
           onSelect={handleAddFund}
-          placeholder="搜索基金代码或名称"
+          placeholder="搜索基金代码或名称（回车添加）"
           value={searchKeyword}
           onChange={setSearchKeyword}
           notFoundContent={searchLoading ? <Spin size="small" /> : null}
+          onKeyDown={e => { if (e.key === 'Enter' && searchKeyword) handleAddFund(searchKeyword); }}
         />
         <Button
           type="primary"
@@ -286,21 +287,19 @@ const WatchlistsPage = () => {
         fundsAPI.batchEstimate(fundCodes),
       ]);
 
-      // 合并数据
-      const fundsWithEstimate = currentWatchlist.items.map(item => {
+      // 增量更新 - 只更新变化字段，不替换整个数组避免闪屏
+      setFundsData(prev => prev.map(item => {
         const nav = navsResponse.data[item.fund_code] || {};
         const estimate = estimatesResponse.data[item.fund_code] || {};
         return {
           ...item,
-          latest_nav: nav.latest_nav || estimate.latest_nav,
-          latest_nav_date: nav.latest_nav_date || estimate.latest_nav_date,
-          estimate_nav: estimate.estimate_nav,
-          estimate_growth: estimate.estimate_growth,
+          latest_nav: nav.latest_nav || estimate.latest_nav || item.latest_nav,
+          latest_nav_date: nav.latest_nav_date || estimate.latest_nav_date || item.latest_nav_date,
+          estimate_nav: estimate.estimate_nav || item.estimate_nav,
+          estimate_growth: estimate.estimate_growth || item.estimate_growth,
           fund_name: estimate.fund_name || item.fund_name,
         };
-      });
-
-      setFundsData(fundsWithEstimate);
+      }));
 
       // 计算当前分组的综合涨跌幅
       const growths = fundsWithEstimate
@@ -525,16 +524,19 @@ const WatchlistsPage = () => {
     return (
       <Card title="自选列表">
         <Empty
-          description="还没有自选列表"
+          description={null}
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         >
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setModalVisible(true)}
-          >
-            创建第一个自选列表
-          </Button>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#999', marginBottom: 16 }}>还没有自选列表，三步开始使用：</p>
+            <div style={{ textAlign: 'left', display: 'inline-block', marginBottom: 16, color: '#666' }}>
+              <p>① 点击下方按钮创建一个自选列表（如「我的基金」）</p>
+              <p>② 在搜索框输入基金代码或名称，添加基金</p>
+              <p>③ 实时估值每 30 秒自动刷新</p>
+            </div>
+            <br />
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>创建第一个自选列表</Button>
+          </div>
         </Empty>
 
         <Modal

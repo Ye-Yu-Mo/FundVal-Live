@@ -23,7 +23,7 @@ import {
   List,
   Grid,
 } from 'antd';
-import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons';
+import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined, SyncOutlined, AccountBookOutlined } from '@ant-design/icons';
 import { positionsAPI, fundsAPI, aiAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
@@ -977,15 +977,16 @@ const PositionsPage = () => {
   if (accounts.length === 0) {
     return (
       <Card title="持仓查询">
-        <Empty
-          description={
-            <span>
-              暂无子账户
-              <br />
-              请先在账户管理页面创建子账户
-            </span>
-          }
-        />
+        <Empty description={null} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#999', marginBottom: 16 }}>还没有子账户，三步开始记录持仓：</p>
+            <p style={{ color: '#666' }}>① 创建父账户（如「我的投资」）</p>
+            <p style={{ color: '#666' }}>② 创建子账户（如「天天基金」、「支付宝」）</p>
+            <p style={{ color: '#666' }}>③ 在子账户中建仓，输入基金代码和金额</p>
+            <br />
+            <Button type="primary" icon={<AccountBookOutlined />} onClick={() => navigate('/dashboard/accounts')}>去创建账户</Button>
+          </div>
+        </Empty>
       </Card>
     );
   }

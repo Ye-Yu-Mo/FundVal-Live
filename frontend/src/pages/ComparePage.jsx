@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Card, Select, Button, Spin, Empty, Table, Row, Col, message, Space } from 'antd';
+import { Card, Select, Button, Spin, Empty, Table, Row, Col, message, Space, Skeleton } from 'antd';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { PlusOutlined } from '@ant-design/icons';
 import { fundsAPI, watchlistsAPI } from '../api';
@@ -176,7 +176,7 @@ const ComparePage = () => {
           />
         </Space>
 
-        {loading ? <Spin style={{ display: 'block', textAlign: 'center', padding: 50 }} /> :
+        {loading ? <><Skeleton active paragraph={{ rows: 4 }} /><Skeleton active paragraph={{ rows: 4 }} /></> :
          funds.length >= 2 ? (
           <>
             <Card title="收益雷达图" size="small" style={{ marginBottom: 16 }}>

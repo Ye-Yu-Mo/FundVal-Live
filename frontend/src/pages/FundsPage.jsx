@@ -367,6 +367,7 @@ const FundsPage = () => {
           <List
             dataSource={funds}
             loading={loading || estimateLoading}
+            locale={{ emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始' }}
             renderItem={(fund) => {
               const estimate = estimates[fund.fund_code];
               const growth = estimate?.estimate_growth ? parseFloat(estimate.estimate_growth) : null;
@@ -431,6 +432,7 @@ const FundsPage = () => {
           dataSource={funds}
           rowKey="fund_code"
           loading={loading || estimateLoading}
+          locale={{ emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始' }}
           scroll={{ x: 'max-content' }}
           components={{
             header: {
