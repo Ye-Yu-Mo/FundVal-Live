@@ -51,6 +51,11 @@ const MainLayout = ({ children }) => {
       icon: <SettingOutlined />,
       label: isMobile ? '设置' : '系统设置',
     },
+    ...(user?.role === 'admin' ? [{
+      key: '/dashboard/admin',
+      icon: <UserOutlined />,
+      label: isMobile ? '管理' : '用户管理',
+    }] : []),
   ];
 
   const handleMenuClick = ({ key }) => {

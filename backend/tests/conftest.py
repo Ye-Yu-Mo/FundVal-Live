@@ -1,10 +1,19 @@
-import pytest
 import os
+
+# 在 Django 导入前覆盖数据库配置为 SQLite 内存模式
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fundval.settings')
+
 import django
 from django.conf import settings
 
-# 配置 Django 设置
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fundval.settings')
+# 强制使用 SQLite 内存数据库
+settings.DATABASES['default'] = {
+    'ENGINE': 'django.db.backends.sqlite3',
+    'NAME': ':memory:',
+}
+
+import pytest
+
 
 def pytest_configure(config):
     """配置 pytest-django"""

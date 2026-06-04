@@ -59,6 +59,11 @@ urlpatterns = [
     # AI分析
     path('ai/analyze/', views.ai_analyze, name='ai_analyze'),
 
+    # 管理员
+    path('admin/users/', viewsets.AdminViewSet.as_view({'get': 'list'})),
+    path('admin/users/<int:user_id>/toggle/', viewsets.AdminViewSet.as_view({'post': 'toggle_active'})),
+    path('admin/users/<int:user_id>/reset-password/', viewsets.AdminViewSet.as_view({'post': 'reset_password'})),
+
     # API 路由
     path('', include(router.urls)),
 ]

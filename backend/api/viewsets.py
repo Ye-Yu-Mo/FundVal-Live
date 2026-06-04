@@ -1825,3 +1825,82 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
         if rule_id:
             qs = qs.filter(rule_id=rule_id)
         return qs
+
+
+class AdminViewSet(viewsets.ViewSet):
+    """管理员 ViewSet — 用户管理"""
+
+    permission_classes = [IsAdminUser]
+
+    def list(self, request):
+        """GET /api/admin/users/ — 用户列表（分页 + 搜索）"""
+        from django.contrib.auth import get_user_model
+        from django.core.paginator import Paginator
+
+        User = get_user_model()
+        queryset = User.objects.all().order_by('-date_joined')
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(username__icontains=search)
+
+        page_size = int(request.query_params.get('page_size', 20))
+        page_number = int(request.query_params.get('page', 1))
+        paginator = Paginator(queryset, page_size)
+        page = paginator.get_page(page_number)
+
+        results = [{
+            'id': str(u.id),
+            'username': u.username,
+            'email': u.email,
+            'role': 'admin' if u.is_superuser else 'user',
+            'is_active': u.is_active,
+            'date_joined': u.date_joined.isoformat(),
+        } for u in page]
+
+        return Response({'count': paginator.count, 'results': results})
+
+    @action(detail=False, methods=['post'], url_path=r'(?P<user_id>[^/.]+)/toggle')
+    def toggle_active(self, request, user_id=None):
+        """POST /api/admin/users/{id}/toggle/ — 切换用户启用/禁用"""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': '用户不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.is_active = not user.is_active
+        user.save()
+
+        return Response({
+            'id': str(user.id),
+            'username': user.username,
+            'is_active': user.is_active,
+        })
+
+    @action(detail=False, methods=['post'], url_path=r'(?P<user_id>[^/.]+)/reset-password')
+    def reset_password(self, request, user_id=None):
+        """POST /api/admin/users/{id}/reset-password/ — 重置用户密码"""
+        import secrets
+        import string
+
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': '用户不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+        alphabet = string.ascii_letters + string.digits
+        new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        user.set_password(new_password)
+        user.save()
+
+        return Response({
+            'id': str(user.id),
+            'username': user.username,
+            'new_password': new_password,
+        })

@@ -154,3 +154,10 @@ export const notificationLogsAPI = {
   list: (params) => api.get('/notification-logs/', { params }),
 };
 
+// 管理员
+export const adminAPI = {
+  listUsers: (params) => api.get('/admin/users/', { params }),
+  toggleUser: (userId) => api.post(`/admin/users/${userId}/toggle/`),
+  resetPassword: (userId) => api.post(`/admin/users/${userId}/reset-password/`),
+};
+
