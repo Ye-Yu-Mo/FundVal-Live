@@ -147,6 +147,102 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             logger.error(f'获取成分股失败：{fund_code}, 错误：{e}')
             return Response({'fund_code': fund_code, 'holdings': []})
 
+    @action(detail=True, methods=['get'], url_path='estimate-intraday')
+    def estimate_intraday(self, request, fund_code=None):
+        """获取当日盘中估值快照曲线"""
+        from datetime import date
+        from .models import EstimateSnapshot
+
+        fund = self.get_object()
+        source = request.query_params.get('source', 'eastmoney')
+        today = date.today()
+
+        snapshots = EstimateSnapshot.objects.filter(
+            fund=fund,
+            timestamp__date=today,
+        )
+        if source and source != 'all':
+            snapshots = snapshots.filter(source=source)
+        snapshots = snapshots.order_by('timestamp')
+
+        return Response({
+            'fund_code': fund_code,
+            'snapshots': [{
+                'source': s.source,
+                'timestamp': s.timestamp.isoformat(),
+                'estimate_nav': str(s.estimate_nav),
+                'estimate_growth': str(s.estimate_growth) if s.estimate_growth is not None else None,
+            } for s in snapshots],
+        })
+
+    @action(detail=True, methods=['get'], url_path='holdings-realtime')
+    def holdings_realtime(self, request, fund_code=None):
+        """获取基金持仓 + 实时个股行情"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from decimal import Decimal
+
+        fund = self.get_object()
+
+        # 1. 获取持仓权重
+        eastmoney = SourceRegistry.get_source('eastmoney')
+        if not eastmoney:
+            return Response({'fund_code': fund_code, 'holdings': []})
+
+        try:
+            holdings = eastmoney.fetch_index_holdings(fund_code)
+        except Exception as e:
+            logger.error(f'获取持仓失败：{fund_code}, 错误：{e}')
+            return Response({'fund_code': fund_code, 'holdings': []})
+
+        if not holdings:
+            return Response({'fund_code': fund_code, 'holdings': []})
+
+        # 2. 并发获取个股实时行情
+        sina = SourceRegistry.get_source('sina')
+        if not sina:
+            return Response({'fund_code': fund_code, 'holdings': holdings})
+
+        stock_codes = [h['stock_code'] for h in holdings]
+        quotes = {}
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(sina.fetch_market_quote, code): code
+                      for code in stock_codes}
+            for future in as_completed(futures):
+                code = futures[future]
+                try:
+                    quote = future.result()
+                    if quote:
+                        quotes[code] = quote
+                except Exception as e:
+                    logger.warning(f'获取 {code} 行情失败: {e}')
+
+        # 3. 合并数据 + 计算 contribution
+        result = []
+        total_weight = Decimal('0')
+        for h in holdings:
+            weight = h.get('weight', Decimal('0'))
+            total_weight += weight
+            q = quotes.get(h['stock_code'], {})
+            price = q.get('market_price')
+            change = q.get('market_growth')
+            contribution = None
+            if change is not None and weight:
+                contribution = (weight * change / Decimal('100')).quantize(Decimal('0.0001'))
+            result.append({
+                'stock_code': h['stock_code'],
+                'stock_name': h['stock_name'],
+                'weight': str(weight),
+                'price': str(price) if price is not None else None,
+                'change_percent': str(change) if change is not None else None,
+                'contribution': str(contribution) if contribution is not None else None,
+            })
+
+        return Response({
+            'fund_code': fund_code,
+            'total_weight': str(total_weight),
+            'holdings': result,
+        })
+
     @action(detail=True, methods=['get'])
     def accuracy(self, request, fund_code=None):
         """获取基金各数据源准确率"""

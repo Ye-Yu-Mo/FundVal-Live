@@ -654,6 +654,26 @@ class NotificationLog(models.Model):
         return f'{self.fund_name} {self.growth}% - {self.get_status_display()}'
 
 
+class EstimateSnapshot(models.Model):
+    """盘中估值快照（用于绘制当日估值曲线）"""
+
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name='estimate_snapshots')
+    source = models.CharField(max_length=50, default='eastmoney')
+    timestamp = models.DateTimeField(db_index=True)
+    estimate_nav = models.DecimalField(max_digits=10, decimal_places=4)
+    estimate_growth = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+
+    class Meta:
+        db_table = 'estimate_snapshot'
+        verbose_name = '估值快照'
+        verbose_name_plural = '估值快照'
+        ordering = ['timestamp']
+        indexes = [
+            models.Index(fields=['fund', 'timestamp']),
+            models.Index(fields=['timestamp']),
+        ]
+
+
 # Signal handlers
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

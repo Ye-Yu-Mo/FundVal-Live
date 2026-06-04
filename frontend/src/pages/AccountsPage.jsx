@@ -420,14 +420,14 @@ const AccountsPage = () => {
       {showAllSummary ? (
         <div data-testid="all-accounts-summary">
           <Card title="全部账户汇总" style={{ marginBottom: 16 }}>
-            <Row gutter={16}>
-              <Col span={4}>
+            <Row gutter={[16, 16]}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic title="持仓成本" value={getAllAccountsSummary().holding_cost} prefix="¥" />
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic title="持仓市值" value={getAllAccountsSummary().holding_value} prefix="¥" />
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic
                   title="总盈亏"
                   value={getAllAccountsSummary().pnl}
@@ -438,7 +438,7 @@ const AccountsPage = () => {
                   )}
                 />
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic
                   title="今日盈亏 (预估)"
                   value={getAllAccountsSummary().today_pnl}
@@ -449,7 +449,7 @@ const AccountsPage = () => {
                   )}
                 />
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic
                   title="今日盈亏率 (预估)"
                   value={getAllAccountsSummary().today_pnl_rate}
@@ -464,7 +464,7 @@ const AccountsPage = () => {
                   }}
                 />
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={8} md={4}>
                 <Statistic
                   title="预估市值"
                   value={getAllAccountsSummary().estimate_value}

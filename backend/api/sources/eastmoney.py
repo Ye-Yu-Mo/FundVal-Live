@@ -381,28 +381,29 @@ class EastMoneySource(BaseEstimateSource):
             if not stocks:
                 return []
 
-            # Step 2: 批量查询实时行情
-            # NEWTEXCH: 0=深市, 1=沪市（push2 接口格式）
-            secids = [f"{s['NEWTEXCH']}.{s['GPDM']}" for s in stocks]
-            quote_resp = requests.get(
-                self.STOCK_QUOTE_URL,
-                params={
-                    'secids': ','.join(secids),
-                    'fields': 'f12,f14,f2,f3',
-                    'fltt': '2',
-                },
-                timeout=10,
-            )
-            quote_resp.raise_for_status()
-            quote_data = quote_resp.json()
-
-            # 构建行情字典 {stock_code: {price, change_percent}}
+            # Step 2: 批量查询实时行情（失败不影响持仓数据返回）
             quotes = {}
-            for item in quote_data.get('data', {}).get('diff', []):
-                quotes[item['f12']] = {
-                    'price': Decimal(str(item['f2'])) if item.get('f2') not in (None, '-') else None,
-                    'change_percent': Decimal(str(item['f3'])) if item.get('f3') not in (None, '-') else None,
-                }
+            try:
+                secids = [f"{s['NEWTEXCH']}.{s['GPDM']}" for s in stocks]
+                quote_resp = requests.get(
+                    self.STOCK_QUOTE_URL,
+                    params={
+                        'secids': ','.join(secids),
+                        'fields': 'f12,f14,f2,f3',
+                        'fltt': '2',
+                    },
+                    timeout=10,
+                )
+                quote_resp.raise_for_status()
+                quote_data = quote_resp.json()
+
+                for item in quote_data.get('data', {}).get('diff', []):
+                    quotes[item['f12']] = {
+                        'price': Decimal(str(item['f2'])) if item.get('f2') not in (None, '-') else None,
+                        'change_percent': Decimal(str(item['f3'])) if item.get('f3') not in (None, '-') else None,
+                    }
+            except Exception as e:
+                logger.warning(f'获取个股行情失败：{fund_code}, 错误：{e}')
 
             # Step 3: 合并结果
             result = []

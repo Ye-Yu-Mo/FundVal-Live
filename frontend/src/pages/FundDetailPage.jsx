@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Card,
@@ -34,6 +34,8 @@ const FundDetailPage = () => {
   const [chartLoading, setChartLoading] = useState(false);
   const [holdings, setHoldings] = useState([]);
   const [holdingsLoading, setHoldingsLoading] = useState(false);
+  const [viewMode, setViewMode] = useState('chart');
+  const [intraday, setIntraday] = useState([]);
 
   // AI 分析
   const [aiModalVisible, setAiModalVisible] = useState(false);
@@ -60,7 +62,6 @@ const FundDetailPage = () => {
 
   // 加载历史净值
   const loadNavHistory = async (range) => {
-    setChartLoading(true);
     try {
       // 计算日期范围
       const now = new Date();
@@ -89,25 +90,9 @@ const FundDetailPage = () => {
       }
 
       const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = now.toISOString().split('T')[0];
 
-      console.log(`Loading ${range} data for fund ${code}: ${startDateStr} to ${endDateStr}`);
-
-      // 先同步数据
-      try {
-        console.log('Syncing nav history...');
-        await fundsAPI.syncNavHistory([code], startDateStr, endDateStr);
-        console.log('Sync completed');
-      } catch (syncError) {
-        console.error('Sync failed:', syncError);
-        // 同步失败不影响后续加载
-      }
-
-      // 加载数据
       const params = range === 'ALL' ? {} : { start_date: startDateStr };
       const response = await fundsAPI.navHistory(code, params);
-
-      console.log('Nav history response:', response.data.length, 'records');
 
       // 按日期正序排列
       const data = response.data.sort((a, b) =>
@@ -117,9 +102,6 @@ const FundDetailPage = () => {
       setNavHistory(data);
     } catch (error) {
       console.error('Load nav history error:', error);
-      message.error('加载历史净值失败');
-    } finally {
-      setChartLoading(false);
     }
   };
 
@@ -157,25 +139,23 @@ const FundDetailPage = () => {
     try {
       const response = await positionsAPI.listOperations({ fund_code: code });
       setOperations(response.data);
-      console.log('Operations loaded:', response.data.length);
     } catch (error) {
       // 未认证或没有操作记录，不显示错误
       setOperations([]);
     }
   };
 
-  // 加载成分股持仓
+  // 加载成分股持仓（含实时行情）
   const loadHoldings = async (fundType) => {
-    // 只加载指数基金和 ETF 的成分股
     if (!fundType || (!fundType.includes('指数') && !fundType.includes('ETF'))) {
       setHoldings([]);
       return;
     }
     setHoldingsLoading(true);
     try {
-      const response = await fundsAPI.indexHoldings(code, preferredSource);
+      const response = await fundsAPI.holdingsRealtime(code);
       setHoldings(response.data.holdings || []);
-    } catch (error) {
+    } catch {
       setHoldings([]);
     } finally {
       setHoldingsLoading(false);
@@ -189,17 +169,19 @@ const FundDetailPage = () => {
 
       try {
         // 并发加载基金详情、指定源估值、准确率历史和场内价格
-        const [detailRes, estimateRes, accuracyRes, marketRes] = await Promise.all([
+        const [detailRes, estimateRes, accuracyRes, marketRes, intradayRes] = await Promise.all([
           fundsAPI.detail(code),
           fundsAPI.getEstimate(code, preferredSource).catch(() => null),
           fundsAPI.getAccuracy(code).catch(() => null),
-          fundsAPI.marketQuote(code).catch(() => null)
+          fundsAPI.marketQuote(code).catch(() => null),
+          fundsAPI.estimateIntraday(code, preferredSource).catch(() => null),
         ]);
 
         setFund(detailRes.data);
         setEstimate(estimateRes?.data || null);
         setAccuracy(accuracyRes?.data || null);
         setMarketQuote(marketRes?.data || null);
+        setIntraday(intradayRes?.data?.snapshots || []);
 
         // 加载成分股（指数/ETF 基金）
         loadHoldings(detailRes.data?.fund_type);
@@ -225,10 +207,10 @@ const FundDetailPage = () => {
     };
 
     loadData();
-  }, [code, timeRange, preferredSource]); // 监听 preferredSource 变化
+  }, [code, preferredSource]);
 
   // ECharts 配置
-  const chartOption = {
+  const chartOption = useMemo(() => ({
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' }
@@ -279,7 +261,14 @@ const FundDetailPage = () => {
       bottom: '10%',
       containLabel: true
     }
-  };
+  }), [navHistory, positions, operations, intraday]);
+
+  // 持仓穿透 30s 自动刷新
+  useEffect(() => {
+    if (!fund?.fund_type || holdings.length === 0) return;
+    const interval = setInterval(() => loadHoldings(fund.fund_type), 30000);
+    return () => clearInterval(interval);
+  }, [fund?.fund_type, holdings.length]);
 
   // 加载中
   if (loading) {
@@ -404,54 +393,98 @@ const FundDetailPage = () => {
 
       {/* 历史估值卡片 */}
       <Card title="历史估值记录">
-        <Table
-          dataSource={accuracyRecords}
-          rowKey="date"
-          pagination={{ pageSize: 5 }}
-          size="small"
-          columns={[
-            {
-              title: '日期',
-              dataIndex: 'date',
-              key: 'date',
-            },
-            {
-              title: '当天净值',
-              dataIndex: 'actual_nav',
-              key: 'actual_nav',
-              render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
-            },
-            {
-              title: '收盘估值',
-              dataIndex: 'estimate_nav',
-              key: 'estimate_nav',
-              render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
-            },
-            {
-              title: '估算误差',
-              dataIndex: 'error_rate',
-              key: 'error_rate',
-              render: (v) => {
-                if (!v) return '-';
-                const val = parseFloat(v);
-                const rate = (val * 100).toFixed(4);
-                // 正值代表高估（红色），负值代表低估（绿色）
-                const color = val > 0 ? '#cf1322' : '#3f8600';
-                return (
-                  <span style={{ color, fontWeight: '500' }}>
-                    {val > 0 ? '+' : ''}{rate}%
-                  </span>
-                )
+        {accuracyRecords.length > 0 ? (
+          <Table
+            dataSource={accuracyRecords}
+            rowKey="date"
+            pagination={{ pageSize: 5 }}
+            size="small"
+            columns={[
+              {
+                title: '日期',
+                dataIndex: 'date',
+                key: 'date',
+              },
+              {
+                title: '当天净值',
+                dataIndex: 'actual_nav',
+                key: 'actual_nav',
+                render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
+              },
+              {
+                title: '收盘估值',
+                dataIndex: 'estimate_nav',
+                key: 'estimate_nav',
+                render: (v) => v ? `¥${parseFloat(v).toFixed(4)}` : '-'
+              },
+              {
+                title: '估算误差',
+                dataIndex: 'error_rate',
+                key: 'error_rate',
+                render: (v) => {
+                  if (!v) return '-';
+                  const val = parseFloat(v);
+                  const rate = (val * 100).toFixed(4);
+                  const color = val > 0 ? '#cf1322' : '#3f8600';
+                  return (
+                    <span style={{ color, fontWeight: '500' }}>
+                      {val > 0 ? '+' : ''}{rate}%
+                    </span>
+                  )
+                }
               }
-            }
-          ]}
-        />
+            ]}
+          />
+        ) : (
+          <Empty description="暂无历史估值数据，每日 15:05 自动采集" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )}
       </Card>
+
+      {/* 数据源准确性对比 */}
+      {accuracy && Object.keys(accuracy).length > 0 && (
+        <Card title="数据源准确性对比" size="small">
+          {Object.keys(accuracy).length >= 2 ? (
+            <ReactECharts
+              option={{
+                tooltip: { trigger: 'axis' },
+                grid: { left: 90, right: 30, top: 10, bottom: 20 },
+                xAxis: { type: 'value', axisLabel: { formatter: '{value}%' }, name: '平均误差率' },
+                yAxis: {
+                  type: 'category',
+                  data: Object.keys(accuracy).map(k => {
+                    const names = { eastmoney: '东方财富', yangjibao: '养基宝', xiaobeiyangji: '小倍养基' };
+                    return `${names[k] || k} (${accuracy[k]?.record_count || 0}样本)`;
+                  }),
+                },
+                series: [{
+                  type: 'bar',
+                  data: Object.keys(accuracy).map(k => ({
+                    value: parseFloat((accuracy[k]?.avg_error_rate * 100 || 0).toFixed(4)),
+                    itemStyle: { color: k === 'eastmoney' ? '#cf1322' : k === 'yangjibao' ? '#1890ff' : '#faad14' },
+                  })),
+                  label: { show: true, position: 'right', formatter: '{c}%' },
+                }],
+              }}
+              style={{ height: Math.max(120, Object.keys(accuracy).length * 40 + 40) }}
+            />
+          ) : (
+            Object.entries(accuracy).map(([k, v]) => {
+              const names = { eastmoney: '东方财富', yangjibao: '养基宝', xiaobeiyangji: '小倍养基' };
+              return (
+                <Row gutter={16} key={k}>
+                  <Col span={8}><Statistic title="数据源" value={names[k] || k} /></Col>
+                  <Col span={8}><Statistic title="平均误差率" value={v.avg_error_rate != null ? `${(v.avg_error_rate * 100).toFixed(4)}%` : '-'} /></Col>
+                  <Col span={8}><Statistic title="样本数" value={v.record_count || 0} /></Col>
+                </Row>
+              );
+            })
+          )}
+        </Card>
+      )}
 
       {/* 历史净值图表 */}
       <Card
         title="历史净值"
-        loading={chartLoading}
         extra={
           <Space wrap>
             {['1W', '1M', '3M', '6M', '1Y', 'ALL'].map(range => (
@@ -460,19 +493,61 @@ const FundDetailPage = () => {
                 size="small"
                 type={timeRange === range ? 'primary' : 'default'}
                 onClick={() => {
-                  setTimeRange(range);
+                                    setTimeRange(range);
                   loadNavHistory(range);
                 }}
               >
                 {range === 'ALL' ? '全部' : range === '1W' ? '1周' : range}
               </Button>
             ))}
+            <Button
+              size="small"
+              type={timeRange === 'INTRADAY' ? 'primary' : 'default'}
+              onClick={() => {
+                setTimeRange('INTRADAY');
+                fundsAPI.estimateIntraday(code, preferredSource)
+                  .then(res => setIntraday(res?.data?.snapshots || []))
+                  .catch(() => {});
+              }}
+            >
+              当日估值
+            </Button>
           </Space>
         }
       >
-        {navHistory.length > 0 ? (
+        {timeRange === 'INTRADAY' ? (
+          intraday.length > 0 ? (
+            <ReactECharts
+              option={{
+                tooltip: { trigger: 'axis' },
+                xAxis: {
+                  type: 'category',
+                  data: intraday.map(s => new Date(s.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })),
+                },
+                yAxis: { type: 'value', scale: true, name: '估值净值' },
+                series: [{
+                  name: '估值净值',
+                  type: 'line',
+                  data: intraday.map(s => parseFloat(s.estimate_nav)),
+                  smooth: true,
+                  lineStyle: { color: '#cf1322', width: 2 },
+                  itemStyle: { color: '#cf1322' },
+                  symbol: 'circle',
+                  symbolSize: 6,
+                  areaStyle: { color: 'rgba(207,19,34,0.1)' },
+                }],
+                grid: { left: '8%', right: '4%', top: 10, bottom: 20 },
+              }}
+              style={{ height: window.innerWidth < 768 ? 300 : 400 }}
+            />
+          ) : (
+            <Empty description="暂无当日估值数据，交易时段每5分钟自动采集" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          )
+        ) : navHistory.length > 0 ? (
           <ReactECharts
             option={chartOption}
+            notMerge={false}
+            lazyUpdate={true}
             style={{ height: window.innerWidth < 768 ? 300 : 400 }}
           />
         ) : (
@@ -527,74 +602,125 @@ const FundDetailPage = () => {
         </Card>
       )}
 
-      {/* 成分股持仓 */}
+      {/* 成分股持仓穿透 */}
       {(holdings.length > 0 || holdingsLoading) && (
         <Card
-          title="成分股持仓"
+          title="持仓穿透"
           extra={
-            <Button
-              icon={<SyncOutlined />}
-              size="small"
-              loading={holdingsLoading}
-              onClick={() => loadHoldings(fund?.fund_type)}
-            >
-              刷新
-            </Button>
+            <Space>
+              <Button
+                size="small"
+                type={viewMode === 'chart' ? 'primary' : 'default'}
+                onClick={() => setViewMode('chart')}
+              >
+                图表
+              </Button>
+              <Button
+                size="small"
+                type={viewMode === 'table' ? 'primary' : 'default'}
+                onClick={() => setViewMode('table')}
+              >
+                表格
+              </Button>
+              <Button
+                icon={<SyncOutlined />}
+                size="small"
+                loading={holdingsLoading}
+                onClick={() => loadHoldings(fund?.fund_type)}
+              >
+                刷新
+              </Button>
+            </Space>
           }
         >
-          <Table
-            dataSource={holdings}
-            rowKey="stock_code"
-            loading={holdingsLoading}
-            pagination={{ pageSize: 10, showSizeChanger: false }}
-            scroll={{ x: 'max-content' }}
-            columns={[
-              {
-                title: '股票代码',
-                dataIndex: 'stock_code',
-                key: 'stock_code',
-                width: 100,
-              },
-              {
-                title: '股票名称',
-                dataIndex: 'stock_name',
-                key: 'stock_name',
-                width: 120,
-              },
-              {
-                title: '持仓占比',
-                dataIndex: 'weight',
-                key: 'weight',
-                width: 100,
-                sorter: (a, b) => parseFloat(a.weight) - parseFloat(b.weight),
-                defaultSortOrder: 'descend',
-                render: (v) => `${parseFloat(v).toFixed(2)}%`,
-              },
-              {
-                title: '当前价格',
-                dataIndex: 'price',
-                key: 'price',
-                width: 100,
-                render: (v) => v != null ? `¥${parseFloat(v).toFixed(2)}` : '-',
-              },
-              {
-                title: '涨跌幅',
-                dataIndex: 'change_percent',
-                key: 'change_percent',
-                width: 100,
-                sorter: (a, b) => parseFloat(a.change_percent || 0) - parseFloat(b.change_percent || 0),
-                render: (v) => {
-                  if (v == null) return '-';
-                  const num = parseFloat(v);
-                  return (
-                    <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-                      {num >= 0 ? '+' : ''}{num.toFixed(2)}%
-                    </span>
-                  );
+          {viewMode === 'chart' ? (
+            holdingsLoading ? <Spin style={{ display: 'block', textAlign: 'center', padding: 40 }} /> : (
+              <ReactECharts
+                option={{
+                  tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: (params) => {
+                      const d = params[0];
+                      const h = holdings[d.dataIndex];
+                      const chg = h.change_percent != null ? `${parseFloat(h.change_percent) >= 0 ? '+' : ''}${parseFloat(h.change_percent).toFixed(2)}%` : '-';
+                      return `${h.stock_name}(${h.stock_code})<br/>权重: ${parseFloat(h.weight).toFixed(2)}%<br/>涨跌: ${chg}`;
+                    },
+                  },
+                  grid: { left: 100, right: 40, top: 10, bottom: 20 },
+                  xAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+                  yAxis: {
+                    type: 'category',
+                    data: holdings.map(h => h.stock_name).reverse(),
+                    inverse: true,
+                    axisLabel: { width: 90, overflow: 'truncate' },
+                  },
+                  series: [{
+                    type: 'bar',
+                    data: holdings.map(h => ({
+                      value: parseFloat(h.weight),
+                      itemStyle: {
+                        color: h.change_percent != null
+                          ? (parseFloat(h.change_percent) >= 0 ? '#cf1322' : '#3f8600')
+                          : '#999',
+                      },
+                    })).reverse(),
+                    label: {
+                      show: true,
+                      position: 'right',
+                      formatter: (params) => {
+                        const h = holdings[holdings.length - 1 - params.dataIndex];
+                        const chg = h.change_percent != null
+                          ? `${parseFloat(h.change_percent) >= 0 ? '+' : ''}${parseFloat(h.change_percent).toFixed(2)}%`
+                          : '-';
+                        return `${parseFloat(h.weight).toFixed(2)}%  ${chg}`;
+                      },
+                    },
+                  }],
+                }}
+                style={{ height: Math.max(300, holdings.length * 36) }}
+              />
+            )
+          ) : (
+            <Table
+              dataSource={holdings}
+              rowKey="stock_code"
+              loading={holdingsLoading}
+              pagination={{ pageSize: 10, showSizeChanger: false }}
+              scroll={{ x: 'max-content' }}
+              columns={[
+                { title: '股票代码', dataIndex: 'stock_code', key: 'stock_code', width: 100 },
+                { title: '股票名称', dataIndex: 'stock_name', key: 'stock_name', width: 120 },
+                {
+                  title: '持仓占比', dataIndex: 'weight', key: 'weight', width: 100,
+                  sorter: (a, b) => parseFloat(a.weight) - parseFloat(b.weight),
+                  defaultSortOrder: 'descend',
+                  render: v => `${parseFloat(v).toFixed(2)}%`,
                 },
-              },
-            ]}
-          />
+                {
+                  title: '最新价', dataIndex: 'price', key: 'price', width: 100,
+                  render: v => v != null ? `¥${parseFloat(v).toFixed(2)}` : '-',
+                },
+                {
+                  title: '涨跌幅', dataIndex: 'change_percent', key: 'change_percent', width: 100,
+                  sorter: (a, b) => parseFloat(a.change_percent || 0) - parseFloat(b.change_percent || 0),
+                  render: v => {
+                    if (v == null) return '-';
+                    const num = parseFloat(v);
+                    return <span style={{ color: num >= 0 ? '#cf1322' : '#3f8600' }}>{num >= 0 ? '+' : ''}{num.toFixed(2)}%</span>;
+                  },
+                },
+                {
+                  title: '对基金影响', dataIndex: 'contribution', key: 'contribution', width: 110,
+                  render: v => {
+                    if (v == null) return '-';
+                    const num = parseFloat(v);
+                    return <span style={{ color: num >= 0 ? '#cf1322' : '#3f8600' }}>{num >= 0 ? '+' : ''}{num.toFixed(4)}%</span>;
+                  },
+                },
+              ]}
+            />
+          )}
         </Card>
       )}
 

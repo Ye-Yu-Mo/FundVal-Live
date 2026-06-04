@@ -191,3 +191,63 @@ def audit_accuracy():
     except Exception as e:
         logger.error(f'准确率审计失败: {str(e)}')
         raise
+
+
+@shared_task
+def capture_intraday_snapshots():
+    """
+    盘中定时抓取估值快照
+
+    交易日内每 5 分钟执行一次（9:30-15:00），为所有有持仓/自选的基金抓取估值快照，
+    用于绘制当日估值曲线。当天收盘后保留 7 天自动清理。
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+    from api.models import Fund, EstimateSnapshot, Position
+    from api.sources import SourceRegistry
+    from api.utils.trading_calendar import is_trading_day
+
+    today = timezone.localdate()
+    if not is_trading_day(today):
+        logger.info(f'{today} 不是交易日，跳过估值快照抓取')
+        return '非交易日'
+
+    now = timezone.now()
+    # 只在交易时段执行
+    market_open = now.replace(hour=9, minute=30, second=0)
+    market_close = now.replace(hour=15, minute=5, second=0)
+    if now < market_open or now > market_close:
+        logger.info(f'{now.time()} 不在交易时段')
+        return '非交易时段'
+
+    # 清理 7 天前的旧快照
+    cutoff = today - timedelta(days=7)
+    deleted, _ = EstimateSnapshot.objects.filter(timestamp__date__lt=cutoff).delete()
+    if deleted:
+        logger.info(f'清理了 {deleted} 条过期快照')
+
+    # 获取所有有持仓的基金
+    fund_ids = Position.objects.values_list('fund_id', flat=True).distinct()
+    funds = Fund.objects.filter(id__in=fund_ids)
+
+    count = 0
+    for fund in funds:
+        source = SourceRegistry.get_source('eastmoney')
+        if not source:
+            continue
+        try:
+            data = source.fetch_estimate(fund.fund_code)
+            if data and data.get('estimate_nav'):
+                EstimateSnapshot.objects.create(
+                    fund=fund,
+                    source='eastmoney',
+                    timestamp=now,
+                    estimate_nav=data['estimate_nav'],
+                    estimate_growth=data.get('estimate_growth'),
+                )
+                count += 1
+        except Exception as e:
+            logger.warning(f'抓取 {fund.fund_code} 估值快照失败: {e}')
+
+    logger.info(f'已抓取 {count} 个基金的估值快照')
+    return f'已抓取 {count} 个快照'

@@ -208,5 +208,13 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'api.tasks.check_notification_rules',
         'schedule': crontab(minute='*/5'),  # 每 5 分钟
     },
+    'capture-intraday-snapshots': {
+        'task': 'api.tasks.capture_intraday_snapshots',
+        'schedule': crontab(minute='*/5', hour='9-14'),  # 交易时段每5分钟
+    },
+    'capture-intraday-close': {
+        'task': 'api.tasks.capture_intraday_snapshots',
+        'schedule': crontab(minute=5, hour=15),  # 15:05 收盘最后一抓
+    },
 }
 
