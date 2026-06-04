@@ -56,7 +56,7 @@ function ServerConfigPage({ onConfigSaved }) {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    background: '#f0f2f5',
+    background: token.colorBgLayout,
   };
 
   const cardStyle = {

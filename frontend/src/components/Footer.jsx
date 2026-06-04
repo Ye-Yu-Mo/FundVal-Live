@@ -1,17 +1,18 @@
-import { Layout, Space, Typography } from 'antd';
+import { Layout, Space, Typography, theme } from 'antd';
 import { GithubOutlined } from '@ant-design/icons';
 
 const { Footer: AntFooter } = Layout;
 const { Link, Text } = Typography;
 
 const Footer = () => {
+  const { token } = theme.useToken();
   return (
     <AntFooter
       style={{
         textAlign: 'center',
         padding: '16px 24px',
-        background: '#fafafa',
-        borderTop: '1px solid #f0f0f0',
+        background: token.colorFillAlter,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
       <Space direction="vertical" size="small" style={{ width: '100%' }}>

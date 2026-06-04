@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, Select, Button, Space, Spin, Empty, Alert, Typography } from 'antd';
+import { Modal, Select, Button, Space, Spin, Empty, Alert, Typography, theme } from 'antd';
 import { RobotOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,7 @@ const { Text, Link } = Typography;
  */
 const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 分析' }) => {
   const navigate = useNavigate();
+  const { token } = theme.useToken();
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -136,7 +137,7 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
         {/* 分析结果 */}
         {result && !loading && (
           <div style={{
-            background: '#fafafa',
+            background: token.colorFillAlter,
             border: '1px solid #e8e8e8',
             borderRadius: 8,
             padding: '16px 20px',
@@ -155,7 +156,7 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
                 li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
                 strong: ({ children }) => <strong style={{ color: '#262626' }}>{children}</strong>,
                 code: ({ inline, children }) => inline
-                  ? <code style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3, fontSize: 13 }}>{children}</code>
+                  ? <code style={{ background: token.colorFillSecondary, padding: '1px 4px', borderRadius: 3, fontSize: 13 }}>{children}</code>
                   : <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto', fontSize: 13 }}><code>{children}</code></pre>,
                 blockquote: ({ children }) => (
                   <blockquote style={{ borderLeft: '3px solid #d9d9d9', paddingLeft: 12, color: '#666', margin: '8px 0' }}>
