@@ -43,7 +43,7 @@ const AccountsPage = () => {
   const [modalMode, setModalMode] = useState('create');
   const [currentAccount, setCurrentAccount] = useState(null);
   const [selectedParentId, setSelectedParentId] = useState(null);
-  const [showAllSummary, setShowAllSummary] = useState(false);
+  const [showAllSummary, setShowAllSummary] = useState(true);
   const [form] = Form.useForm();
 
   // 加载账户列表
@@ -171,6 +171,12 @@ const AccountsPage = () => {
         onOk: async () => {
           try {
             await deleteAccount(id);
+            // 如果删除的是当前选中的父账户，重置选中并刷新列表
+            if (id === selectedParentId) {
+              const response = await accountsAPI.list();
+              const parents = response.data.filter(a => !a.parent);
+              setSelectedParentId(parents.length > 0 ? parents[0].id : null);
+            }
             message.success('删除账户成功');
           } catch (error) {
             message.error(error?.response?.data?.detail || '删除账户失败');

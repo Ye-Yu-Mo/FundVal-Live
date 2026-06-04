@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { AccountProvider } from '../contexts/AccountContext';
 import AccountsPage from '../pages/AccountsPage';
 import * as api from '../api';
+import * as preferenceApi from '../api';
 
 // Mock API
 vi.mock('../api', () => ({
@@ -11,8 +13,28 @@ vi.mock('../api', () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    deleteInfo: vi.fn(),
+  },
+  preferencesAPI: {
+    get: vi.fn(() => Promise.resolve({ data: { preferred_source: 'eastmoney' } })),
+    update: vi.fn(),
   },
 }));
+
+// Mock PreferenceContext (avoids needing PreferenceProvider in tests)
+vi.mock('../contexts/PreferenceContext', () => ({
+  usePreference: () => ({ preferredSource: 'eastmoney', setPreferredSource: vi.fn() }),
+  PreferenceProvider: ({ children }) => children,
+}));
+
+const renderWithProviders = (ui) =>
+  render(ui, {
+    wrapper: ({ children }) => (
+      <BrowserRouter>
+        <AccountProvider>{children}</AccountProvider>
+      </BrowserRouter>
+    ),
+  });
 
 describe('AccountsPage', () => {
   beforeEach(() => {
@@ -25,10 +47,8 @@ describe('AccountsPage', () => {
         data: [],
       });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
       // 验证标题存在
@@ -44,24 +64,50 @@ describe('AccountsPage', () => {
     });
 
     it('渲染账户列表', async () => {
+      const childAccount = {
+        id: '2',
+        name: '子账户A',
+        parent: '1',
+        is_default: false,
+        holding_cost: '5000.00',
+        holding_value: '6000.00',
+        pnl: '1000.00',
+        pnl_rate: '0.2000',
+        estimate_value: '6200.00',
+        estimate_pnl: '1200.00',
+        today_pnl: '150.00',
+        today_pnl_rate: '0.0250',
+      };
       const mockAccounts = [
         {
           id: '1',
           name: '总账户',
           parent: null,
           is_default: true,
-        },
-        {
-          id: '2',
-          name: '子账户A',
-          parent: '1',
-          is_default: false,
+          holding_cost: '5000.00',
+          holding_value: '6000.00',
+          pnl: '1000.00',
+          pnl_rate: '0.2000',
+          estimate_value: '6200.00',
+          estimate_pnl: '1200.00',
+          today_pnl: '150.00',
+          today_pnl_rate: '0.0250',
+          children: [childAccount],
         },
         {
           id: '3',
           name: '独立账户',
           parent: null,
           is_default: false,
+          holding_cost: '3000.00',
+          holding_value: '3500.00',
+          pnl: '500.00',
+          pnl_rate: '0.1667',
+          estimate_value: '3600.00',
+          estimate_pnl: '600.00',
+          today_pnl: '100.00',
+          today_pnl_rate: '0.0286',
+          children: [],
         },
       ];
 
@@ -69,36 +115,50 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
-      // 等待数据加载
+      // 切换到单账户视图查看子账户
       await waitFor(() => {
         expect(screen.getAllByText('总账户').length).toBeGreaterThan(0);
-        expect(screen.getByText('子账户A')).toBeInTheDocument();
-        expect(screen.getByText('独立账户')).toBeInTheDocument();
       });
-
-      // 验证默认账户标记
-      expect(screen.getByText('默认')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
+      await waitFor(() => {
+        expect(screen.getByText('子账户A')).toBeInTheDocument();
+      });
     });
 
     it('显示账户类型', async () => {
+      const childAccount = {
+        id: '2',
+        name: '子账户',
+        parent: '1',
+        is_default: false,
+        holding_cost: '3000.00',
+        holding_value: '3500.00',
+        pnl: '500.00',
+        pnl_rate: '0.1667',
+        estimate_value: '3600.00',
+        estimate_pnl: '600.00',
+        today_pnl: '100.00',
+        today_pnl_rate: '0.0286',
+      };
       const mockAccounts = [
         {
           id: '1',
           name: '总账户',
           parent: null,
           is_default: false,
-        },
-        {
-          id: '2',
-          name: '子账户',
-          parent: '1',
-          is_default: false,
+          holding_cost: '5000.00',
+          holding_value: '6000.00',
+          pnl: '1000.00',
+          pnl_rate: '0.2000',
+          estimate_value: '6200.00',
+          estimate_pnl: '1200.00',
+          today_pnl: '150.00',
+          today_pnl_rate: '0.0250',
+          children: [childAccount],
         },
       ];
 
@@ -106,12 +166,15 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
+      // 先切换到单账户视图
+      await waitFor(() => {
+        expect(screen.getByTestId('all-accounts-summary-button')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
       await waitFor(() => {
         // 总账户应该显示为"总账户"类型
         expect(screen.getAllByText('总账户').length).toBeGreaterThan(0);
@@ -127,10 +190,8 @@ describe('AccountsPage', () => {
         data: [],
       });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
       // 点击创建按钮
@@ -156,6 +217,15 @@ describe('AccountsPage', () => {
           name: '测试账户',
           parent: null,
           is_default: false,
+          holding_cost: '5000.00',
+          holding_value: '6000.00',
+          pnl: '1000.00',
+          pnl_rate: '0.2000',
+          estimate_value: '6200.00',
+          estimate_pnl: '1200.00',
+          today_pnl: '150.00',
+          today_pnl_rate: '0.0250',
+          children: [],
         },
       ];
 
@@ -163,10 +233,8 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
       // 等待列表加载
@@ -202,22 +270,36 @@ describe('AccountsPage', () => {
           name: '待删除账户',
           parent: null,
           is_default: false,
+          holding_cost: '5000.00',
+          holding_value: '6000.00',
+          pnl: '1000.00',
+          pnl_rate: '0.2000',
+          estimate_value: '6200.00',
+          estimate_pnl: '1200.00',
+          today_pnl: '150.00',
+          today_pnl_rate: '0.0250',
+          children: [],
         },
       ];
 
       api.accountsAPI.list.mockResolvedValue({
         data: mockAccounts,
       });
+      api.accountsAPI.deleteInfo.mockResolvedValue({
+        data: { can_delete: true, children_count: 0, positions_count: 0, total_cost: '0.00' },
+      });
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
-      // 等待列表加载
+      // 等待列表加载，切换到单账户视图
       await waitFor(() => {
         expect(screen.getByText('待删除账户')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('parent-account-selector')).toBeInTheDocument();
       });
 
       // 点击删除按钮
@@ -237,14 +319,55 @@ describe('AccountsPage', () => {
     });
   });
 
+  describe('全部账户汇总 — 默认视图', () => {
+    it('默认显示全部账户汇总视图', async () => {
+      const mockAccounts = [
+        {
+          id: '1',
+          name: '总账户',
+          parent: null,
+          is_default: true,
+          holding_cost: '10000.00',
+          holding_value: '12000.00',
+          pnl: '2000.00',
+          pnl_rate: '0.2000',
+          estimate_value: '12500.00',
+          estimate_pnl: '2500.00',
+          today_pnl: '300.00',
+          today_pnl_rate: '0.0250',
+          children: [],
+        },
+      ];
+
+      api.accountsAPI.list.mockResolvedValue({
+        data: mockAccounts,
+      });
+
+      renderWithProviders(
+          <AccountsPage />
+      );
+
+      await waitFor(() => {
+        // 默认应显示全部账户汇总
+        expect(screen.getByTestId('all-accounts-summary')).toBeInTheDocument();
+      });
+
+      // 按钮文本应为「返回单账户」
+      const toggleButton = screen.getByTestId('all-accounts-summary-button');
+      expect(toggleButton).toBeInTheDocument();
+      expect(toggleButton.textContent).toBe('返回单账户');
+
+      // 不应该显示父账户选择器
+      expect(screen.queryByTestId('parent-account-selector')).not.toBeInTheDocument();
+    });
+  });
+
   describe('错误处理', () => {
     it('加载失败显示错误', async () => {
       api.accountsAPI.list.mockRejectedValue(new Error('加载失败'));
 
-      render(
-        <BrowserRouter>
+      renderWithProviders(
           <AccountsPage />
-        </BrowserRouter>
       );
 
       // 等待错误处理

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import WatchlistsPage from '../pages/WatchlistsPage';
 import * as api from '../api';
@@ -125,6 +125,45 @@ describe('WatchlistsPage 通用行为', () => {
     render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
     await waitFor(() => {
       expect(screen.getByText('还没有自选列表')).toBeInTheDocument();
+    });
+  });
+
+  it('调用handleDelete时会重新拉取列表', async () => {
+    const mockTwoWatchlists = [
+      { id: 1, name: '列表A', items: [{ fund_code: '000001', fund_name: '基金A' }] },
+      { id: 2, name: '列表B', items: [{ fund_code: '110011', fund_name: '基金B' }] },
+    ];
+    api.watchlistsAPI.list.mockResolvedValue({ data: mockTwoWatchlists });
+    api.watchlistsAPI.delete.mockResolvedValue({});
+
+    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+
+    // 验证初始列表调用
+    await waitFor(() => {
+      expect(api.watchlistsAPI.list).toHaveBeenCalled();
+    });
+    const initialCalls = api.watchlistsAPI.list.mock.calls.length;
+
+    // 删除列表的 Popconfirm：找到删除图标并点击
+    const deleteIcon = document.querySelector('.anticon-delete');
+    fireEvent.click(deleteIcon);
+
+    // 验证 Popconfirm 出现
+    await waitFor(() => {
+      expect(screen.getByText('确定删除？')).toBeInTheDocument();
+    });
+
+    // 点击确定按钮确认删除。antd Popconfirm 的门户渲染在 body 下
+    // 选择器：antd v5 Popconfirm 内部结构使用 ant-popconfirm 类
+    const okButton =
+      document.querySelector('.ant-popconfirm .ant-btn-primary') ||
+      document.querySelector('.ant-popover .ant-btn-primary');
+    expect(okButton).not.toBeNull();
+    fireEvent.click(okButton);
+
+    await waitFor(() => {
+      // handleDelete 内部会再次调用 list API 并自动选中剩余列表
+      expect(api.watchlistsAPI.list.mock.calls.length).toBeGreaterThan(initialCalls);
     });
   });
 });

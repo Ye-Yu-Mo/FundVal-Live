@@ -246,11 +246,12 @@ const WatchlistsPage = () => {
     try {
       await watchlistsAPI.delete(id);
       message.success('删除成功');
-      // 如果删除的是当前选中的，清空选中状态
+      // 重新拉取列表并自动选中第一个（避免 closure 竞态）
+      const response = await watchlistsAPI.list();
+      setWatchlists(response.data);
       if (id === selectedWatchlistId) {
-        setSelectedWatchlistId(null);
+        setSelectedWatchlistId(response.data.length > 0 ? response.data[0].id : null);
       }
-      loadWatchlists();
     } catch (error) {
       message.error('删除失败');
     }
