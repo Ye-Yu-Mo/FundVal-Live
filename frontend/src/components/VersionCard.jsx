@@ -45,7 +45,7 @@ const VersionCard = () => {
             <Tag color="blue">{info.backend}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="前端版本">
-            <Tag color="green">2.5.1</Tag>
+            <Tag color="green">2.5.2</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="数据库">
             <Tag color={info.database === 'connected' ? 'green' : 'red'}>{info.database}</Tag>
