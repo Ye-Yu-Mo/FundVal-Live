@@ -6,6 +6,8 @@ import {
   LoginOutlined,
   CloudServerOutlined,
   SettingOutlined,
+  SunOutlined,
+  MoonOutlined,
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api';
@@ -25,6 +27,16 @@ function LoginPage() {
   const [isNative, setIsNative] = useState(isNativeApp());
   const { token } = theme.useToken();
   const { login: authLogin } = useAuth();
+  const [themeMode, setThemeMode] = useState(() => {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+  });
+
+  const toggleTheme = () => {
+    const next = themeMode === 'dark' ? 'light' : 'dark';
+    setThemeMode(next);
+    localStorage.setItem('theme_mode', next);
+    document.documentElement.setAttribute('data-theme', next);
+  };
 
   // 检查是否是 native app（延迟检查以防 Tauri API 延迟加载）
   useEffect(() => {
@@ -131,6 +143,11 @@ function LoginPage() {
           justifyContent: 'center',
         }}
       >
+        <div style={{ position: 'absolute', top: 16, right: 16 }}>
+          <span onClick={toggleTheme} style={{ cursor: 'pointer', fontSize: 18 }}>
+            {themeMode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+          </span>
+        </div>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={logoBoxStyle}>

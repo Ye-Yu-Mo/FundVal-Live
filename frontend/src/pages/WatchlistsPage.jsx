@@ -21,7 +21,8 @@ import {
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
-import { watchlistsAPI, fundsAPI } from '../api';
+import { watchlistsAPI, fundsAPI, accountsAPI } from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -190,6 +191,23 @@ const WatchlistsPage = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [groupGrowths, setGroupGrowths] = useState({});
   const [indices, setIndices] = useState([]);
+  const [todayPnl, setTodayPnl] = useState(null);
+  const { user } = useAuth();
+
+  const loadTodayPnl = async () => {
+    try {
+      const { data } = await accountsAPI.list();
+      if (data && data.length > 0) {
+        let totalToday = 0;
+        const walk = (acc) => {
+          if (acc.today_pnl != null) totalToday += parseFloat(acc.today_pnl);
+          (acc.children || []).forEach(walk);
+        };
+        data.forEach(walk);
+        setTodayPnl(totalToday);
+      }
+    } catch {}
+  };
 
   const loadIndices = async () => {
     try {
@@ -199,6 +217,7 @@ const WatchlistsPage = () => {
   };
   useEffect(() => {
     loadIndices();
+    if (user) loadTodayPnl();
     const i = setInterval(loadIndices, 30000);
     return () => clearInterval(i);
   }, []);
@@ -536,18 +555,22 @@ const WatchlistsPage = () => {
       <Card title="自选列表">
         <Empty description={null} image={Empty.PRESENTED_IMAGE_SIMPLE}>
           <div style={{ textAlign: 'center' }}>
-            <p style={{ color: '#999', marginBottom: 16 }}>还没有自选列表，三步开始使用：</p>
-            <div
-              style={{
-                textAlign: 'left',
-                display: 'inline-block',
-                marginBottom: 16,
-                color: '#666',
-              }}
-            >
-              <p>① 点击下方按钮创建一个自选列表（如「我的基金」）</p>
-              <p>② 在搜索框输入基金代码或名称，添加基金</p>
-              <p>③ 实时估值每 30 秒自动刷新</p>
+            <p style={{ color: '#999', marginBottom: 16 }}>还没有自选列表，输入基金代码直接开始：</p>
+            <div style={{ maxWidth: 400, margin: '0 auto 16px auto' }}>
+              <AutoComplete
+                style={{ width: '100%' }}
+                options={fundOptions}
+                onSearch={handleSearch}
+                placeholder="输入基金代码，回车即创建并添加"
+                notFoundContent={searchLoading ? <Spin size="small" /> : null}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchKeyword) {
+                    setModalVisible(true);
+                    const form = document.querySelector('form');
+                    if (form) form.requestSubmit();
+                  }
+                }}
+              />
             </div>
             <br />
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
@@ -588,6 +611,16 @@ const WatchlistsPage = () => {
   // 有自选列表
   return (
     <>
+      {todayPnl !== null && todayPnl !== 0 && (
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 13, color: '#999' }}>今日预估盈亏</span>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: todayPnl >= 0 ? '#cf1322' : '#3f8600' }}>
+              {todayPnl >= 0 ? '+' : ''}¥{Math.abs(todayPnl).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </Card>
+      )}
       {indices.length > 0 && (
         <Card size="small" style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto' }}>

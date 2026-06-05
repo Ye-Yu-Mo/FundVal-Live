@@ -17,6 +17,10 @@ vi.mock('../api', () => ({
     search: vi.fn(),
     batchUpdateNav: vi.fn(),
     batchEstimate: vi.fn(),
+    marketIndices: vi.fn(() => Promise.resolve({ data: { indices: [] } })),
+  },
+  accountsAPI: {
+    list: vi.fn(() => Promise.resolve({ data: [] })),
   },
 }));
 
@@ -25,6 +29,10 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return { ...actual, useNavigate: () => vi.fn() };
 });
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { username: 'test', role: 'user' } }),
+}));
 
 // 可控的 breakpoint mock
 let mockScreens = { md: true };
