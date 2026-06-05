@@ -38,6 +38,7 @@ import {
   DeleteOutlined,
   BellOutlined,
   SendOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
 import {
@@ -47,8 +48,10 @@ import {
   notificationChannelsAPI,
   notificationRulesAPI,
   preferencesAPI,
+  changePassword,
 } from '../api';
 import { usePreference } from '../contexts/PreferenceContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -1535,8 +1538,67 @@ const SettingsPage = () => {
     message.info('已清空服务器配置');
   };
 
+  const [pwdModal, setPwdModal] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdForm] = Form.useForm();
+  const { user, logout } = useAuth();
+
+  const handleChangePwd = async (values) => {
+    setPwdLoading(true);
+    try {
+      await changePassword(values.oldPassword, values.newPassword);
+      message.success('密码修改成功，请重新登录');
+      pwdForm.resetFields();
+      setPwdModal(false);
+      setTimeout(() => logout(), 1500);
+    } catch (err) {
+      message.error(err.response?.data?.error || '修改失败');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Card title="个人信息">
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ color: '#999' }}>用户名：</span>
+          <strong>{user?.username}</strong>
+          <span style={{ marginLeft: 16, color: '#999' }}>角色：</span>
+          <strong>{user?.role === 'admin' ? '管理员' : '用户'}</strong>
+        </div>
+        <Space>
+          <Button icon={<LockOutlined />} onClick={() => setPwdModal(true)}>
+            修改密码
+          </Button>
+          <Button icon={<LogoutOutlined />} danger onClick={logout}>
+            退出登录
+          </Button>
+        </Space>
+      </Card>
+
+      <Modal
+        title="修改密码"
+        open={pwdModal}
+        onCancel={() => setPwdModal(false)}
+        onOk={() => pwdForm.submit()}
+        confirmLoading={pwdLoading}
+        okText="确认修改"
+      >
+        <Form form={pwdForm} layout="vertical" onFinish={handleChangePwd}>
+          <Form.Item name="oldPassword" label="当前密码" rules={[{ required: true, message: '请输入当前密码' }]}>
+            <Input.Password placeholder="输入当前密码" />
+          </Form.Item>
+          <Form.Item name="newPassword" label="新密码" rules={[{ required: true, message: '请输入新密码' }, { min: 8, message: '密码至少 8 位' }]}>
+            <Input.Password placeholder="输入新密码（至少8位）" />
+          </Form.Item>
+          <Form.Item name="confirmPassword" label="确认新密码" dependencies={['newPassword']}
+            rules={[{ required: true, message: '请确认新密码' }, ({ getFieldValue }) => ({ validator(_, value) { if (!value || getFieldValue('newPassword') === value) return Promise.resolve(); return Promise.reject(new Error('两次密码不一致')); } })]}>
+            <Input.Password placeholder="再次输入新密码" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
       <DataSourceCard />
 
       <Card title="数据源管理">
