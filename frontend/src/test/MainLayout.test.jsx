@@ -8,14 +8,25 @@ vi.mock('../contexts/AuthContext', () => ({
   AuthProvider: ({ children }) => children,
 }));
 vi.mock('../contexts/PreferenceContext', () => ({
-  usePreference: () => ({ preferredSource: 'eastmoney', themeMode: 'light', updateThemeMode: vi.fn(), loading: false }),
+  usePreference: () => ({
+    preferredSource: 'eastmoney',
+    themeMode: 'light',
+    updateThemeMode: vi.fn(),
+    loading: false,
+  }),
   PreferenceProvider: ({ children }) => children,
 }));
 vi.mock('../components/Footer', () => ({ default: () => null }));
 
 describe('MainLayout', () => {
   it('桌面端渲染', () => {
-    render(<BrowserRouter><MainLayout><div>content</div></MainLayout></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <MainLayout>
+          <div>content</div>
+        </MainLayout>
+      </BrowserRouter>
+    );
     expect(screen.getByText('Fundval')).toBeInTheDocument();
   });
 });

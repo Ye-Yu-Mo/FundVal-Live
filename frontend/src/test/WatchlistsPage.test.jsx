@@ -52,14 +52,14 @@ const mockWatchlistWithItems = [
 const mockNavResponse = {
   data: {
     '000001': { latest_nav: '1.2345', latest_nav_date: '2026-03-22' },
-    '110011': { latest_nav: '2.3456', latest_nav_date: '2026-03-22' },
+    110011: { latest_nav: '2.3456', latest_nav_date: '2026-03-22' },
   },
 };
 
 const mockEstimateResponse = {
   data: {
     '000001': { estimate_nav: '1.2400', estimate_growth: '0.45', fund_name: '华夏成长混合' },
-    '110011': { estimate_nav: '2.3500', estimate_growth: '-0.23', fund_name: '易方达中小盘混合' },
+    110011: { estimate_nav: '2.3500', estimate_growth: '-0.23', fund_name: '易方达中小盘混合' },
   },
 };
 
@@ -73,7 +73,11 @@ describe('WatchlistsPage 桌面端', () => {
   });
 
   it('数据加载后不渲染卡片', async () => {
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
     });
@@ -81,7 +85,11 @@ describe('WatchlistsPage 桌面端', () => {
   });
 
   it('渲染两只基金', async () => {
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
       expect(screen.getByText('易方达中小盘混合')).toBeInTheDocument();
@@ -99,7 +107,11 @@ describe('WatchlistsPage 移动端', () => {
   });
 
   it('不显示表格列头', async () => {
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
     });
@@ -107,7 +119,11 @@ describe('WatchlistsPage 移动端', () => {
   });
 
   it('显示基金卡片', async () => {
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getAllByTestId('fund-card').length).toBeGreaterThan(0);
     });
@@ -122,7 +138,11 @@ describe('WatchlistsPage 通用行为', () => {
   });
 
   it('无自选列表时显示创建按钮', async () => {
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('创建第一个自选列表')).toBeInTheDocument();
     });
@@ -136,7 +156,11 @@ describe('WatchlistsPage 通用行为', () => {
     api.watchlistsAPI.list.mockResolvedValue({ data: mockTwoWatchlists });
     api.watchlistsAPI.delete.mockResolvedValue({});
 
-    render(<BrowserRouter><WatchlistsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <WatchlistsPage />
+      </BrowserRouter>
+    );
 
     // 验证初始列表调用
     await waitFor(() => {
@@ -166,5 +190,4 @@ describe('WatchlistsPage 通用行为', () => {
       expect(api.watchlistsAPI.list.mock.calls.length).toBeGreaterThan(initialCalls);
     });
   });
-
 });

@@ -31,7 +31,15 @@ vi.mock('../contexts/AccountContext', () => ({
   useAccounts: () => ({
     accounts: [
       { id: 1, name: '父账户1', parent: null, is_default: true },
-      { id: 2, name: '子账户1', parent: 1, holding_cost: 10000, holding_value: 11000, pnl: 1000, pnl_rate: 10 },
+      {
+        id: 2,
+        name: '子账户1',
+        parent: 1,
+        holding_cost: 10000,
+        holding_value: 11000,
+        pnl: 1000,
+        pnl_rate: 10,
+      },
     ],
     loading: false,
     loadAccounts: vi.fn(),
@@ -65,7 +73,7 @@ const mockPositions = [
     fund: { fund_code: '000001', fund_name: '华夏成长混合', fund_type: '混合' },
     holding_share: 1000,
     holding_cost: 1234.56,
-    holding_value: 1300.00,
+    holding_value: 1300.0,
     pnl: 65.44,
     pnl_rate: 5.3,
   },
@@ -73,16 +81,16 @@ const mockPositions = [
     id: 2,
     fund: { fund_code: '110011', fund_name: '易方达中小盘混合', fund_type: '混合' },
     holding_share: 2000,
-    holding_cost: 4690.00,
-    holding_value: 4800.00,
-    pnl: 110.00,
+    holding_cost: 4690.0,
+    holding_value: 4800.0,
+    pnl: 110.0,
     pnl_rate: 2.34,
   },
 ];
 
 const mockOperations = [
   { id: 1, operation_type: 'BUY', date: '2026-03-20', share: 1000, nav: 1.2345, amount: 1234.56 },
-  { id: 2, operation_type: 'SELL', date: '2026-03-21', share: 500, nav: 1.3000, amount: 650.00 },
+  { id: 2, operation_type: 'SELL', date: '2026-03-21', share: 500, nav: 1.3, amount: 650.0 },
 ];
 
 describe('PositionsPage 桌面端', () => {
@@ -96,7 +104,11 @@ describe('PositionsPage 桌面端', () => {
   });
 
   it('数据加载后不渲染持仓卡片', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(api.positionsAPI.list).toHaveBeenCalled();
     });
@@ -104,7 +116,11 @@ describe('PositionsPage 桌面端', () => {
   });
 
   it('渲染持仓列表', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(api.positionsAPI.list).toHaveBeenCalled();
     });
@@ -122,32 +138,59 @@ describe('PositionsPage 移动端', () => {
   });
 
   it('显示持仓卡片', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
-    await waitFor(() => {
-      expect(api.positionsAPI.list).toHaveBeenCalled();
-    }, { timeout: 3000 });
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
+    await waitFor(
+      () => {
+        expect(api.positionsAPI.list).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
     // 移动端应该渲染卡片（实现后会通过）
-    await waitFor(() => {
-      expect(screen.getAllByTestId('position-card').length).toBeGreaterThan(0);
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('position-card').length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 }
+    );
   });
 
   it('显示操作流水卡片', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
-    await waitFor(() => {
-      expect(api.positionsAPI.listOperations).toHaveBeenCalled();
-    }, { timeout: 3000 });
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
+    await waitFor(
+      () => {
+        expect(api.positionsAPI.listOperations).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
     // 移动端应该渲染操作流水卡片（实现后会通过）
-    await waitFor(() => {
-      expect(screen.getAllByTestId('operation-card').length).toBeGreaterThan(0);
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('operation-card').length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 }
+    );
   });
 
   it('统计卡片单列显示', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
-    await waitFor(() => {
-      expect(screen.getByText('持仓总成本')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
+    await waitFor(
+      () => {
+        expect(screen.getByText('持仓总成本')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
   });
 });
 
@@ -162,9 +205,16 @@ describe('PositionsPage 通用行为', () => {
   });
 
   it('无持仓时显示空状态', async () => {
-    render(<BrowserRouter><PositionsPage /></BrowserRouter>);
-    await waitFor(() => {
-      expect(api.positionsAPI.list).toHaveBeenCalled();
-    }, { timeout: 3000 });
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>
+    );
+    await waitFor(
+      () => {
+        expect(api.positionsAPI.list).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
   });
 });

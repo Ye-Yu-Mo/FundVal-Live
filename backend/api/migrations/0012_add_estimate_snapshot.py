@@ -7,26 +7,54 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0011_add_theme_mode'),
+        ("api", "0011_add_theme_mode"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='EstimateSnapshot',
+            name="EstimateSnapshot",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('source', models.CharField(default='eastmoney', max_length=50)),
-                ('timestamp', models.DateTimeField(db_index=True)),
-                ('estimate_nav', models.DecimalField(decimal_places=4, max_digits=10)),
-                ('estimate_growth', models.DecimalField(blank=True, decimal_places=4, max_digits=10, null=True)),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='estimate_snapshots', to='api.fund')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("source", models.CharField(default="eastmoney", max_length=50)),
+                ("timestamp", models.DateTimeField(db_index=True)),
+                ("estimate_nav", models.DecimalField(decimal_places=4, max_digits=10)),
+                (
+                    "estimate_growth",
+                    models.DecimalField(
+                        blank=True, decimal_places=4, max_digits=10, null=True
+                    ),
+                ),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="estimate_snapshots",
+                        to="api.fund",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '估值快照',
-                'verbose_name_plural': '估值快照',
-                'db_table': 'estimate_snapshot',
-                'ordering': ['timestamp'],
-                'indexes': [models.Index(fields=['fund', 'timestamp'], name='estimate_sn_fund_id_78848f_idx'), models.Index(fields=['timestamp'], name='estimate_sn_timesta_8149af_idx')],
+                "verbose_name": "估值快照",
+                "verbose_name_plural": "估值快照",
+                "db_table": "estimate_snapshot",
+                "ordering": ["timestamp"],
+                "indexes": [
+                    models.Index(
+                        fields=["fund", "timestamp"],
+                        name="estimate_sn_fund_id_78848f_idx",
+                    ),
+                    models.Index(
+                        fields=["timestamp"], name="estimate_sn_timesta_8149af_idx"
+                    ),
+                ],
             },
         ),
     ]

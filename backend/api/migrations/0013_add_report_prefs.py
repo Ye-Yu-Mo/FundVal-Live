@@ -6,18 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0012_add_estimate_snapshot'),
+        ("api", "0012_add_estimate_snapshot"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='userpreference',
-            name='report_enabled',
-            field=models.BooleanField(default=False, help_text='是否开启投资报告'),
+            model_name="userpreference",
+            name="report_enabled",
+            field=models.BooleanField(default=False, help_text="是否开启投资报告"),
         ),
         migrations.AddField(
-            model_name='userpreference',
-            name='report_frequency',
-            field=models.CharField(choices=[('weekly', '周报'), ('monthly', '月报'), ('yearly', '年报')], default='monthly', max_length=10),
+            model_name="userpreference",
+            name="report_frequency",
+            field=models.CharField(
+                choices=[("weekly", "周报"), ("monthly", "月报"), ("yearly", "年报")],
+                default="monthly",
+                max_length=10,
+            ),
         ),
     ]

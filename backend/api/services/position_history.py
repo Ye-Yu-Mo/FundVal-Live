@@ -6,6 +6,7 @@
 2. 查询每日净值
 3. 计算每日市值 = Σ(份额 × 净值)
 """
+
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Dict, List, Set
@@ -31,10 +32,13 @@ def calculate_account_history(account_id: str, days: int = 30) -> List[Dict]:
     start_date = end_date - timedelta(days=days)
 
     # 1. 获取所有操作流水（包括查询范围之前的操作）
-    operations = PositionOperation.objects.filter(
-        account_id=account_id,
-        operation_date__lte=end_date
-    ).select_related('fund').order_by('operation_date')
+    operations = (
+        PositionOperation.objects.filter(
+            account_id=account_id, operation_date__lte=end_date
+        )
+        .select_related("fund")
+        .order_by("operation_date")
+    )
 
     if not operations.exists():
         return []
@@ -77,36 +81,36 @@ def _replay_operations(operations, start_date, end_date):
 
         # 初始化基金持仓
         if fund_id not in current_positions:
-            current_positions[fund_id] = {
-                'share': Decimal('0'),
-                'cost': Decimal('0')
-            }
+            current_positions[fund_id] = {"share": Decimal("0"), "cost": Decimal("0")}
 
         # 更新持仓
-        if op.operation_type == 'BUY':
+        if op.operation_type == "BUY":
             # 买入：增加份额和成本
-            current_positions[fund_id]['share'] += op.share
-            current_positions[fund_id]['cost'] += op.amount
+            current_positions[fund_id]["share"] += op.share
+            current_positions[fund_id]["cost"] += op.amount
         else:  # SELL
             # 卖出：按每份成本计算，与 Position 汇总逻辑一致
-            if current_positions[fund_id]['share'] > 0:
+            if current_positions[fund_id]["share"] > 0:
                 # 计算每份成本
-                cost_per_share = current_positions[fund_id]['cost'] / current_positions[fund_id]['share']
+                cost_per_share = (
+                    current_positions[fund_id]["cost"]
+                    / current_positions[fund_id]["share"]
+                )
                 # 减少份额
-                current_positions[fund_id]['share'] -= op.share
+                current_positions[fund_id]["share"] -= op.share
                 # 减少成本（卖出份额 × 每份成本）
-                current_positions[fund_id]['cost'] -= op.share * cost_per_share
+                current_positions[fund_id]["cost"] -= op.share * cost_per_share
             else:
                 # 如果没有持仓，只减少份额（可能出现负数）
-                current_positions[fund_id]['share'] -= op.share
+                current_positions[fund_id]["share"] -= op.share
 
         # 记录当日持仓（只记录操作日期的持仓）
         if fund_id not in daily_positions:
             daily_positions[fund_id] = {}
 
         daily_positions[fund_id][op.operation_date] = {
-            'share': current_positions[fund_id]['share'],
-            'cost': current_positions[fund_id]['cost']
+            "share": current_positions[fund_id]["share"],
+            "cost": current_positions[fund_id]["cost"],
         }
 
     # 填充日期：为每个基金填充查询范围内的所有日期
@@ -146,8 +150,8 @@ def _fill_dates(daily_positions, start_date, end_date):
                 filled_positions[fund_id][current_date] = latest_position
             else:
                 filled_positions[fund_id][current_date] = {
-                    'share': Decimal('0'),
-                    'cost': Decimal('0')
+                    "share": Decimal("0"),
+                    "cost": Decimal("0"),
                 }
 
             current_date += timedelta(days=1)
@@ -168,10 +172,8 @@ def _get_daily_nav(fund_ids: Set[str], start_date, end_date):
     """
     # 查询历史净值
     nav_records = FundNavHistory.objects.filter(
-        fund_id__in=fund_ids,
-        nav_date__gte=start_date,
-        nav_date__lte=end_date
-    ).select_related('fund')
+        fund_id__in=fund_ids, nav_date__gte=start_date, nav_date__lte=end_date
+    ).select_related("fund")
 
     # 组织成字典
     daily_nav = {}
@@ -215,37 +217,39 @@ def _calculate_daily_value(daily_positions, daily_nav, start_date, end_date):
     current_date = start_date
 
     while current_date <= end_date:
-        total_value = Decimal('0')
-        total_cost = Decimal('0')
+        total_value = Decimal("0")
+        total_cost = Decimal("0")
 
         # 遍历所有基金
         for fund_id, positions in daily_positions.items():
             # 获取当日持仓
             position = positions.get(current_date)
-            if not position or position['share'] == 0:
+            if not position or position["share"] == 0:
                 continue
 
             # 成本始终计入
-            total_cost += position['cost']
+            total_cost += position["cost"]
 
             # 获取当日净值
             nav = daily_nav.get(fund_id, {}).get(current_date)
             if nav:
                 # 如果有净值，计算市值
-                total_value += position['share'] * nav
+                total_value += position["share"] * nav
             else:
                 # 如果没有净值，使用持仓净值估算市值
                 # 持仓净值 = 成本 / 份额
-                if position['share'] > 0:
-                    holding_nav = position['cost'] / position['share']
-                    total_value += position['share'] * holding_nav
+                if position["share"] > 0:
+                    holding_nav = position["cost"] / position["share"]
+                    total_value += position["share"] * holding_nav
 
         # 添加到结果
-        result.append({
-            'date': current_date.isoformat(),
-            'value': float(total_value),
-            'cost': float(total_cost)
-        })
+        result.append(
+            {
+                "date": current_date.isoformat(),
+                "value": float(total_value),
+                "cost": float(total_cost),
+            }
+        )
 
         current_date += timedelta(days=1)
 

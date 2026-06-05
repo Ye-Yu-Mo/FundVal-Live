@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Typography, Layout, theme, Modal } from 'antd';
-import { UserOutlined, LockOutlined, LoginOutlined, CloudServerOutlined, SettingOutlined } from '@ant-design/icons';
+import {
+  UserOutlined,
+  LockOutlined,
+  LoginOutlined,
+  CloudServerOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api';
 import { setToken } from '../utils/auth';
@@ -117,15 +123,23 @@ function LoginPage() {
 
   return (
     <Layout style={layoutStyle}>
-      <Content style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-
+      <Content
+        style={{
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={logoBoxStyle}>
               <CloudServerOutlined style={{ fontSize: 24, color: '#fff' }} />
             </div>
           </div>
-          <Title level={2} style={{ marginBottom: 0 }}>Fundval</Title>
+          <Title level={2} style={{ marginBottom: 0 }}>
+            Fundval
+          </Title>
           <Text type="secondary">基金估值与资产管理系统</Text>
         </div>
 
@@ -143,27 +157,15 @@ function LoginPage() {
             </div>
           )}
 
-          <Form
-            name="login"
-            onFinish={onFinish}
-            autoComplete="off"
-            layout="vertical"
-            size="large"
-          >
-            <Form.Item
-              name="username"
-              rules={[{ required: true, message: '请输入用户名' }]}
-            >
+          <Form name="login" onFinish={onFinish} autoComplete="off" layout="vertical" size="large">
+            <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
               <Input
                 prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                 placeholder="用户名"
               />
             </Form.Item>
 
-            <Form.Item
-              name="password"
-              rules={[{ required: true, message: '请输入密码' }]}
-            >
+            <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
               <Input.Password
                 prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                 placeholder="密码"
@@ -193,7 +195,9 @@ function LoginPage() {
       </Content>
 
       <Footer style={{ textAlign: 'center', background: 'transparent' }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>&copy; 2026 Fundval. All rights reserved.</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          &copy; 2026 Fundval. All rights reserved.
+        </Text>
       </Footer>
 
       {/* 服务器配置弹窗 */}

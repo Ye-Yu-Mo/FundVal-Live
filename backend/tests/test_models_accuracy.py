@@ -6,6 +6,7 @@
 2. 误差率计算
 3. 唯一性约束
 """
+
 import pytest
 from decimal import Decimal
 from datetime import date
@@ -22,9 +23,10 @@ class TestEstimateAccuracyModel:
     @pytest.fixture
     def fund(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
     def test_create_accuracy_record(self, fund):
@@ -32,16 +34,16 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         record = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
+            estimate_nav=Decimal("1.1370"),
         )
 
-        assert record.source_name == 'eastmoney'
+        assert record.source_name == "eastmoney"
         assert record.fund == fund
         assert record.estimate_date == date(2024, 2, 11)
-        assert record.estimate_nav == Decimal('1.1370')
+        assert record.estimate_nav == Decimal("1.1370")
         assert record.actual_nav is None
         assert record.error_rate is None
 
@@ -50,29 +52,29 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         record = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
-            actual_nav=Decimal('1.1490'),
+            estimate_nav=Decimal("1.1370"),
+            actual_nav=Decimal("1.1490"),
         )
 
         record.calculate_error_rate()
 
         # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444（负数表示低估）
         assert record.error_rate is not None
-        assert abs(record.error_rate - Decimal('-0.010444')) < Decimal('0.000001')
+        assert abs(record.error_rate - Decimal("-0.010444")) < Decimal("0.000001")
 
     def test_calculate_error_rate_zero_actual(self, fund):
         """测试实际净值为 0 时不计算误差率"""
         from api.models import EstimateAccuracy
 
         record = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
-            actual_nav=Decimal('0'),
+            estimate_nav=Decimal("1.1370"),
+            actual_nav=Decimal("0"),
         )
 
         record.calculate_error_rate()
@@ -85,19 +87,19 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
+            estimate_nav=Decimal("1.1370"),
         )
 
         # 重复创建应该报错
         with pytest.raises(IntegrityError):
             EstimateAccuracy.objects.create(
-                source_name='eastmoney',
+                source_name="eastmoney",
                 fund=fund,
                 estimate_date=date(2024, 2, 11),
-                estimate_nav=Decimal('1.1400'),
+                estimate_nav=Decimal("1.1400"),
             )
 
     def test_different_sources_same_fund_date(self, fund):
@@ -105,17 +107,17 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         record1 = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
+            estimate_nav=Decimal("1.1370"),
         )
 
         record2 = EstimateAccuracy.objects.create(
-            source_name='tiantian',
+            source_name="tiantian",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1380'),
+            estimate_nav=Decimal("1.1380"),
         )
 
         assert record1.source_name != record2.source_name
@@ -127,17 +129,17 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         record1 = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
+            estimate_nav=Decimal("1.1370"),
         )
 
         record2 = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 12),
-            estimate_nav=Decimal('1.1400'),
+            estimate_nav=Decimal("1.1400"),
         )
 
         assert record1.estimate_date != record2.estimate_date
@@ -147,13 +149,13 @@ class TestEstimateAccuracyModel:
         from api.models import EstimateAccuracy
 
         record = EstimateAccuracy.objects.create(
-            source_name='eastmoney',
+            source_name="eastmoney",
             fund=fund,
             estimate_date=date(2024, 2, 11),
-            estimate_nav=Decimal('1.1370'),
+            estimate_nav=Decimal("1.1370"),
         )
 
         str_repr = str(record)
-        assert 'eastmoney' in str_repr
-        assert '000001' in str_repr
-        assert '2024-02-11' in str_repr
+        assert "eastmoney" in str_repr
+        assert "000001" in str_repr
+        assert "2024-02-11" in str_repr

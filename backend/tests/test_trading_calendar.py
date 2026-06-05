@@ -7,6 +7,7 @@
 3. 节假日不是交易日
 4. 获取最近的交易日
 """
+
 import pytest
 from datetime import date, timedelta
 from api.utils.trading_calendar import is_trading_day, get_last_trading_day

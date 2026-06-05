@@ -1,6 +1,7 @@
 """
 通知渠道注册表
 """
+
 from typing import Optional, List
 from .base import BaseNotificationChannel
 

@@ -5,40 +5,45 @@ from django.db import migrations, models
 
 def migrate_nav_data(apps, schema_editor):
     """迁移 yesterday_nav 数据到 latest_nav"""
-    Fund = apps.get_model('api', 'Fund')
+    Fund = apps.get_model("api", "Fund")
     Fund.objects.all().update(
-        latest_nav=models.F('yesterday_nav'),
-        latest_nav_date=models.F('yesterday_date')
+        latest_nav=models.F("yesterday_nav"), latest_nav_date=models.F("yesterday_date")
     )
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0003_fund_estimate_growth_fund_estimate_nav_and_more'),
+        ("api", "0003_fund_estimate_growth_fund_estimate_nav_and_more"),
     ]
 
     operations = [
         # 先添加新字段
         migrations.AddField(
-            model_name='fund',
-            name='latest_nav',
-            field=models.DecimalField(blank=True, decimal_places=4, help_text='最新净值', max_digits=10, null=True),
+            model_name="fund",
+            name="latest_nav",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=4,
+                help_text="最新净值",
+                max_digits=10,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='fund',
-            name='latest_nav_date',
-            field=models.DateField(blank=True, help_text='最新净值日期', null=True),
+            model_name="fund",
+            name="latest_nav_date",
+            field=models.DateField(blank=True, help_text="最新净值日期", null=True),
         ),
         # 迁移数据
         migrations.RunPython(migrate_nav_data, reverse_code=migrations.RunPython.noop),
         # 删除旧字段
         migrations.RemoveField(
-            model_name='fund',
-            name='yesterday_date',
+            model_name="fund",
+            name="yesterday_date",
         ),
         migrations.RemoveField(
-            model_name='fund',
-            name='yesterday_nav',
+            model_name="fund",
+            name="yesterday_nav",
         ),
     ]

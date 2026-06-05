@@ -1,6 +1,7 @@
 """
 通知渠道模块
 """
+
 from .registry import ChannelRegistry
 from .webhook import WebhookChannel
 from .email import EmailChannel
@@ -9,4 +10,4 @@ from .email import EmailChannel
 ChannelRegistry.register(WebhookChannel())
 ChannelRegistry.register(EmailChannel())
 
-__all__ = ['ChannelRegistry', 'WebhookChannel', 'EmailChannel']
+__all__ = ["ChannelRegistry", "WebhookChannel", "EmailChannel"]

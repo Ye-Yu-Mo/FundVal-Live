@@ -7,13 +7,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0004_remove_fund_yesterday_date_remove_fund_yesterday_nav_and_more'),
+        ("api", "0004_remove_fund_yesterday_date_remove_fund_yesterday_nav_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='account',
-            constraint=models.CheckConstraint(condition=models.Q(('is_default', False), ('parent__isnull', True), _connector='OR'), name='default_account_must_be_parent', violation_error_message='默认账户必须是父账户'),
+            model_name="account",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("is_default", False), ("parent__isnull", True), _connector="OR"
+                ),
+                name="default_account_must_be_parent",
+                violation_error_message="默认账户必须是父账户",
+            ),
         ),
     ]

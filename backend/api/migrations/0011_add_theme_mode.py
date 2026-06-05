@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0010_notificationchannel_notificationrule_notificationlog_and_more'),
+        ("api", "0010_notificationchannel_notificationrule_notificationlog_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='userpreference',
-            name='theme_mode',
-            field=models.CharField(choices=[('light', '浅色'), ('dark', '深色')], default='light', max_length=10),
+            model_name="userpreference",
+            name="theme_mode",
+            field=models.CharField(
+                choices=[("light", "浅色"), ("dark", "深色")],
+                default="light",
+                max_length=10,
+            ),
         ),
     ]

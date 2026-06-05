@@ -1,6 +1,7 @@
 """
 数据源注册表
 """
+
 from typing import Optional, List, Type
 from .base import BaseEstimateSource
 

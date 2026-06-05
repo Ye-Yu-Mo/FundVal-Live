@@ -59,16 +59,17 @@ const PositionCharts = ({ positions, accountId }) => {
   // 监听 accountId 和 timeRange 变化
   useEffect(() => {
     if (accountId) {
-      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 180;
+      const days =
+        timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 180;
       fetchHistory(accountId, days);
     }
   }, [accountId, timeRange]);
 
   // 生成趋势数据（使用真实历史数据）
-  const trendData = historyData.map(item => ({
+  const trendData = historyData.map((item) => ({
     date: new Date(item.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }),
     value: item.value,
-    cost: item.cost
+    cost: item.cost,
   }));
 
   // 仓位分布数据（按基金类型）
@@ -94,7 +95,7 @@ const PositionCharts = ({ positions, accountId }) => {
   };
 
   const typeMap = {};
-  positions.forEach(p => {
+  positions.forEach((p) => {
     const type = mapFundType(p.fund_type);
     const value = calculateMarketValue(p);
     if (!typeMap[type]) {
@@ -113,7 +114,7 @@ const PositionCharts = ({ positions, accountId }) => {
 
   // 收益排行数据
   const rankingData = positions
-    .map(p => ({
+    .map((p) => ({
       name: p.fund_name.length > 6 ? p.fund_name.substring(0, 6) + '...' : p.fund_name,
       pnl: parseFloat(p.pnl || 0),
     }))
@@ -133,13 +134,15 @@ const PositionCharts = ({ positions, accountId }) => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{
-          backgroundColor: token.colorBgElevated,
-          padding: '10px',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadius,
-          color: token.colorText,
-        }}>
+        <div
+          style={{
+            backgroundColor: token.colorBgElevated,
+            padding: '10px',
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadius,
+            color: token.colorText,
+          }}
+        >
           <p style={{ margin: 0 }}>{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ margin: '5px 0', color: entry.color }}>
@@ -157,13 +160,15 @@ const PositionCharts = ({ positions, accountId }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div style={{
-          backgroundColor: token.colorBgElevated,
-          padding: '10px',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadius,
-          color: token.colorText,
-        }}>
+        <div
+          style={{
+            backgroundColor: token.colorBgElevated,
+            padding: '10px',
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadius,
+            color: token.colorText,
+          }}
+        >
           <p style={{ margin: 0 }}>{data.name}</p>
           <p style={{ margin: '5px 0' }}>金额: ¥{data.value.toFixed(2)}</p>
           <p style={{ margin: '5px 0' }}>占比: {data.percent}%</p>
@@ -234,56 +239,58 @@ const PositionCharts = ({ positions, accountId }) => {
     {
       key: 'distribution',
       label: '仓位分布',
-      children: distributionData.length > 0 ? (
-        <div style={{ width: '100%', height: 400 }}>
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie
-                data={distributionData}
-                cx="50%"
-                cy="50%"
-                labelLine={!isMobile}
-                label={isMobile ? false : (entry) => `${entry.name} ${entry.percent}%`}
-                outerRadius={isMobile ? 80 : 120}
-                dataKey="value"
-                nameKey="name"
-              >
-                {distributionData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<PieTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <Empty description="暂无持仓数据" />
-      ),
+      children:
+        distributionData.length > 0 ? (
+          <div style={{ width: '100%', height: 400 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={distributionData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={!isMobile}
+                  label={isMobile ? false : (entry) => `${entry.name} ${entry.percent}%`}
+                  outerRadius={isMobile ? 80 : 120}
+                  dataKey="value"
+                  nameKey="name"
+                >
+                  {distributionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<PieTooltip />} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <Empty description="暂无持仓数据" />
+        ),
     },
     {
       key: 'ranking',
       label: '收益排行',
-      children: rankingData.length > 0 ? (
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={rankingData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis tickFormatter={formatYAxis} width={50} />
-            <Tooltip
-              formatter={(value) => `¥${value.toFixed(2)}`}
-              labelStyle={{ color: '#000' }}
-            />
-            <Bar dataKey="pnl" name="盈亏">
-              {rankingData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? '#ff4d4f' : '#52c41a'} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      ) : (
-        <Empty description="暂无持仓数据" />
-      ),
+      children:
+        rankingData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={rankingData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis tickFormatter={formatYAxis} width={50} />
+              <Tooltip
+                formatter={(value) => `¥${value.toFixed(2)}`}
+                labelStyle={{ color: '#000' }}
+              />
+              <Bar dataKey="pnl" name="盈亏">
+                {rankingData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? '#ff4d4f' : '#52c41a'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <Empty description="暂无持仓数据" />
+        ),
     },
   ];
 

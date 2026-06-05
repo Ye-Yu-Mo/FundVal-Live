@@ -8,22 +8,44 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0007_usersourcecredential'),
+        ("api", "0007_usersourcecredential"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='UserPreference',
+            name="UserPreference",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('preferred_source', models.CharField(choices=[('eastmoney', '东方财富'), ('yangjibao', '养基宝')], default='eastmoney', max_length=50)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='preference', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "preferred_source",
+                    models.CharField(
+                        choices=[("eastmoney", "东方财富"), ("yangjibao", "养基宝")],
+                        default="eastmoney",
+                        max_length=50,
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="preference",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '用户偏好',
-                'verbose_name_plural': '用户偏好',
-                'db_table': 'user_preference',
+                "verbose_name": "用户偏好",
+                "verbose_name_plural": "用户偏好",
+                "db_table": "user_preference",
             },
         ),
     ]

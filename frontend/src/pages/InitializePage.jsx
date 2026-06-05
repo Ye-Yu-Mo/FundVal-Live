@@ -1,5 +1,19 @@
 import { useState } from 'react';
-import { Form, Input, Button, Card, message, Switch, Steps, Result, Typography, Divider, Layout, Space, theme } from 'antd';
+import {
+  Form,
+  Input,
+  Button,
+  Card,
+  message,
+  Switch,
+  Steps,
+  Result,
+  Typography,
+  Divider,
+  Layout,
+  Space,
+  theme,
+} from 'antd';
 import {
   SafetyCertificateOutlined,
   KeyOutlined,
@@ -7,7 +21,7 @@ import {
   CheckCircleOutlined,
   CloudServerOutlined,
   LockOutlined,
-  UserAddOutlined
+  UserAddOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { verifyBootstrapKey, initializeSystem } from '../api';
@@ -97,15 +111,23 @@ function InitializePage() {
 
   return (
     <Layout style={layoutStyle}>
-      <Content style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-
+      <Content
+        style={{
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={logoBoxStyle}>
               <CloudServerOutlined style={{ fontSize: 24, color: '#fff' }} />
             </div>
           </div>
-          <Title level={2} style={{ marginBottom: 0 }}>系统初始化</Title>
+          <Title level={2} style={{ marginBottom: 0 }}>
+            系统初始化
+          </Title>
           <Text type="secondary">请完成必要的配置以启动服务</Text>
         </div>
 
@@ -135,7 +157,9 @@ function InitializePage() {
             <div>
               <div style={infoBoxStyle}>
                 <Space align="start">
-                  <SafetyCertificateOutlined style={{ fontSize: 20, color: token.colorPrimary, marginTop: 4 }} />
+                  <SafetyCertificateOutlined
+                    style={{ fontSize: 20, color: token.colorPrimary, marginTop: 4 }}
+                  />
                   <div>
                     <Text strong>安全验证</Text>
                     <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 13 }}>
@@ -157,7 +181,14 @@ function InitializePage() {
                   />
                 </Form.Item>
                 <Form.Item style={{ marginBottom: 0 }}>
-                  <Button type="primary" htmlType="submit" loading={loading} block size="large" icon={<CheckCircleOutlined />}>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={loading}
+                    block
+                    size="large"
+                    icon={<CheckCircleOutlined />}
+                  >
                     验证并继续
                   </Button>
                 </Form.Item>
@@ -179,7 +210,10 @@ function InitializePage() {
                   name="admin_username"
                   rules={[{ required: true, message: '请设置管理员用户名' }]}
                 >
-                  <Input prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="例如: admin" />
+                  <Input
+                    prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                    placeholder="例如: admin"
+                  />
                 </Form.Item>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -191,7 +225,10 @@ function InitializePage() {
                       { min: 8, message: '密码至少 8 位' },
                     ]}
                   >
-                    <Input.Password prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="至少 8 位" />
+                    <Input.Password
+                      prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                      placeholder="至少 8 位"
+                    />
                   </Form.Item>
 
                   <Form.Item
@@ -210,22 +247,33 @@ function InitializePage() {
                       }),
                     ]}
                   >
-                    <Input.Password prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="重复密码" />
+                    <Input.Password
+                      prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                      placeholder="重复密码"
+                    />
                   </Form.Item>
                 </div>
 
                 <Divider style={{ margin: '12px 0 24px' }} />
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, padding: 12, background: token.colorFillAlter, borderRadius: token.borderRadius }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                    padding: 12,
+                    background: token.colorFillAlter,
+                    borderRadius: token.borderRadius,
+                  }}
+                >
                   <div>
                     <div style={{ fontWeight: 500 }}>开放注册</div>
-                    <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>是否允许其他人注册账户</div>
+                    <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+                      是否允许其他人注册账户
+                    </div>
                   </div>
-                  <Form.Item
-                    name="allow_register"
-                    valuePropName="checked"
-                    noStyle
-                  >
+                  <Form.Item name="allow_register" valuePropName="checked" noStyle>
                     <Switch />
                   </Form.Item>
                 </div>
@@ -255,7 +303,9 @@ function InitializePage() {
       </Content>
 
       <Footer style={{ textAlign: 'center', background: 'transparent' }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>&copy; 2026 Fundval. All rights reserved.</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          &copy; 2026 Fundval. All rights reserved.
+        </Text>
       </Footer>
     </Layout>
   );

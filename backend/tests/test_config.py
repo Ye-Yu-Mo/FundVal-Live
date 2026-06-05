@@ -7,6 +7,7 @@
 3. 环境变量覆盖
 4. 配置保存
 """
+
 import json
 import os
 import tempfile
@@ -20,6 +21,7 @@ class TestConfig:
     def setup_method(self):
         """每个测试前重置 Config 单例"""
         from fundval.config import Config
+
         Config._instance = None
         Config._config = None
 
@@ -29,11 +31,11 @@ class TestConfig:
 
         config = Config()
         # 验证配置能正常读取
-        assert config.get('port') is not None
-        assert config.get('db_type') in ['sqlite', 'postgresql']
-        assert config.get('allow_register') in [True, False]
-        assert config.get('system_initialized') in [True, False]
-        assert config.get('debug') in [True, False]
+        assert config.get("port") is not None
+        assert config.get("db_type") in ["sqlite", "postgresql"]
+        assert config.get("allow_register") in [True, False]
+        assert config.get("system_initialized") in [True, False]
+        assert config.get("debug") in [True, False]
 
     def test_json_config_load(self):
         """测试 JSON 配置文件加载"""
@@ -43,10 +45,10 @@ class TestConfig:
 
     def test_env_override(self, monkeypatch):
         """测试环境变量覆盖配置"""
-        monkeypatch.setenv('PORT', '9000')
-        monkeypatch.setenv('DB_TYPE', 'postgresql')
-        monkeypatch.setenv('ALLOW_REGISTER', 'true')
-        monkeypatch.setenv('DEBUG', 'true')
+        monkeypatch.setenv("PORT", "9000")
+        monkeypatch.setenv("DB_TYPE", "postgresql")
+        monkeypatch.setenv("ALLOW_REGISTER", "true")
+        monkeypatch.setenv("DEBUG", "true")
 
         from fundval.config import Config
 
@@ -55,21 +57,21 @@ class TestConfig:
         Config._config = None
         config = Config()
 
-        assert config.get('port') == 9000
-        assert config.get('db_type') == 'postgresql'
-        assert config.get('allow_register') is True
-        assert config.get('debug') is True
+        assert config.get("port") == 9000
+        assert config.get("db_type") == "postgresql"
+        assert config.get("allow_register") is True
+        assert config.get("debug") is True
 
     def test_config_set_and_save(self):
         """测试配置修改和保存"""
         from fundval.config import Config
 
         config = Config()
-        original_value = config.get('system_initialized')
+        original_value = config.get("system_initialized")
 
         # 修改配置
-        config.set('system_initialized', True)
-        assert config.get('system_initialized') is True
+        config.set("system_initialized", True)
+        assert config.get("system_initialized") is True
 
         # 测试 save() 方法不报错
         try:
@@ -78,7 +80,7 @@ class TestConfig:
             pytest.fail(f"save() 方法失败: {e}")
 
         # 恢复原值并保存
-        config.set('system_initialized', original_value)
+        config.set("system_initialized", original_value)
         config.save()
 
     def test_config_singleton(self):

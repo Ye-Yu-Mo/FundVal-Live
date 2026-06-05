@@ -1,6 +1,7 @@
 """
 基金历史净值同步服务
 """
+
 from datetime import date, timedelta
 from typing import List, Optional
 from django.db import transaction
@@ -16,7 +17,7 @@ def sync_nav_history(
     fund_code: str,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    force: bool = False
+    force: bool = False,
 ) -> int:
     """
     同步基金历史净值
@@ -33,7 +34,7 @@ def sync_nav_history(
     try:
         fund = Fund.objects.get(fund_code=fund_code)
     except Fund.DoesNotExist:
-        raise ValueError(f'基金不存在：{fund_code}')
+        raise ValueError(f"基金不存在：{fund_code}")
 
     # 如果不是强制同步，从最后一条记录开始
     if not force and not start_date:
@@ -45,12 +46,12 @@ def sync_nav_history(
         end_date = date.today()
 
     # 从数据源获取数据
-    source = SourceRegistry.get_source('eastmoney')
+    source = SourceRegistry.get_source("eastmoney")
     nav_data = source.fetch_nav_history(fund_code, start_date, end_date)
 
     count = 0
     if not nav_data:
-        logger.info(f'没有新的历史净值数据：{fund_code}')
+        logger.info(f"没有新的历史净值数据：{fund_code}")
     else:
         # 批量导入
         count = 0
@@ -58,24 +59,26 @@ def sync_nav_history(
             for item in nav_data:
                 _, created = FundNavHistory.objects.update_or_create(
                     fund=fund,
-                    nav_date=item['nav_date'],
+                    nav_date=item["nav_date"],
                     defaults={
-                        'unit_nav': item['unit_nav'],
-                        'accumulated_nav': item.get('accumulated_nav'),
-                        'daily_growth': item.get('daily_growth'),
-                    }
+                        "unit_nav": item["unit_nav"],
+                        "accumulated_nav": item.get("accumulated_nav"),
+                        "daily_growth": item.get("daily_growth"),
+                    },
                 )
                 if created:
                     count += 1
 
-        logger.info(f'同步历史净值完成：{fund_code}，新增 {count} 条记录')
+        logger.info(f"同步历史净值完成：{fund_code}，新增 {count} 条记录")
 
     # 无论是否有新数据，都回写最新净值到 Fund 表
-    latest = FundNavHistory.objects.filter(fund=fund).order_by('-nav_date').first()
-    if latest and (fund.latest_nav is None or latest.nav_date > (fund.latest_nav_date or date.min)):
+    latest = FundNavHistory.objects.filter(fund=fund).order_by("-nav_date").first()
+    if latest and (
+        fund.latest_nav is None or latest.nav_date > (fund.latest_nav_date or date.min)
+    ):
         fund.latest_nav = latest.unit_nav
         fund.latest_nav_date = latest.nav_date
-        fund.save(update_fields=['latest_nav', 'latest_nav_date'])
+        fund.save(update_fields=["latest_nav", "latest_nav_date"])
 
     return count
 
@@ -83,7 +86,7 @@ def sync_nav_history(
 def batch_sync_nav_history(
     fund_codes: List[str],
     start_date: Optional[date] = None,
-    end_date: Optional[date] = None
+    end_date: Optional[date] = None,
 ) -> dict:
     """
     批量同步历史净值
@@ -100,9 +103,9 @@ def batch_sync_nav_history(
     for fund_code in fund_codes:
         try:
             count = sync_nav_history(fund_code, start_date, end_date)
-            results[fund_code] = {'success': True, 'count': count}
+            results[fund_code] = {"success": True, "count": count}
         except Exception as e:
-            logger.error(f'同步历史净值失败：{fund_code}, 错误：{e}')
-            results[fund_code] = {'success': False, 'error': str(e)}
+            logger.error(f"同步历史净值失败：{fund_code}, 错误：{e}")
+            results[fund_code] = {"success": False, "error": str(e)}
 
     return results

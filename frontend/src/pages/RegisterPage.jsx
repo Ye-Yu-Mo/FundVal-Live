@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Form, Input, Button, Card, message, Typography, Layout, theme } from 'antd';
-import { UserOutlined, LockOutlined, UserAddOutlined, CloudServerOutlined } from '@ant-design/icons';
+import {
+  UserOutlined,
+  LockOutlined,
+  UserAddOutlined,
+  CloudServerOutlined,
+} from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../api';
 import { setToken } from '../utils/auth';
@@ -27,11 +32,12 @@ function RegisterPage() {
 
       navigate('/dashboard');
     } catch (error) {
-      const errorMsg = error.response?.data?.error ||
-                       error.response?.data?.username?.[0] ||
-                       error.response?.data?.password?.[0] ||
-                       error.response?.data?.password_confirm?.[0] ||
-                       '注册失败';
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.username?.[0] ||
+        error.response?.data?.password?.[0] ||
+        error.response?.data?.password_confirm?.[0] ||
+        '注册失败';
       message.error(errorMsg);
     } finally {
       setLoading(false);
@@ -68,15 +74,23 @@ function RegisterPage() {
 
   return (
     <Layout style={layoutStyle}>
-      <Content style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-
+      <Content
+        style={{
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={logoBoxStyle}>
               <CloudServerOutlined style={{ fontSize: 24, color: '#fff' }} />
             </div>
           </div>
-          <Title level={2} style={{ marginBottom: 0 }}>Fundval</Title>
+          <Title level={2} style={{ marginBottom: 0 }}>
+            Fundval
+          </Title>
           <Text type="secondary">基金估值与资产管理系统</Text>
         </div>
 
@@ -93,7 +107,7 @@ function RegisterPage() {
               rules={[
                 { required: true, message: '请输入用户名' },
                 { min: 3, message: '用户名至少 3 个字符' },
-                { max: 150, message: '用户名最多 150 个字符' }
+                { max: 150, message: '用户名最多 150 个字符' },
               ]}
             >
               <Input
@@ -106,7 +120,7 @@ function RegisterPage() {
               name="password"
               rules={[
                 { required: true, message: '请输入密码' },
-                { min: 8, message: '密码至少 8 个字符' }
+                { min: 8, message: '密码至少 8 个字符' },
               ]}
             >
               <Input.Password
@@ -159,11 +173,12 @@ function RegisterPage() {
       </Content>
 
       <Footer style={{ textAlign: 'center', background: 'transparent' }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>&copy; 2026 Fundval. All rights reserved.</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          &copy; 2026 Fundval. All rights reserved.
+        </Text>
       </Footer>
     </Layout>
   );
 }
 
 export default RegisterPage;
-

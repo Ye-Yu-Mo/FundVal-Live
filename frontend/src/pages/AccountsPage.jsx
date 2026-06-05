@@ -19,7 +19,13 @@ import {
   List,
   Grid,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
 import { accountsAPI } from '../api';
@@ -31,14 +37,8 @@ const AccountsPage = () => {
   const isMobile = !screens.md;
   const navigate = useNavigate();
   const { preferredSource } = usePreference();
-  const {
-    accounts,
-    loading,
-    loadAccounts,
-    createAccount,
-    updateAccount,
-    deleteAccount,
-  } = useAccounts();
+  const { accounts, loading, loadAccounts, createAccount, updateAccount, deleteAccount } =
+    useAccounts();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [currentAccount, setCurrentAccount] = useState(null);
@@ -60,11 +60,11 @@ const AccountsPage = () => {
   // 自动选中默认父账户
   useEffect(() => {
     if (!selectedParentId && accounts.length > 0) {
-      const defaultParent = accounts.find(a => a.is_default && !a.parent);
+      const defaultParent = accounts.find((a) => a.is_default && !a.parent);
       if (defaultParent) {
         setSelectedParentId(defaultParent.id);
       } else {
-        const firstParent = accounts.find(a => !a.parent);
+        const firstParent = accounts.find((a) => !a.parent);
         if (firstParent) {
           setSelectedParentId(firstParent.id);
         }
@@ -142,12 +142,15 @@ const AccountsPage = () => {
         descriptionParts.push(`${info.children_count} 个子账户`);
       }
       if (info.positions_count > 0) {
-        descriptionParts.push(`${info.positions_count} 条持仓记录（总成本 ¥${Number(info.total_cost).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}）`);
+        descriptionParts.push(
+          `${info.positions_count} 条持仓记录（总成本 ¥${Number(info.total_cost).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}）`
+        );
       }
 
-      const description = descriptionParts.length > 0
-        ? `将同时删除 ${descriptionParts.join(' 和 ')}，删除后无法恢复。`
-        : '删除后无法恢复。';
+      const description =
+        descriptionParts.length > 0
+          ? `将同时删除 ${descriptionParts.join(' 和 ')}，删除后无法恢复。`
+          : '删除后无法恢复。';
 
       Modal.confirm({
         title: '确定要删除该账户吗？',
@@ -155,12 +158,7 @@ const AccountsPage = () => {
         content: (
           <div>
             {descriptionParts.length > 0 && (
-              <Alert
-                type="warning"
-                showIcon
-                message={description}
-                style={{ marginBottom: 8 }}
-              />
+              <Alert type="warning" showIcon message={description} style={{ marginBottom: 8 }} />
             )}
             {descriptionParts.length === 0 && <p>{description}</p>}
           </div>
@@ -174,7 +172,7 @@ const AccountsPage = () => {
             // 如果删除的是当前选中的父账户，重置选中并刷新列表
             if (id === selectedParentId) {
               const response = await accountsAPI.list();
-              const parents = response.data.filter(a => !a.parent);
+              const parents = response.data.filter((a) => !a.parent);
               setSelectedParentId(parents.length > 0 ? parents[0].id : null);
             }
             message.success('删除账户成功');
@@ -203,20 +201,18 @@ const AccountsPage = () => {
       return accounts.filter((a) => !a.parent);
     }
     // 编辑时，排除自己和自己的子账户
-    return accounts.filter(
-      (a) => !a.parent && a.id !== currentAccount?.id
-    );
+    return accounts.filter((a) => !a.parent && a.id !== currentAccount?.id);
   };
 
   // 获取父账户列表
   const getParentAccounts = () => {
-    return accounts.filter(a => !a.parent);
+    return accounts.filter((a) => !a.parent);
   };
 
   // 获取当前选中的父账户
   const getSelectedParent = () => {
     if (showAllSummary) return null;
-    return accounts.find(a => a.id === selectedParentId);
+    return accounts.find((a) => a.id === selectedParentId);
   };
 
   // 获取当前显示的子账户列表
@@ -228,21 +224,32 @@ const AccountsPage = () => {
   // 计算全部账户汇总
   const getAllAccountsSummary = () => {
     const parents = getParentAccounts();
-    const summary = parents.reduce((sum, parent) => ({
-      holding_cost: (parseFloat(sum.holding_cost) + parseFloat(parent.holding_cost || 0)).toFixed(2),
-      holding_value: (parseFloat(sum.holding_value) + parseFloat(parent.holding_value || 0)).toFixed(2),
-      pnl: (parseFloat(sum.pnl) + parseFloat(parent.pnl || 0)).toFixed(2),
-      estimate_value: (parseFloat(sum.estimate_value) + parseFloat(parent.estimate_value || 0)).toFixed(2),
-      estimate_pnl: (parseFloat(sum.estimate_pnl) + parseFloat(parent.estimate_pnl || 0)).toFixed(2),
-      today_pnl: (parseFloat(sum.today_pnl) + parseFloat(parent.today_pnl || 0)).toFixed(2),
-    }), {
-      holding_cost: '0.00',
-      holding_value: '0.00',
-      pnl: '0.00',
-      estimate_value: '0.00',
-      estimate_pnl: '0.00',
-      today_pnl: '0.00',
-    });
+    const summary = parents.reduce(
+      (sum, parent) => ({
+        holding_cost: (parseFloat(sum.holding_cost) + parseFloat(parent.holding_cost || 0)).toFixed(
+          2
+        ),
+        holding_value: (
+          parseFloat(sum.holding_value) + parseFloat(parent.holding_value || 0)
+        ).toFixed(2),
+        pnl: (parseFloat(sum.pnl) + parseFloat(parent.pnl || 0)).toFixed(2),
+        estimate_value: (
+          parseFloat(sum.estimate_value) + parseFloat(parent.estimate_value || 0)
+        ).toFixed(2),
+        estimate_pnl: (parseFloat(sum.estimate_pnl) + parseFloat(parent.estimate_pnl || 0)).toFixed(
+          2
+        ),
+        today_pnl: (parseFloat(sum.today_pnl) + parseFloat(parent.today_pnl || 0)).toFixed(2),
+      }),
+      {
+        holding_cost: '0.00',
+        holding_value: '0.00',
+        pnl: '0.00',
+        estimate_value: '0.00',
+        estimate_pnl: '0.00',
+        today_pnl: '0.00',
+      }
+    );
 
     // 计算今日预估盈亏率
     const holdingValue = parseFloat(summary.holding_value);
@@ -289,9 +296,7 @@ const AccountsPage = () => {
       render: (value) => {
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {formatMoney(value)}
-          </span>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>{formatMoney(value)}</span>
         );
       },
     },
@@ -303,9 +308,7 @@ const AccountsPage = () => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {formatPercent(value)}
-          </span>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>{formatPercent(value)}</span>
         );
       },
     },
@@ -324,9 +327,7 @@ const AccountsPage = () => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {formatMoney(value)}
-          </span>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>{formatMoney(value)}</span>
         );
       },
       responsive: ['md'],
@@ -349,11 +350,7 @@ const AccountsPage = () => {
             </Button>
           )}
           {!record.parent && !record.is_default && (
-            <Button
-              type="link"
-              size="small"
-              onClick={() => handleSetDefault(record)}
-            >
+            <Button type="link" size="small" onClick={() => handleSetDefault(record)}>
               设为默认
             </Button>
           )}
@@ -386,11 +383,7 @@ const AccountsPage = () => {
           >
             {showAllSummary ? '返回单账户' : '全部账户汇总'}
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             创建账户
           </Button>
         </Space>
@@ -404,15 +397,13 @@ const AccountsPage = () => {
             placeholder="选择父账户"
             value={selectedParentId}
             onChange={setSelectedParentId}
-            options={getParentAccounts().map(a => ({
+            options={getParentAccounts().map((a) => ({
               label: `${a.name}${a.is_default ? ' (默认)' : ''}`,
               value: a.id,
             }))}
           />
           {getSelectedParent() && !getSelectedParent().is_default && (
-            <Button onClick={() => handleSetDefault(getSelectedParent())}>
-              设为默认
-            </Button>
+            <Button onClick={() => handleSetDefault(getSelectedParent())}>设为默认</Button>
           )}
         </Space>
       )}
@@ -422,19 +413,25 @@ const AccountsPage = () => {
           <Card title="全部账户汇总" style={{ marginBottom: 16 }}>
             <Row gutter={[16, 16]}>
               <Col xs={12} sm={8} md={4}>
-                <Statistic title="持仓成本" value={getAllAccountsSummary().holding_cost} prefix="¥" />
+                <Statistic
+                  title="持仓成本"
+                  value={getAllAccountsSummary().holding_cost}
+                  prefix="¥"
+                />
               </Col>
               <Col xs={12} sm={8} md={4}>
-                <Statistic title="持仓市值" value={getAllAccountsSummary().holding_value} prefix="¥" />
+                <Statistic
+                  title="持仓市值"
+                  value={getAllAccountsSummary().holding_value}
+                  prefix="¥"
+                />
               </Col>
               <Col xs={12} sm={8} md={4}>
                 <Statistic
                   title="总盈亏"
                   value={getAllAccountsSummary().pnl}
                   formatter={(v) => (
-                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
-                      ¥{v}
-                    </span>
+                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>¥{v}</span>
                   )}
                 />
               </Col>
@@ -443,9 +440,7 @@ const AccountsPage = () => {
                   title="今日盈亏 (预估)"
                   value={getAllAccountsSummary().today_pnl}
                   formatter={(v) => (
-                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>
-                      ¥{v}
-                    </span>
+                    <span style={{ color: Number(v) >= 0 ? '#ff4d4f' : '#52c41a' }}>¥{v}</span>
                   )}
                 />
               </Col>
@@ -486,24 +481,72 @@ const AccountsPage = () => {
                   style={{ marginBottom: 8 }}
                   data-testid="parent-account-card"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 500, marginBottom: 4 }}>
                         {account.name}
-                        {account.is_default && <Tag color="blue" style={{ marginLeft: 8 }}>默认</Tag>}
+                        {account.is_default && (
+                          <Tag color="blue" style={{ marginLeft: 8 }}>
+                            默认
+                          </Tag>
+                        )}
                       </div>
                       <Row gutter={8}>
-                        <Col xs={12}><Statistic title="持仓市值" value={formatMoney(account.holding_value)} prefix="¥" valueStyle={{ fontSize: 14 }} /></Col>
-                        <Col xs={12}><Statistic title="总盈亏" value={formatMoney(account.pnl)} prefix="¥" valueStyle={{ fontSize: 14, color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }} /></Col>
+                        <Col xs={12}>
+                          <Statistic
+                            title="持仓市值"
+                            value={formatMoney(account.holding_value)}
+                            prefix="¥"
+                            valueStyle={{ fontSize: 14 }}
+                          />
+                        </Col>
+                        <Col xs={12}>
+                          <Statistic
+                            title="总盈亏"
+                            value={formatMoney(account.pnl)}
+                            prefix="¥"
+                            valueStyle={{
+                              fontSize: 14,
+                              color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a',
+                            }}
+                          />
+                        </Col>
                       </Row>
                     </div>
                     <Space size="small" direction="vertical">
-                      <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>
+                      <Button
+                        size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}
+                      >
+                        查看
+                      </Button>
                       {!account.is_default && (
-                        <Button size="small" onClick={() => handleSetDefault(account)}>设为默认</Button>
+                        <Button size="small" onClick={() => handleSetDefault(account)}>
+                          设为默认
+                        </Button>
                       )}
-                      <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
-                      <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
+                      <Button
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(account)}
+                      >
+                        编辑
+                      </Button>
+                      <Button
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDelete(account)}
+                      >
+                        删除
+                      </Button>
                     </Space>
                   </div>
                 </Card>
@@ -530,10 +573,18 @@ const AccountsPage = () => {
             >
               <Row gutter={16}>
                 <Col xs={12} sm={6}>
-                  <Statistic title="持仓成本" value={formatMoney(getSelectedParent().holding_cost)} prefix="¥" />
+                  <Statistic
+                    title="持仓成本"
+                    value={formatMoney(getSelectedParent().holding_cost)}
+                    prefix="¥"
+                  />
                 </Col>
                 <Col xs={12} sm={6}>
-                  <Statistic title="持仓市值" value={formatMoney(getSelectedParent().holding_value)} prefix="¥" />
+                  <Statistic
+                    title="持仓市值"
+                    value={formatMoney(getSelectedParent().holding_value)}
+                    prefix="¥"
+                  />
                 </Col>
                 <Col xs={12} sm={6}>
                   <Statistic
@@ -574,18 +625,60 @@ const AccountsPage = () => {
                     style={{ marginBottom: 8 }}
                     data-testid="child-account-card"
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                      }}
+                    >
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 500, marginBottom: 4 }}>{account.name}</div>
                         <Row gutter={8}>
-                          <Col xs={12}><Statistic title="持仓市值" value={formatMoney(account.holding_value)} prefix="¥" valueStyle={{ fontSize: 14 }} /></Col>
-                          <Col xs={12}><Statistic title="总盈亏" value={formatMoney(account.pnl)} prefix="¥" valueStyle={{ fontSize: 14, color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }} /></Col>
+                          <Col xs={12}>
+                            <Statistic
+                              title="持仓市值"
+                              value={formatMoney(account.holding_value)}
+                              prefix="¥"
+                              valueStyle={{ fontSize: 14 }}
+                            />
+                          </Col>
+                          <Col xs={12}>
+                            <Statistic
+                              title="总盈亏"
+                              value={formatMoney(account.pnl)}
+                              prefix="¥"
+                              valueStyle={{
+                                fontSize: 14,
+                                color: Number(account.pnl) >= 0 ? '#ff4d4f' : '#52c41a',
+                              }}
+                            />
+                          </Col>
                         </Row>
                       </div>
                       <Space size="small" direction="vertical">
-                        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}>查看</Button>
-                        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(account)}>编辑</Button>
-                        <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(account)}>删除</Button>
+                        <Button
+                          size="small"
+                          icon={<EyeOutlined />}
+                          onClick={() => navigate(`/dashboard/positions?account=${account.id}`)}
+                        >
+                          查看
+                        </Button>
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => handleEdit(account)}
+                        >
+                          编辑
+                        </Button>
+                        <Button
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDelete(account)}
+                        >
+                          删除
+                        </Button>
                       </Space>
                     </div>
                   </Card>

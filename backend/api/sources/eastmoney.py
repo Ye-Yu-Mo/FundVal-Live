@@ -1,6 +1,7 @@
 """
 天天基金数据源实现
 """
+
 import re
 import json
 import requests
@@ -17,14 +18,16 @@ logger = logging.getLogger(__name__)
 class EastMoneySource(BaseEstimateSource):
     """天天基金数据源"""
 
-    ESTIMATE_URL = 'http://fundgz.1234567.com.cn/js/{code}.js'
-    FUND_LIST_URL = 'http://fund.eastmoney.com/js/fundcode_search.js'
-    HISTORY_URL = 'http://fund.eastmoney.com/pingzhongdata/{code}.js'
-    FUND_HOLDINGS_URL = 'https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition'
-    STOCK_QUOTE_URL = 'http://push2.eastmoney.com/api/qt/ulist.np/get'
+    ESTIMATE_URL = "http://fundgz.1234567.com.cn/js/{code}.js"
+    FUND_LIST_URL = "http://fund.eastmoney.com/js/fundcode_search.js"
+    HISTORY_URL = "http://fund.eastmoney.com/pingzhongdata/{code}.js"
+    FUND_HOLDINGS_URL = (
+        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition"
+    )
+    STOCK_QUOTE_URL = "http://push2.eastmoney.com/api/qt/ulist.np/get"
 
     def get_source_name(self) -> str:
-        return 'eastmoney'
+        return "eastmoney"
 
     def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
         """
@@ -50,40 +53,40 @@ class EastMoneySource(BaseEstimateSource):
 
             # 解析 JSONP：jsonpgz({...});
             text = response.text
-            match = re.search(r'jsonpgz\((.*)\);?', text)
+            match = re.search(r"jsonpgz\((.*)\);?", text)
             if not match:
-                logger.warning(f'无法解析估值数据：{fund_code}，响应格式不正确')
+                logger.warning(f"无法解析估值数据：{fund_code}，响应格式不正确")
                 return None
 
             json_str = match.group(1)
             data = json.loads(json_str)
 
             # 验证必需字段
-            required_fields = ['fundcode', 'name', 'gsz', 'gszzl', 'gztime']
+            required_fields = ["fundcode", "name", "gsz", "gszzl", "gztime"]
             for field in required_fields:
                 if field not in data:
-                    logger.warning(f'估值数据缺少字段 {field}：{fund_code}')
+                    logger.warning(f"估值数据缺少字段 {field}：{fund_code}")
                     return None
 
             return {
-                'fund_code': data['fundcode'],
-                'fund_name': data['name'],
-                'estimate_nav': Decimal(data['gsz']),
-                'estimate_growth': Decimal(data['gszzl']),
-                'estimate_time': datetime.strptime(data['gztime'], '%Y-%m-%d %H:%M'),
+                "fund_code": data["fundcode"],
+                "fund_name": data["name"],
+                "estimate_nav": Decimal(data["gsz"]),
+                "estimate_growth": Decimal(data["gszzl"]),
+                "estimate_time": datetime.strptime(data["gztime"], "%Y-%m-%d %H:%M"),
             }
 
         except requests.RequestException as e:
-            logger.error(f'获取估值失败（网络错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取估值失败（网络错误）：{fund_code}, 错误：{e}")
             return None
         except json.JSONDecodeError as e:
-            logger.error(f'获取估值失败（JSON 解析错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取估值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
             return None
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f'获取估值失败（数据格式错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取估值失败（数据格式错误）：{fund_code}, 错误：{e}")
             return None
         except Exception as e:
-            logger.error(f'获取估值失败（未知错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取估值失败（未知错误）：{fund_code}, 错误：{e}")
             return None
 
     def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
@@ -98,38 +101,38 @@ class EastMoneySource(BaseEstimateSource):
             response.raise_for_status()
 
             text = response.text
-            match = re.search(r'jsonpgz\((.*)\);?', text)
+            match = re.search(r"jsonpgz\((.*)\);?", text)
             if not match:
-                logger.warning(f'无法解析净值数据：{fund_code}，响应格式不正确')
+                logger.warning(f"无法解析净值数据：{fund_code}，响应格式不正确")
                 return None
 
             json_str = match.group(1)
             data = json.loads(json_str)
 
             # 验证必需字段
-            required_fields = ['fundcode', 'dwjz', 'jzrq']
+            required_fields = ["fundcode", "dwjz", "jzrq"]
             for field in required_fields:
                 if field not in data:
-                    logger.warning(f'净值数据缺少字段 {field}：{fund_code}')
+                    logger.warning(f"净值数据缺少字段 {field}：{fund_code}")
                     return None
 
             return {
-                'fund_code': data['fundcode'],
-                'nav': Decimal(data['dwjz']),
-                'nav_date': datetime.strptime(data['jzrq'], '%Y-%m-%d').date(),
+                "fund_code": data["fundcode"],
+                "nav": Decimal(data["dwjz"]),
+                "nav_date": datetime.strptime(data["jzrq"], "%Y-%m-%d").date(),
             }
 
         except requests.RequestException as e:
-            logger.error(f'获取净值失败（网络错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取净值失败（网络错误）：{fund_code}, 错误：{e}")
             return None
         except json.JSONDecodeError as e:
-            logger.error(f'获取净值失败（JSON 解析错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取净值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
             return None
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f'获取净值失败（数据格式错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取净值失败（数据格式错误）：{fund_code}, 错误：{e}")
             return None
         except Exception as e:
-            logger.error(f'获取净值失败（未知错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取净值失败（未知错误）：{fund_code}, 错误：{e}")
             return None
 
     def fetch_fund_list(self) -> list:
@@ -151,16 +154,18 @@ class EastMoneySource(BaseEstimateSource):
 
         # 解析 JS 变量：var r = [[...], ...];
         text = response.text
-        json_str = re.search(r'var r = (\[.*\]);?', text).group(1)
+        json_str = re.search(r"var r = (\[.*\]);?", text).group(1)
         data = json.loads(json_str)
 
         funds = []
         for item in data:
-            funds.append({
-                'fund_code': item[0],
-                'fund_name': item[2],
-                'fund_type': item[3],
-            })
+            funds.append(
+                {
+                    "fund_code": item[0],
+                    "fund_name": item[2],
+                    "fund_type": item[3],
+                }
+            )
 
         return funds
 
@@ -187,30 +192,30 @@ class EastMoneySource(BaseEstimateSource):
             history = self.fetch_nav_history(fund_code)
 
             if not history:
-                logger.warning(f'获取当日净值失败：{fund_code}，历史净值数据为空')
+                logger.warning(f"获取当日净值失败：{fund_code}，历史净值数据为空")
                 return None
 
             # 取最后一条记录（最新净值）
             latest = history[-1]
 
             return {
-                'fund_code': fund_code,
-                'nav': latest['unit_nav'],
-                'nav_date': latest['nav_date'],
+                "fund_code": fund_code,
+                "nav": latest["unit_nav"],
+                "nav_date": latest["nav_date"],
             }
 
         except Exception as e:
-            logger.error(f'获取当日净值失败：{fund_code}, 错误：{e}')
+            logger.error(f"获取当日净值失败：{fund_code}, 错误：{e}")
             return None
 
     def get_login_type(self) -> str:
-        return 'none'
+        return "none"
 
     def fetch_nav_history(
         self,
         fund_code: str,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
     ) -> List[Dict]:
         """
         获取基金历史净值
@@ -246,31 +251,43 @@ class EastMoneySource(BaseEstimateSource):
             text = response.text
 
             # 解析单位净值数据
-            unit_nav_match = re.search(r'var Data_netWorthTrend = (\[.*?\]);', text, re.DOTALL)
+            unit_nav_match = re.search(
+                r"var Data_netWorthTrend = (\[.*?\]);", text, re.DOTALL
+            )
             if not unit_nav_match:
-                logger.warning(f'无法解析历史净值数据：{fund_code}')
+                logger.warning(f"无法解析历史净值数据：{fund_code}")
                 return []
 
             try:
                 unit_nav_data = json.loads(unit_nav_match.group(1))
-                logger.info(f'解析单位净值数据成功：{fund_code}, 数据类型：{type(unit_nav_data)}, 长度：{len(unit_nav_data) if isinstance(unit_nav_data, list) else "N/A"}')
+                logger.info(
+                    f'解析单位净值数据成功：{fund_code}, 数据类型：{type(unit_nav_data)}, 长度：{len(unit_nav_data) if isinstance(unit_nav_data, list) else "N/A"}'
+                )
                 if unit_nav_data and isinstance(unit_nav_data, list):
-                    logger.info(f'第一个元素类型：{type(unit_nav_data[0])}, 内容：{unit_nav_data[0]}')
+                    logger.info(
+                        f"第一个元素类型：{type(unit_nav_data[0])}, 内容：{unit_nav_data[0]}"
+                    )
             except Exception as e:
-                logger.error(f'解析单位净值数据失败：{fund_code}, 错误：{e}')
+                logger.error(f"解析单位净值数据失败：{fund_code}, 错误：{e}")
                 return []
 
             # 调试：检查数据类型
             if not isinstance(unit_nav_data, list):
-                logger.error(f'单位净值数据不是列表：{fund_code}, 类型：{type(unit_nav_data)}, 数据：{unit_nav_data}')
+                logger.error(
+                    f"单位净值数据不是列表：{fund_code}, 类型：{type(unit_nav_data)}, 数据：{unit_nav_data}"
+                )
                 return []
 
             if unit_nav_data and not isinstance(unit_nav_data[0], dict):
-                logger.error(f'单位净值数据元素不是字典：{fund_code}, 类型：{type(unit_nav_data[0])}, 数据：{unit_nav_data[0]}')
+                logger.error(
+                    f"单位净值数据元素不是字典：{fund_code}, 类型：{type(unit_nav_data[0])}, 数据：{unit_nav_data[0]}"
+                )
                 return []
 
             # 解析累计净值数据（可选）
-            acc_nav_match = re.search(r'var Data_ACWorthTrend = (\[.*?\]);', text, re.DOTALL)
+            acc_nav_match = re.search(
+                r"var Data_ACWorthTrend = (\[.*?\]);", text, re.DOTALL
+            )
             acc_nav_data = []
             if acc_nav_match:
                 try:
@@ -284,20 +301,20 @@ class EastMoneySource(BaseEstimateSource):
             for item in acc_nav_data:
                 if isinstance(item, dict):
                     # 字典格式：{"x": timestamp, "y": value}
-                    acc_nav_dict[item['x']] = item
+                    acc_nav_dict[item["x"]] = item
                 elif isinstance(item, list) and len(item) >= 2:
                     # 二维数组格式：[timestamp, value]
-                    acc_nav_dict[item[0]] = {'x': item[0], 'y': item[1]}
+                    acc_nav_dict[item[0]] = {"x": item[0], "y": item[1]}
 
             # 转换数据格式
             result = []
             for item in unit_nav_data:
                 # 验证必需字段
-                if 'x' not in item or 'y' not in item:
+                if "x" not in item or "y" not in item:
                     continue
 
                 # 转换时间戳（毫秒 -> 秒）
-                timestamp = item['x'] / 1000
+                timestamp = item["x"] / 1000
                 nav_date = datetime.fromtimestamp(timestamp).date()
 
                 # 日期过滤
@@ -307,31 +324,37 @@ class EastMoneySource(BaseEstimateSource):
                     continue
 
                 # 获取累计净值
-                acc_nav_item = acc_nav_dict.get(item['x'])
+                acc_nav_item = acc_nav_dict.get(item["x"])
                 accumulated_nav = None
-                if acc_nav_item and 'y' in acc_nav_item:
-                    accumulated_nav = Decimal(str(acc_nav_item['y']))
+                if acc_nav_item and "y" in acc_nav_item:
+                    accumulated_nav = Decimal(str(acc_nav_item["y"]))
 
-                result.append({
-                    'nav_date': nav_date,
-                    'unit_nav': Decimal(str(item['y'])),
-                    'accumulated_nav': accumulated_nav,
-                    'daily_growth': Decimal(str(item['equityReturn'])) if item.get('equityReturn') is not None else None,
-                })
+                result.append(
+                    {
+                        "nav_date": nav_date,
+                        "unit_nav": Decimal(str(item["y"])),
+                        "accumulated_nav": accumulated_nav,
+                        "daily_growth": (
+                            Decimal(str(item["equityReturn"]))
+                            if item.get("equityReturn") is not None
+                            else None
+                        ),
+                    }
+                )
 
             return result
 
         except requests.RequestException as e:
-            logger.error(f'获取历史净值失败（网络错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取历史净值失败（网络错误）：{fund_code}, 错误：{e}")
             return []
         except json.JSONDecodeError as e:
-            logger.error(f'获取历史净值失败（JSON 解析错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取历史净值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
             return []
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f'获取历史净值失败（数据格式错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取历史净值失败（数据格式错误）：{fund_code}, 错误：{e}")
             return []
         except Exception as e:
-            logger.error(f'获取历史净值失败（未知错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取历史净值失败（未知错误）：{fund_code}, 错误：{e}")
             return []
 
     def fetch_index_holdings(self, fund_code: str) -> list:
@@ -356,17 +379,17 @@ class EastMoneySource(BaseEstimateSource):
         try:
             # Step 1: 获取持仓权重
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/91.0.4472.120 Mobile Safari/537.36',
-                'Referer': 'https://fundmobapi.eastmoney.com/',
+                "User-Agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/91.0.4472.120 Mobile Safari/537.36",
+                "Referer": "https://fundmobapi.eastmoney.com/",
             }
             resp = requests.get(
                 self.FUND_HOLDINGS_URL,
                 params={
-                    'FCODE': fund_code,
-                    'deviceid': 'x',
-                    'plat': 'Android',
-                    'product': 'EFund',
-                    'version': '1.0.0',
+                    "FCODE": fund_code,
+                    "deviceid": "x",
+                    "plat": "Android",
+                    "product": "EFund",
+                    "version": "1.0.0",
                 },
                 headers=headers,
                 timeout=10,
@@ -374,10 +397,10 @@ class EastMoneySource(BaseEstimateSource):
             resp.raise_for_status()
             data = resp.json()
 
-            if not data.get('Success') or not data.get('Datas'):
+            if not data.get("Success") or not data.get("Datas"):
                 return []
 
-            stocks = data['Datas'].get('fundStocks', [])
+            stocks = data["Datas"].get("fundStocks", [])
             if not stocks:
                 return []
 
@@ -388,44 +411,54 @@ class EastMoneySource(BaseEstimateSource):
                 quote_resp = requests.get(
                     self.STOCK_QUOTE_URL,
                     params={
-                        'secids': ','.join(secids),
-                        'fields': 'f12,f14,f2,f3',
-                        'fltt': '2',
+                        "secids": ",".join(secids),
+                        "fields": "f12,f14,f2,f3",
+                        "fltt": "2",
                     },
                     timeout=10,
                 )
                 quote_resp.raise_for_status()
                 quote_data = quote_resp.json()
 
-                for item in quote_data.get('data', {}).get('diff', []):
-                    quotes[item['f12']] = {
-                        'price': Decimal(str(item['f2'])) if item.get('f2') not in (None, '-') else None,
-                        'change_percent': Decimal(str(item['f3'])) if item.get('f3') not in (None, '-') else None,
+                for item in quote_data.get("data", {}).get("diff", []):
+                    quotes[item["f12"]] = {
+                        "price": (
+                            Decimal(str(item["f2"]))
+                            if item.get("f2") not in (None, "-")
+                            else None
+                        ),
+                        "change_percent": (
+                            Decimal(str(item["f3"]))
+                            if item.get("f3") not in (None, "-")
+                            else None
+                        ),
                     }
             except Exception as e:
-                logger.warning(f'获取个股行情失败：{fund_code}, 错误：{e}')
+                logger.warning(f"获取个股行情失败：{fund_code}, 错误：{e}")
 
             # Step 3: 合并结果
             result = []
             for s in stocks:
-                code = s['GPDM']
+                code = s["GPDM"]
                 q = quotes.get(code, {})
-                result.append({
-                    'stock_code': code,
-                    'stock_name': s['GPJC'],
-                    'weight': Decimal(str(s['JZBL'])),
-                    'price': q.get('price'),
-                    'change_percent': q.get('change_percent'),
-                })
+                result.append(
+                    {
+                        "stock_code": code,
+                        "stock_name": s["GPJC"],
+                        "weight": Decimal(str(s["JZBL"])),
+                        "price": q.get("price"),
+                        "change_percent": q.get("change_percent"),
+                    }
+                )
 
             return result
 
         except requests.RequestException as e:
-            logger.error(f'获取基金持仓失败（网络错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取基金持仓失败（网络错误）：{fund_code}, 错误：{e}")
             return []
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f'获取基金持仓失败（数据格式错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取基金持仓失败（数据格式错误）：{fund_code}, 错误：{e}")
             return []
         except Exception as e:
-            logger.error(f'获取基金持仓失败（未知错误）：{fund_code}, 错误：{e}')
+            logger.error(f"获取基金持仓失败（未知错误）：{fund_code}, 错误：{e}")
             return []

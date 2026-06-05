@@ -7,12 +7,10 @@ export const healthCheck = () => api.get('/health/');
 export const verifyBootstrapKey = (key) =>
   publicApi.post('/admin/bootstrap/verify', { bootstrap_key: key });
 
-export const initializeSystem = (data) =>
-  publicApi.post('/admin/bootstrap/initialize', data);
+export const initializeSystem = (data) => publicApi.post('/admin/bootstrap/initialize', data);
 
 // 认证（不带 token）
-export const login = (username, password) =>
-  publicApi.post('/auth/login', { username, password });
+export const login = (username, password) => publicApi.post('/auth/login', { username, password });
 
 export const register = (username, password, passwordConfirm) =>
   publicApi.post('/users/register/', { username, password, password_confirm: passwordConfirm });
@@ -38,25 +36,32 @@ export const fundsAPI = {
   search: (keyword) => api.get('/funds/', { params: { search: keyword } }),
   getEstimate: (code, source) => api.get(`/funds/${code}/estimate/`, { params: { source } }),
   getAccuracy: (code) => api.get(`/funds/${code}/accuracy/`),
-  batchEstimate: (fundCodes, source = 'eastmoney') => api.post('/funds/batch_estimate/', { fund_codes: fundCodes, source }),
+  batchEstimate: (fundCodes, source = 'eastmoney') =>
+    api.post('/funds/batch_estimate/', { fund_codes: fundCodes, source }),
   batchUpdateNav: (fundCodes) => api.post('/funds/batch_update_nav/', { fund_codes: fundCodes }),
-  batchUpdateTodayNav: (fundCodes) => api.post('/funds/batch_update_today_nav/', { fund_codes: fundCodes }),
-  queryNav: (fundCode, operationDate, before15) => api.post('/funds/query_nav/', {
-    fund_code: fundCode,
-    operation_date: operationDate,
-    before_15: before15
-  }),
-  navHistory: (fundCode, params) => api.get('/nav-history/', {
-    params: { fund_code: fundCode, ...params }
-  }),
-  syncNavHistory: (fundCodes, startDate, endDate) => api.post('/nav-history/sync/', {
-    fund_codes: fundCodes,
-    start_date: startDate,
-    end_date: endDate
-  }),
-  indexHoldings: (fundCode, source = 'eastmoney') => api.get(`/funds/${fundCode}/index_holdings/`, { params: { source } }),
+  batchUpdateTodayNav: (fundCodes) =>
+    api.post('/funds/batch_update_today_nav/', { fund_codes: fundCodes }),
+  queryNav: (fundCode, operationDate, before15) =>
+    api.post('/funds/query_nav/', {
+      fund_code: fundCode,
+      operation_date: operationDate,
+      before_15: before15,
+    }),
+  navHistory: (fundCode, params) =>
+    api.get('/nav-history/', {
+      params: { fund_code: fundCode, ...params },
+    }),
+  syncNavHistory: (fundCodes, startDate, endDate) =>
+    api.post('/nav-history/sync/', {
+      fund_codes: fundCodes,
+      start_date: startDate,
+      end_date: endDate,
+    }),
+  indexHoldings: (fundCode, source = 'eastmoney') =>
+    api.get(`/funds/${fundCode}/index_holdings/`, { params: { source } }),
   holdingsRealtime: (fundCode) => api.get(`/funds/${fundCode}/holdings-realtime/`),
-  estimateIntraday: (fundCode, source = 'eastmoney') => api.get(`/funds/${fundCode}/estimate-intraday/`, { params: { source } }),
+  estimateIntraday: (fundCode, source = 'eastmoney') =>
+    api.get(`/funds/${fundCode}/estimate-intraday/`, { params: { source } }),
   compare: (codes) => api.get('/funds/compare/', { params: { codes: codes.join(',') } }),
   marketIndices: () => api.get('/funds/market-indices/'),
   rankings: (params) => api.get('/funds/rankings/', { params }),
@@ -78,11 +83,13 @@ export const positionsAPI = {
   createOperation: (data) => api.post('/positions/operations/', data),
   listOperations: (params) => api.get('/positions/operations/', { params }),
   deleteOperation: (id) => api.delete(`/positions/operations/${id}/`),
-  batchDeleteOperations: (operationIds) => api.post('/positions/operations/batch_delete/', { operation_ids: operationIds }),
+  batchDeleteOperations: (operationIds) =>
+    api.post('/positions/operations/batch_delete/', { operation_ids: operationIds }),
   clearPosition: (id) => api.delete(`/positions/${id}/clear/`),
-  getHistory: (accountId, days = 30) => api.get('/positions/history/', {
-    params: { account_id: accountId, days }
-  }),
+  getHistory: (accountId, days = 30) =>
+    api.get('/positions/history/', {
+      params: { account_id: accountId, days },
+    }),
 };
 
 // 自选列表
@@ -110,26 +117,30 @@ export const preferencesAPI = {
 export const aiAPI = {
   getConfig: () => api.get('/ai/config/'),
   updateConfig: (data) => api.put('/ai/config/', data),
-  listTemplates: (contextType) => api.get('/ai/templates/', { params: contextType ? { context_type: contextType } : {} }),
+  listTemplates: (contextType) =>
+    api.get('/ai/templates/', { params: contextType ? { context_type: contextType } : {} }),
   createTemplate: (data) => api.post('/ai/templates/', data),
   updateTemplate: (id, data) => api.put(`/ai/templates/${id}/`, data),
   deleteTemplate: (id) => api.delete(`/ai/templates/${id}/`),
-  analyze: (templateId, contextType, contextData) => api.post('/ai/analyze/', {
-    template_id: templateId,
-    context_type: contextType,
-    context_data: contextData,
-  }, { timeout: 120000 }),
+  analyze: (templateId, contextType, contextData) =>
+    api.post(
+      '/ai/analyze/',
+      {
+        template_id: templateId,
+        context_type: contextType,
+        context_data: contextData,
+      },
+      { timeout: 120000 }
+    ),
   reportPreview: (period) => api.post('/ai/report-preview/', { period }, { timeout: 180000 }),
 };
 
 // 数据源凭证
 export const sourceAPI = {
-  getQRCode: (sourceName) =>
-    api.post('/source-credentials/qrcode/', { source_name: sourceName }),
+  getQRCode: (sourceName) => api.post('/source-credentials/qrcode/', { source_name: sourceName }),
   checkQRCodeState: (sourceName, qrId) =>
     api.get(`/source-credentials/qrcode/${qrId}/state/`, { params: { source_name: sourceName } }),
-  logout: (sourceName) =>
-    api.post('/source-credentials/logout/', { source_name: sourceName }),
+  logout: (sourceName) => api.post('/source-credentials/logout/', { source_name: sourceName }),
   getStatus: (sourceName) =>
     api.get('/source-credentials/status/', { params: { source_name: sourceName } }),
   importFromYangJiBao: (overwrite = false) =>
@@ -172,4 +183,3 @@ export const adminAPI = {
   getStats: () => api.get('/admin/stats/'),
   triggerTask: (taskName) => api.post(`/admin/tasks/${taskName}/`, {}, { timeout: 120000 }),
 };
-

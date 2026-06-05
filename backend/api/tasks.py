@@ -3,6 +3,7 @@ Celery 任务
 
 定义所有后台异步任务
 """
+
 from celery import shared_task
 from django.core.management import call_command
 import logging
@@ -16,15 +17,15 @@ logger = logging.getLogger(__name__)
 def update_fund_nav():
     """
     定时更新基金净值（昨日净值）
-    
+
     默认从数据源获取最新可用的历史净值并同步到基金主表。
     """
     try:
-        call_command('update_nav')
-        logger.info('基金昨日/最新净值同步完成')
-        return '净值同步完成'
+        call_command("update_nav")
+        logger.info("基金昨日/最新净值同步完成")
+        return "净值同步完成"
     except Exception as e:
-        logger.error(f'基金净值自动更新失败: {str(e)}')
+        logger.error(f"基金净值自动更新失败: {str(e)}")
         raise
 
 
@@ -32,15 +33,15 @@ def update_fund_nav():
 def update_fund_today_nav():
     """
     定时更新基金当日确认净值
-    
+
     每天晚间执行，尝试从确权接口抓取今日净值。
     """
     try:
-        call_command('update_nav', '--today')
-        logger.info('基金今日净值确权完成')
-        return '当日净值更新完成'
+        call_command("update_nav", "--today")
+        logger.info("基金今日净值确权完成")
+        return "当日净值更新完成"
     except Exception as e:
-        logger.error(f'基金当日净值确权失败: {str(e)}')
+        logger.error(f"基金当日净值确权失败: {str(e)}")
         raise
 
 
@@ -48,7 +49,7 @@ def update_fund_today_nav():
 def capture_estimate_snapshot():
     """
     捕捉 15:00 收盘估值快照
-    
+
     每个交易日 15:05 执行，将收盘估值锁定，用于晚间与真实净值对比计算误差。
     """
     from api.models import Fund, EstimateAccuracy
@@ -57,8 +58,8 @@ def capture_estimate_snapshot():
 
     today = timezone.localdate()
     if not is_trading_day(today):
-        logger.info(f'{today} 不是交易日，跳过估值捕捉')
-        return '非交易日'
+        logger.info(f"{today} 不是交易日，跳过估值捕捉")
+        return "非交易日"
 
     funds = Fund.objects.exclude(estimate_nav__isnull=True)
     count = 0
@@ -66,17 +67,15 @@ def capture_estimate_snapshot():
         # 只捕捉当天的预估
         if fund.estimate_time and fund.estimate_time.date() == today:
             EstimateAccuracy.objects.update_or_create(
-                source_name='eastmoney',
+                source_name="eastmoney",
                 fund=fund,
                 estimate_date=today,
-                defaults={
-                    'estimate_nav': fund.estimate_nav
-                }
+                defaults={"estimate_nav": fund.estimate_nav},
             )
             count += 1
 
-    logger.info(f'已捕捉 {count} 个基金的收盘估值快照')
-    return f'捕捉完成：{count}'
+    logger.info(f"已捕捉 {count} 个基金的收盘估值快照")
+    return f"捕捉完成：{count}"
 
 
 @shared_task
@@ -93,9 +92,11 @@ def check_notification_rules():
     from api.models import NotificationRule, NotificationLog
     from api.notifications import ChannelRegistry
 
-    rules = NotificationRule.objects.filter(is_active=True).select_related(
-        'fund', 'user'
-    ).prefetch_related('channels')
+    rules = (
+        NotificationRule.objects.filter(is_active=True)
+        .select_related("fund", "user")
+        .prefetch_related("channels")
+    )
 
     triggered = 0
     sent = 0
@@ -109,9 +110,9 @@ def check_notification_rules():
 
         # 判断是否触发
         triggered_flag = False
-        if rule.rule_type == 'growth_up' and growth >= rule.threshold:
+        if rule.rule_type == "growth_up" and growth >= rule.threshold:
             triggered_flag = True
-        elif rule.rule_type == 'growth_down' and growth <= -rule.threshold:
+        elif rule.rule_type == "growth_down" and growth <= -rule.threshold:
             triggered_flag = True
 
         if not triggered_flag:
@@ -124,26 +125,26 @@ def check_notification_rules():
         recent_log = NotificationLog.objects.filter(
             rule=rule,
             trigger_time__gte=cooldown_cutoff,
-            status='success',
+            status="success",
         ).exists()
 
         if recent_log:
-            logger.debug(f'规则 {rule.id} 在冷却期内，跳过')
+            logger.debug(f"规则 {rule.id} 在冷却期内，跳过")
             continue
 
         # 构建通知内容
-        direction = '涨幅' if rule.rule_type == 'growth_up' else '跌幅'
-        title = f'基金{direction}提醒：{fund.fund_name}'
+        direction = "涨幅" if rule.rule_type == "growth_up" else "跌幅"
+        title = f"基金{direction}提醒：{fund.fund_name}"
         content = (
-            f'{fund.fund_name}（{fund.fund_code}）当前{direction} {abs(growth):.2f}%，'
-            f'已超过您设定的阈值 {rule.threshold}%。'
+            f"{fund.fund_name}（{fund.fund_code}）当前{direction} {abs(growth):.2f}%，"
+            f"已超过您设定的阈值 {rule.threshold}%。"
         )
 
         # 逐渠道发送
         for channel_obj in rule.channels.filter(is_active=True):
             channel_impl = ChannelRegistry.get_channel(channel_obj.channel_type)
             if not channel_impl:
-                logger.warning(f'未找到渠道实现：{channel_obj.channel_type}')
+                logger.warning(f"未找到渠道实现：{channel_obj.channel_type}")
                 continue
 
             success = False
@@ -152,7 +153,9 @@ def check_notification_rules():
                 success = channel_impl.send(title, content, channel_obj.config)
             except Exception as e:
                 error_msg = str(e)
-                logger.error(f'发送通知异常：rule={rule.id}, channel={channel_obj.id}, 错误：{e}')
+                logger.error(
+                    f"发送通知异常：rule={rule.id}, channel={channel_obj.id}, 错误：{e}"
+                )
 
             NotificationLog.objects.create(
                 rule=rule,
@@ -160,15 +163,15 @@ def check_notification_rules():
                 fund_code=fund.fund_code,
                 fund_name=fund.fund_name,
                 growth=growth,
-                status='success' if success else 'failed',
+                status="success" if success else "failed",
                 error_message=error_msg,
             )
 
             if success:
                 sent += 1
 
-    logger.info(f'通知检查完成：触发 {triggered} 条规则，发送 {sent} 条通知')
-    return f'触发 {triggered} 条，发送 {sent} 条'
+    logger.info(f"通知检查完成：触发 {triggered} 条规则，发送 {sent} 条通知")
+    return f"触发 {triggered} 条，发送 {sent} 条"
 
 
 @shared_task
@@ -183,15 +186,15 @@ def audit_accuracy():
 
     today = timezone.localdate()
     if not is_trading_day(today):
-        logger.info(f'{today} 不是交易日，跳过准确率审计')
-        return '非交易日'
+        logger.info(f"{today} 不是交易日，跳过准确率审计")
+        return "非交易日"
 
     try:
-        call_command('calculate_accuracy', date=today.isoformat())
-        logger.info(f'{today} 准确率审计完成')
-        return '审计完成'
+        call_command("calculate_accuracy", date=today.isoformat())
+        logger.info(f"{today} 准确率审计完成")
+        return "审计完成"
     except Exception as e:
-        logger.error(f'准确率审计失败: {str(e)}')
+        logger.error(f"准确率审计失败: {str(e)}")
         raise
 
 
@@ -211,48 +214,48 @@ def capture_intraday_snapshots():
 
     today = timezone.localdate()
     if not is_trading_day(today):
-        logger.info(f'{today} 不是交易日，跳过估值快照抓取')
-        return '非交易日'
+        logger.info(f"{today} 不是交易日，跳过估值快照抓取")
+        return "非交易日"
 
     now = timezone.now()
     # 只在交易时段执行
     market_open = now.replace(hour=9, minute=30, second=0)
     market_close = now.replace(hour=15, minute=5, second=0)
     if now < market_open or now > market_close:
-        logger.info(f'{now.time()} 不在交易时段')
-        return '非交易时段'
+        logger.info(f"{now.time()} 不在交易时段")
+        return "非交易时段"
 
     # 清理 7 天前的旧快照
     cutoff = today - timedelta(days=7)
     deleted, _ = EstimateSnapshot.objects.filter(timestamp__date__lt=cutoff).delete()
     if deleted:
-        logger.info(f'清理了 {deleted} 条过期快照')
+        logger.info(f"清理了 {deleted} 条过期快照")
 
     # 获取所有有持仓的基金
-    fund_ids = Position.objects.values_list('fund_id', flat=True).distinct()
+    fund_ids = Position.objects.values_list("fund_id", flat=True).distinct()
     funds = Fund.objects.filter(id__in=fund_ids)
 
     count = 0
     for fund in funds:
-        source = SourceRegistry.get_source('eastmoney')
+        source = SourceRegistry.get_source("eastmoney")
         if not source:
             continue
         try:
             data = source.fetch_estimate(fund.fund_code)
-            if data and data.get('estimate_nav'):
+            if data and data.get("estimate_nav"):
                 EstimateSnapshot.objects.create(
                     fund=fund,
-                    source='eastmoney',
+                    source="eastmoney",
                     timestamp=now,
-                    estimate_nav=data['estimate_nav'],
-                    estimate_growth=data.get('estimate_growth'),
+                    estimate_nav=data["estimate_nav"],
+                    estimate_growth=data.get("estimate_growth"),
                 )
                 count += 1
         except Exception as e:
-            logger.warning(f'抓取 {fund.fund_code} 估值快照失败: {e}')
+            logger.warning(f"抓取 {fund.fund_code} 估值快照失败: {e}")
 
-    logger.info(f'已抓取 {count} 个基金的估值快照')
-    return f'已抓取 {count} 个快照'
+    logger.info(f"已抓取 {count} 个基金的估值快照")
+    return f"已抓取 {count} 个快照"
 
 
 @shared_task
@@ -272,17 +275,19 @@ def generate_investment_reports():
     skip_ai = 0
     skip_disabled = 0
 
-    for pref in UserPreference.objects.filter(report_enabled=True).select_related('user'):
+    for pref in UserPreference.objects.filter(report_enabled=True).select_related(
+        "user"
+    ):
         user = pref.user
 
         # 检查频率是否匹配今天（支持逗号分隔多选）
-        frequencies = [f.strip() for f in pref.report_frequency.split(',')]
+        frequencies = [f.strip() for f in pref.report_frequency.split(",")]
         should_run = False
-        if 'weekly' in frequencies and today.weekday() == 0:
+        if "weekly" in frequencies and today.weekday() == 0:
             should_run = True
-        if 'monthly' in frequencies and today.day == 1:
+        if "monthly" in frequencies and today.day == 1:
             should_run = True
-        if 'yearly' in frequencies and today.month == 1 and today.day == 1:
+        if "yearly" in frequencies and today.month == 1 and today.day == 1:
             should_run = True
 
         if not should_run:
@@ -295,7 +300,7 @@ def generate_investment_reports():
 
         try:
             context_data = build_report_context(user, pref.report_frequency)
-            system_prompt = '你是一位专业的基金投资顾问，请根据提供的持仓数据，生成一份结构清晰、客观专业的投资报告。使用 Markdown 格式，报告标题下方标注生成日期。'
+            system_prompt = "你是一位专业的基金投资顾问，请根据提供的持仓数据，生成一份结构清晰、客观专业的投资报告。使用 Markdown 格式，报告标题下方标注生成日期。"
             user_prompt = (
                 f'请根据以下数据生成一份投资报告（报告日期：{today.strftime("%Y年%m月%d日")}）：\n\n'
                 f'## 账户总览\n{context_data.get("account_summary", "")}\n\n'
@@ -305,40 +310,47 @@ def generate_investment_reports():
                 f'## 表现最差\n{context_data.get("worst_performers", "")}\n'
             )
 
-            endpoint = ai_config.api_endpoint.rstrip('/')
+            endpoint = ai_config.api_endpoint.rstrip("/")
             resp = requests.post(
-                f'{endpoint}/chat/completions',
-                headers={'Authorization': f'Bearer {ai_config.api_key}', 'Content-Type': 'application/json'},
-                json={'model': ai_config.model_name, 'messages': [
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': user_prompt},
-                ]},
+                f"{endpoint}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {ai_config.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": ai_config.model_name,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                },
                 timeout=120,
             )
             resp.raise_for_status()
             result = resp.json()
-            content = result['choices'][0]['message']['content']
+            content = result["choices"][0]["message"]["content"]
 
             # 推送报告到用户通知渠道
             from api.models import NotificationChannel
             from api.notifications import ChannelRegistry
+
             channels = NotificationChannel.objects.filter(user=user, is_active=True)
             for ch in channels:
                 impl = ChannelRegistry.get_channel(ch.channel_type)
                 if impl:
                     try:
                         impl.send(
-                            f'Fundval 投资{pref.report_frequency}报',
+                            f"Fundval 投资{pref.report_frequency}报",
                             content[:4000],  # 截断避免过长
                             ch.config,
                         )
                     except Exception as e:
-                        logger.warning(f'推送报告到渠道 {ch.id} 失败: {e}')
+                        logger.warning(f"推送报告到渠道 {ch.id} 失败: {e}")
 
             generated += 1
         except Exception as e:
-            logger.error(f'为用户 {user.username} 生成报告失败: {e}')
+            logger.error(f"为用户 {user.username} 生成报告失败: {e}")
 
-    summary = f'{generated} reports generated, {skip_ai} skipped (no AI config), {skip_disabled} skipped (disabled)'
+    summary = f"{generated} reports generated, {skip_ai} skipped (no AI config), {skip_disabled} skipped (disabled)"
     logger.info(summary)
     return summary

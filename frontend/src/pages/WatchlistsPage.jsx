@@ -38,12 +38,7 @@ const ResizableTitle = (props) => {
     <Resizable
       width={width}
       height={0}
-      handle={
-        <span
-          className="react-resizable-handle"
-          onClick={(e) => e.stopPropagation()}
-        />
-      }
+      handle={<span className="react-resizable-handle" onClick={(e) => e.stopPropagation()} />}
       onResize={onResize}
       draggableOpts={{ enableUserSelectHack: false }}
     >
@@ -86,7 +81,9 @@ const WatchlistContent = ({
           value={searchKeyword}
           onChange={setSearchKeyword}
           notFoundContent={searchLoading ? <Spin size="small" /> : null}
-          onKeyDown={e => { if (e.key === 'Enter' && searchKeyword) handleAddFund(searchKeyword); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && searchKeyword) handleAddFund(searchKeyword);
+          }}
         />
         <Button
           type="primary"
@@ -104,13 +101,8 @@ const WatchlistContent = ({
 
       {/* 基金列表 */}
       {!watchlist.items || watchlist.items.length === 0 ? (
-        <Empty
-          description="还没有添加基金"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
-          <p style={{ color: '#999', marginTop: 8 }}>
-            在上方搜索框添加基金到自选列表
-          </p>
+        <Empty description="还没有添加基金" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+          <p style={{ color: '#999', marginTop: 8 }}>在上方搜索框添加基金到自选列表</p>
         </Empty>
       ) : isMobile ? (
         <List
@@ -123,14 +115,27 @@ const WatchlistContent = ({
               style={{ marginBottom: 8 }}
               data-testid="fund-card"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                }}
+              >
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, marginBottom: 4 }}>{item.fund_name}</div>
                   <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
-                    <a onClick={() => navigate(`/dashboard/funds/${item.fund_code}`)}>{item.fund_code}</a>
+                    <a onClick={() => navigate(`/dashboard/funds/${item.fund_code}`)}>
+                      {item.fund_code}
+                    </a>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span>最新净值: {item.latest_nav ? `¥${parseFloat(item.latest_nav).toFixed(4)}` : '-'}</span>
+                  <div
+                    style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
+                  >
+                    <span>
+                      最新净值:{' '}
+                      {item.latest_nav ? `¥${parseFloat(item.latest_nav).toFixed(4)}` : '-'}
+                    </span>
                     <span style={{ color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a' }}>
                       {item.estimate_growth !== null && item.estimate_growth !== undefined
                         ? `${item.estimate_growth >= 0 ? '+' : ''}${parseFloat(item.estimate_growth).toFixed(2)}%`
@@ -143,11 +148,10 @@ const WatchlistContent = ({
                     </div>
                   )}
                 </div>
-                <Popconfirm
-                  title="确定移除？"
-                  onConfirm={() => handleRemoveFund(item.fund_code)}
-                >
-                  <Button type="link" danger size="small">移除</Button>
+                <Popconfirm title="确定移除？" onConfirm={() => handleRemoveFund(item.fund_code)}>
+                  <Button type="link" danger size="small">
+                    移除
+                  </Button>
                 </Popconfirm>
               </div>
             </Card>
@@ -193,7 +197,11 @@ const WatchlistsPage = () => {
       setIndices(data.indices || []);
     } catch {}
   };
-  useEffect(() => { loadIndices(); const i = setInterval(loadIndices, 30000); return () => clearInterval(i); }, []);
+  useEffect(() => {
+    loadIndices();
+    const i = setInterval(loadIndices, 30000);
+    return () => clearInterval(i);
+  }, []);
 
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState({
@@ -206,12 +214,14 @@ const WatchlistsPage = () => {
   });
 
   // 处理列宽调整
-  const handleResize = (key) => (e, { size }) => {
-    setColumnWidths((prev) => ({
-      ...prev,
-      [key]: size.width,
-    }));
-  };
+  const handleResize =
+    (key) =>
+    (e, { size }) => {
+      setColumnWidths((prev) => ({
+        ...prev,
+        [key]: size.width,
+      }));
+    };
 
   // 加载自选列表
   const loadWatchlists = async () => {
@@ -270,14 +280,14 @@ const WatchlistsPage = () => {
 
   // 加载基金详情
   const loadFundDetails = async () => {
-    const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId);
+    const currentWatchlist = watchlists.find((w) => w.id === selectedWatchlistId);
 
     if (!currentWatchlist || !currentWatchlist.items || currentWatchlist.items.length === 0) {
       setFundsData([]);
       return;
     }
 
-    const fundCodes = currentWatchlist.items.map(item => item.fund_code);
+    const fundCodes = currentWatchlist.items.map((item) => item.fund_code);
 
     setFundsLoading(true);
     try {
@@ -288,26 +298,29 @@ const WatchlistsPage = () => {
       ]);
 
       // 增量更新 - 只更新变化字段，不替换整个数组避免闪屏
-      setFundsData(prev => prev.map(item => {
-        const nav = navsResponse.data[item.fund_code] || {};
-        const estimate = estimatesResponse.data[item.fund_code] || {};
-        return {
-          ...item,
-          latest_nav: nav.latest_nav || estimate.latest_nav || item.latest_nav,
-          latest_nav_date: nav.latest_nav_date || estimate.latest_nav_date || item.latest_nav_date,
-          estimate_nav: estimate.estimate_nav || item.estimate_nav,
-          estimate_growth: estimate.estimate_growth || item.estimate_growth,
-          fund_name: estimate.fund_name || item.fund_name,
-        };
-      }));
+      setFundsData((prev) =>
+        prev.map((item) => {
+          const nav = navsResponse.data[item.fund_code] || {};
+          const estimate = estimatesResponse.data[item.fund_code] || {};
+          return {
+            ...item,
+            latest_nav: nav.latest_nav || estimate.latest_nav || item.latest_nav,
+            latest_nav_date:
+              nav.latest_nav_date || estimate.latest_nav_date || item.latest_nav_date,
+            estimate_nav: estimate.estimate_nav || item.estimate_nav,
+            estimate_growth: estimate.estimate_growth || item.estimate_growth,
+            fund_name: estimate.fund_name || item.fund_name,
+          };
+        })
+      );
 
       // 计算当前分组的综合涨跌幅
       const growths = fundsWithEstimate
-        .map(f => parseFloat(f.estimate_growth))
-        .filter(v => !isNaN(v));
+        .map((f) => parseFloat(f.estimate_growth))
+        .filter((v) => !isNaN(v));
       if (growths.length > 0) {
         const avg = growths.reduce((a, b) => a + b, 0) / growths.length;
-        setGroupGrowths(prev => ({
+        setGroupGrowths((prev) => ({
           ...prev,
           [selectedWatchlistId]: parseFloat(avg.toFixed(2)),
         }));
@@ -358,10 +371,12 @@ const WatchlistsPage = () => {
     setSearchLoading(true);
     try {
       const response = await fundsAPI.search(keyword);
-      setFundOptions(response.data.results.slice(0, 20).map(f => ({
-        value: f.fund_code,
-        label: `${f.fund_code} - ${f.fund_name}`,
-      })));
+      setFundOptions(
+        response.data.results.slice(0, 20).map((f) => ({
+          value: f.fund_code,
+          label: `${f.fund_code} - ${f.fund_name}`,
+        }))
+      );
     } catch (error) {
       message.error('搜索失败');
     } finally {
@@ -411,9 +426,7 @@ const WatchlistsPage = () => {
         width: column.width,
         onResize: handleResize('fund_code'),
       }),
-      render: (code) => (
-        <a onClick={() => navigate(`/dashboard/funds/${code}`)}>{code}</a>
-      ),
+      render: (code) => <a onClick={() => navigate(`/dashboard/funds/${code}`)}>{code}</a>,
     },
     {
       title: '基金名称',
@@ -464,7 +477,7 @@ const WatchlistsPage = () => {
         width: column.width,
         onResize: handleResize('estimate_nav'),
       }),
-      render: (value) => value ? `¥${parseFloat(value).toFixed(4)}` : '-',
+      render: (value) => (value ? `¥${parseFloat(value).toFixed(4)}` : '-'),
     },
     {
       title: '估算涨跌',
@@ -482,7 +495,8 @@ const WatchlistsPage = () => {
         const num = parseFloat(value);
         return (
           <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {num >= 0 ? '+' : ''}{num.toFixed(2)}%
+            {num >= 0 ? '+' : ''}
+            {num.toFixed(2)}%
           </span>
         );
       },
@@ -493,10 +507,7 @@ const WatchlistsPage = () => {
       width: columnWidths.action,
       fixed: 'right',
       render: (_, record) => (
-        <Popconfirm
-          title="确定移除？"
-          onConfirm={() => handleRemoveFund(record.fund_code)}
-        >
+        <Popconfirm title="确定移除？" onConfirm={() => handleRemoveFund(record.fund_code)}>
           <Button type="link" danger size="small">
             移除
           </Button>
@@ -506,7 +517,7 @@ const WatchlistsPage = () => {
   ];
 
   // 获取当前自选列表
-  const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId);
+  const currentWatchlist = watchlists.find((w) => w.id === selectedWatchlistId);
 
   // 如果正在加载
   if (loading && watchlists.length === 0) {
@@ -523,19 +534,25 @@ const WatchlistsPage = () => {
   if (watchlists.length === 0) {
     return (
       <Card title="自选列表">
-        <Empty
-          description={null}
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
+        <Empty description={null} image={Empty.PRESENTED_IMAGE_SIMPLE}>
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: '#999', marginBottom: 16 }}>还没有自选列表，三步开始使用：</p>
-            <div style={{ textAlign: 'left', display: 'inline-block', marginBottom: 16, color: '#666' }}>
+            <div
+              style={{
+                textAlign: 'left',
+                display: 'inline-block',
+                marginBottom: 16,
+                color: '#666',
+              }}
+            >
               <p>① 点击下方按钮创建一个自选列表（如「我的基金」）</p>
               <p>② 在搜索框输入基金代码或名称，添加基金</p>
               <p>③ 实时估值每 30 秒自动刷新</p>
             </div>
             <br />
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>创建第一个自选列表</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+              创建第一个自选列表
+            </Button>
           </div>
         </Empty>
 
@@ -574,13 +591,18 @@ const WatchlistsPage = () => {
       {indices.length > 0 && (
         <Card size="small" style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto' }}>
-            {indices.map(idx => {
+            {indices.map((idx) => {
               const chg = idx.change_percent ? parseFloat(idx.change_percent) : null;
               return (
                 <div key={idx.code} style={{ textAlign: 'center', minWidth: 100 }}>
                   <div style={{ fontSize: 12, color: '#999' }}>{idx.name}</div>
                   <div style={{ fontSize: 18, fontWeight: 'bold' }}>{idx.price || '-'}</div>
-                  <div style={{ fontSize: 13, color: chg != null ? (chg >= 0 ? '#cf1322' : '#3f8600') : '#999' }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: chg != null ? (chg >= 0 ? '#cf1322' : '#3f8600') : '#999',
+                    }}
+                  >
                     {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-'}
                   </div>
                 </div>
@@ -589,107 +611,106 @@ const WatchlistsPage = () => {
           </div>
         </Card>
       )}
-    <Card
-      title="自选列表"
-      extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setModalVisible(true)}
-        >
-          创建自选
-        </Button>
-      }
-    >
-      <Tabs
-        activeKey={selectedWatchlistId}
-        onChange={setSelectedWatchlistId}
-        items={watchlists.map(w => {
-          const growth = groupGrowths[w.id];
-          return {
-          key: w.id,
-          label: (
-            <span>
-              {w.name}
-              {growth !== undefined && (
-                <span style={{
-                  marginLeft: 4,
-                  fontSize: 12,
-                  color: growth >= 0 ? '#ff4d4f' : '#52c41a',
-                }}>
-                  {growth >= 0 ? '+' : ''}{growth.toFixed(2)}%
-                </span>
-              )}
-              <Popconfirm
-                title="确定删除？"
-                description="删除后无法恢复"
-                onConfirm={(e) => {
-                  e.stopPropagation();
-                  handleDelete(w.id);
-                }}
-                okText="确定"
-                cancelText="取消"
-              >
-                <DeleteOutlined
-                  style={{ marginLeft: 8, color: '#ff4d4f' }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Popconfirm>
-            </span>
-          ),
-          children: (
-            <WatchlistContent
-              watchlist={w}
-              fundOptions={fundOptions}
-              handleSearch={handleSearch}
-              handleAddFund={handleAddFund}
-              searchKeyword={searchKeyword}
-              setSearchKeyword={setSearchKeyword}
-              searchLoading={searchLoading}
-              fundsData={fundsData}
-              fundsLoading={fundsLoading}
-              columns={columns}
-              navigate={navigate}
-              components={{
-                header: {
-                  cell: ResizableTitle,
-                },
-              }}
-              isMobile={isMobile}
-              handleRemoveFund={handleRemoveFund}
-            />
-          ),
-        };
-      })}
-      />
-
-      <Modal
-        title="创建自选列表"
-        open={modalVisible}
-        onOk={handleCreate}
-        onCancel={() => {
-          setModalVisible(false);
-          form.resetFields();
-        }}
-        okText="创建"
-        cancelText="取消"
-        width={isMobile ? '95vw' : 520}
+      <Card
+        title="自选列表"
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+            创建自选
+          </Button>
+        }
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="列表名称"
-            rules={[
-              { required: true, message: '请输入列表名称' },
-              { max: 50, message: '名称不能超过50个字符' },
-            ]}
-          >
-            <Input placeholder="例如：我的自选" />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Card>
-  </>
+        <Tabs
+          activeKey={selectedWatchlistId}
+          onChange={setSelectedWatchlistId}
+          items={watchlists.map((w) => {
+            const growth = groupGrowths[w.id];
+            return {
+              key: w.id,
+              label: (
+                <span>
+                  {w.name}
+                  {growth !== undefined && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        fontSize: 12,
+                        color: growth >= 0 ? '#ff4d4f' : '#52c41a',
+                      }}
+                    >
+                      {growth >= 0 ? '+' : ''}
+                      {growth.toFixed(2)}%
+                    </span>
+                  )}
+                  <Popconfirm
+                    title="确定删除？"
+                    description="删除后无法恢复"
+                    onConfirm={(e) => {
+                      e.stopPropagation();
+                      handleDelete(w.id);
+                    }}
+                    okText="确定"
+                    cancelText="取消"
+                  >
+                    <DeleteOutlined
+                      style={{ marginLeft: 8, color: '#ff4d4f' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Popconfirm>
+                </span>
+              ),
+              children: (
+                <WatchlistContent
+                  watchlist={w}
+                  fundOptions={fundOptions}
+                  handleSearch={handleSearch}
+                  handleAddFund={handleAddFund}
+                  searchKeyword={searchKeyword}
+                  setSearchKeyword={setSearchKeyword}
+                  searchLoading={searchLoading}
+                  fundsData={fundsData}
+                  fundsLoading={fundsLoading}
+                  columns={columns}
+                  navigate={navigate}
+                  components={{
+                    header: {
+                      cell: ResizableTitle,
+                    },
+                  }}
+                  isMobile={isMobile}
+                  handleRemoveFund={handleRemoveFund}
+                />
+              ),
+            };
+          })}
+        />
+
+        <Modal
+          title="创建自选列表"
+          open={modalVisible}
+          onOk={handleCreate}
+          onCancel={() => {
+            setModalVisible(false);
+            form.resetFields();
+          }}
+          okText="创建"
+          cancelText="取消"
+          width={isMobile ? '95vw' : 520}
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="name"
+              label="列表名称"
+              rules={[
+                { required: true, message: '请输入列表名称' },
+                { max: 50, message: '名称不能超过50个字符' },
+              ]}
+            >
+              <Input placeholder="例如：我的自选" />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Card>
+    </>
   );
 };
 

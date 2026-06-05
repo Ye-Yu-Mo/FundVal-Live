@@ -7,6 +7,7 @@
 3. UserSourceCredential 模型
 4. SourceCredentialViewSet API
 """
+
 import pytest
 from decimal import Decimal
 from datetime import datetime
@@ -21,34 +22,48 @@ User = get_user_model()
 # 1. 抽象基类
 # ─────────────────────────────────────────────
 
+
 class TestBaseEstimateSourceQRCodeMethods:
     """BaseEstimateSource 二维码登录抽象方法测试"""
 
     def test_get_qrcode_abstract_method_exists(self):
         """get_qrcode 抽象方法存在"""
         from api.sources.base import BaseEstimateSource
-        assert hasattr(BaseEstimateSource, 'get_qrcode')
+
+        assert hasattr(BaseEstimateSource, "get_qrcode")
 
     def test_check_qrcode_state_abstract_method_exists(self):
         """check_qrcode_state 抽象方法存在"""
         from api.sources.base import BaseEstimateSource
-        assert hasattr(BaseEstimateSource, 'check_qrcode_state')
+
+        assert hasattr(BaseEstimateSource, "check_qrcode_state")
 
     def test_logout_abstract_method_exists(self):
         """logout 抽象方法存在"""
         from api.sources.base import BaseEstimateSource
-        assert hasattr(BaseEstimateSource, 'logout')
+
+        assert hasattr(BaseEstimateSource, "logout")
 
     def test_cannot_instantiate_without_implementing_qrcode_methods(self):
         """未实现二维码方法不能实例化"""
         from api.sources.base import BaseEstimateSource
 
         class IncompleteSource(BaseEstimateSource):
-            def get_source_name(self): return 'test'
-            def fetch_estimate(self, code): pass
-            def fetch_realtime_nav(self, code): pass
-            def fetch_today_nav(self, code): pass
-            def fetch_fund_list(self): pass
+            def get_source_name(self):
+                return "test"
+
+            def fetch_estimate(self, code):
+                pass
+
+            def fetch_realtime_nav(self, code):
+                pass
+
+            def fetch_today_nav(self, code):
+                pass
+
+            def fetch_fund_list(self):
+                pass
+
             # 故意不实现 get_qrcode / check_qrcode_state / logout
 
         with pytest.raises(TypeError):
@@ -59,21 +74,22 @@ class TestBaseEstimateSourceQRCodeMethods:
 # 2. YangJiBaoSource 二维码登录实现
 # ─────────────────────────────────────────────
 
+
 class TestYangJiBaoSourceQRCodeLogin:
     """YangJiBaoSource 二维码登录实现测试"""
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_get_qrcode_success(self, mock_request):
         """测试获取二维码成功"""
         from api.sources.yangjibao import YangJiBaoSource
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {
-                'id': 'qr-123456',
-                'url': 'http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8'
-            }
+            "code": 200,
+            "data": {
+                "id": "qr-123456",
+                "url": "http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8",
+            },
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
@@ -81,41 +97,41 @@ class TestYangJiBaoSourceQRCodeLogin:
         source = YangJiBaoSource()
         result = source.get_qrcode()
 
-        assert result['qr_id'] == 'qr-123456'
-        assert result['qr_url'] == 'http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8'
+        assert result["qr_id"] == "qr-123456"
+        assert result["qr_url"] == "http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8"
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_get_qrcode_network_error(self, mock_request):
         """测试获取二维码网络错误"""
         from api.sources.yangjibao import YangJiBaoSource
 
-        mock_request.side_effect = Exception('Network error')
+        mock_request.side_effect = Exception("Network error")
 
         source = YangJiBaoSource()
 
         with pytest.raises(Exception):
             source.get_qrcode()
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_waiting(self, mock_request):
         """测试二维码状态：等待扫码"""
         from api.sources.yangjibao import YangJiBaoSource
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {'state': 1}  # 养基宝返回数字 1 表示等待
+            "code": 200,
+            "data": {"state": 1},  # 养基宝返回数字 1 表示等待
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
         source = YangJiBaoSource()
-        result = source.check_qrcode_state('qr-123456')
+        result = source.check_qrcode_state("qr-123456")
 
-        assert result['state'] == 'waiting'
-        assert result['token'] is None
+        assert result["state"] == "waiting"
+        assert result["token"] is None
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_scanned(self, mock_request):
         """测试二维码状态：已扫码（养基宝没有这个状态，直接到 confirmed）"""
         from api.sources.yangjibao import YangJiBaoSource
@@ -123,66 +139,63 @@ class TestYangJiBaoSourceQRCodeLogin:
         # 养基宝只有 1（等待）和 2（确认），没有中间状态
         # 这个测试保留但使用 1（等待）
         mock_response = Mock()
-        mock_response.json.return_value = {
-            'code': 200,
-            'data': {'state': 1}
-        }
+        mock_response.json.return_value = {"code": 200, "data": {"state": 1}}
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
         source = YangJiBaoSource()
-        result = source.check_qrcode_state('qr-123456')
+        result = source.check_qrcode_state("qr-123456")
 
-        assert result['state'] == 'waiting'
-        assert result['token'] is None
+        assert result["state"] == "waiting"
+        assert result["token"] is None
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_confirmed(self, mock_request):
         """测试二维码状态：已确认（登录成功）"""
         from api.sources.yangjibao import YangJiBaoSource
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {
-                'state': 2,  # 养基宝返回数字 2 表示确认
-                'token': 'test-token-abc123'
-            }
+            "code": 200,
+            "data": {
+                "state": 2,  # 养基宝返回数字 2 表示确认
+                "token": "test-token-abc123",
+            },
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
         source = YangJiBaoSource()
-        result = source.check_qrcode_state('qr-123456')
+        result = source.check_qrcode_state("qr-123456")
 
-        assert result['state'] == 'confirmed'
-        assert result['token'] == 'test-token-abc123'
+        assert result["state"] == "confirmed"
+        assert result["token"] == "test-token-abc123"
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_expired(self, mock_request):
         """测试二维码状态：已过期"""
         from api.sources.yangjibao import YangJiBaoSource
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {'state': 3}  # 养基宝返回数字 3 表示过期
+            "code": 200,
+            "data": {"state": 3},  # 养基宝返回数字 3 表示过期
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
         source = YangJiBaoSource()
-        result = source.check_qrcode_state('qr-123456')
+        result = source.check_qrcode_state("qr-123456")
 
-        assert result['state'] == 'expired'
-        assert result['token'] is None
+        assert result["state"] == "expired"
+        assert result["token"] is None
 
     def test_logout_clears_token(self):
         """测试登出清除 token"""
         from api.sources.yangjibao import YangJiBaoSource
 
         source = YangJiBaoSource()
-        source._token = 'some-token'
+        source._token = "some-token"
 
         source.logout()
 
@@ -193,7 +206,7 @@ class TestYangJiBaoSourceQRCodeLogin:
         from api.sources.yangjibao import YangJiBaoSource
 
         source = YangJiBaoSource()
-        assert source.get_source_name() == 'yangjibao'
+        assert source.get_source_name() == "yangjibao"
 
     def test_api_signature_generation(self):
         """测试 API 签名算法"""
@@ -201,17 +214,17 @@ class TestYangJiBaoSourceQRCodeLogin:
         import hashlib
 
         source = YangJiBaoSource()
-        source._token = 'test-token'
+        source._token = "test-token"
 
         # 测试签名生成
-        path = '/qr_code'
+        path = "/qr_code"
         timestamp = 1771928000
 
         sign = source._generate_sign(path, timestamp)
 
         # 验证签名格式（MD5 hex）
         assert len(sign) == 32
-        assert all(c in '0123456789abcdef' for c in sign)
+        assert all(c in "0123456789abcdef" for c in sign)
 
         # 验证签名算法：md5(pathname + path + token + timestamp + SECRET)
         expected = hashlib.md5(
@@ -224,13 +237,14 @@ class TestYangJiBaoSourceQRCodeLogin:
 # 3. UserSourceCredential 模型
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestUserSourceCredentialModel:
     """UserSourceCredential 模型测试"""
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     def test_create_credential(self, user):
         """测试创建凭证"""
@@ -238,13 +252,13 @@ class TestUserSourceCredentialModel:
 
         cred = UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='test-token-abc123',
+            source_name="yangjibao",
+            token="test-token-abc123",
         )
 
         assert cred.user == user
-        assert cred.source_name == 'yangjibao'
-        assert cred.token == 'test-token-abc123'
+        assert cred.source_name == "yangjibao"
+        assert cred.token == "test-token-abc123"
         assert cred.is_active is True
 
     def test_unique_per_user_and_source(self, user):
@@ -254,35 +268,35 @@ class TestUserSourceCredentialModel:
 
         UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='token-1',
+            source_name="yangjibao",
+            token="token-1",
         )
 
         with pytest.raises(IntegrityError):
             UserSourceCredential.objects.create(
                 user=user,
-                source_name='yangjibao',
-                token='token-2',
+                source_name="yangjibao",
+                token="token-2",
             )
 
     def test_different_users_can_have_same_source(self, user):
         """测试不同用户可以有同一数据源的凭证"""
         from api.models import UserSourceCredential
 
-        user2 = User.objects.create_user(username='user2', password='pass')
+        user2 = User.objects.create_user(username="user2", password="pass")
 
         UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='token-user1',
+            source_name="yangjibao",
+            token="token-user1",
         )
         UserSourceCredential.objects.create(
             user=user2,
-            source_name='yangjibao',
-            token='token-user2',
+            source_name="yangjibao",
+            token="token-user2",
         )
 
-        assert UserSourceCredential.objects.filter(source_name='yangjibao').count() == 2
+        assert UserSourceCredential.objects.filter(source_name="yangjibao").count() == 2
 
     def test_is_active_default_true(self, user):
         """测试 is_active 默认为 True"""
@@ -290,8 +304,8 @@ class TestUserSourceCredentialModel:
 
         cred = UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='test-token',
+            source_name="yangjibao",
+            token="test-token",
         )
 
         assert cred.is_active is True
@@ -302,8 +316,8 @@ class TestUserSourceCredentialModel:
 
         cred = UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='test-token',
+            source_name="yangjibao",
+            token="test-token",
         )
 
         cred.is_active = False
@@ -318,13 +332,13 @@ class TestUserSourceCredentialModel:
 
         UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='token-yjb',
+            source_name="yangjibao",
+            token="token-yjb",
         )
         UserSourceCredential.objects.create(
             user=user,
-            source_name='tiantian',
-            token='token-tt',
+            source_name="tiantian",
+            token="token-tt",
         )
 
         assert UserSourceCredential.objects.filter(user=user).count() == 2
@@ -334,6 +348,7 @@ class TestUserSourceCredentialModel:
 # 4. SourceCredentialViewSet API
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestSourceCredentialQRCodeAPI:
     """SourceCredentialViewSet 二维码登录 API 测试"""
@@ -341,38 +356,42 @@ class TestSourceCredentialQRCodeAPI:
     def setup_method(self):
         """每个测试前创建测试用户"""
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(username="testuser", password="testpass")
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_get_qrcode_success(self, mock_request):
         """测试获取二维码成功"""
         self.client.force_authenticate(user=self.user)
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {
-                'id': 'qr-123456',
-                'url': 'http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8'
-            }
+            "code": 200,
+            "data": {
+                "id": "qr-123456",
+                "url": "http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8",
+            },
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
-        response = self.client.post('/api/source-credentials/qrcode/', {
-            'source_name': 'yangjibao'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/qrcode/",
+            {"source_name": "yangjibao"},
+            format="json",
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['qr_id'] == 'qr-123456'
-        assert data['qr_url'] == 'http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8'
+        assert data["qr_id"] == "qr-123456"
+        assert data["qr_url"] == "http://weixin.qq.com/q/02CDRRR192cw11D9XtxFc8"
 
     def test_get_qrcode_unauthenticated(self):
         """测试未认证用户不能获取二维码"""
-        response = self.client.post('/api/source-credentials/qrcode/', {
-            'source_name': 'yangjibao'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/qrcode/",
+            {"source_name": "yangjibao"},
+            format="json",
+        )
 
         assert response.status_code == 401
 
@@ -380,93 +399,97 @@ class TestSourceCredentialQRCodeAPI:
         """测试不支持的数据源"""
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.post('/api/source-credentials/qrcode/', {
-            'source_name': 'unsupported'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/qrcode/",
+            {"source_name": "unsupported"},
+            format="json",
+        )
 
         assert response.status_code == 400
         # Serializer 验证失败返回格式：{'source_name': ['错误信息']}
-        assert 'source_name' in response.json()
+        assert "source_name" in response.json()
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_waiting(self, mock_request):
         """测试轮询二维码状态：等待扫码"""
         self.client.force_authenticate(user=self.user)
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {'state': 1}  # 养基宝返回数字 1
+            "code": 200,
+            "data": {"state": 1},  # 养基宝返回数字 1
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
-        response = self.client.get('/api/source-credentials/qrcode/qr-123456/state/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/qrcode/qr-123456/state/",
+            {"source_name": "yangjibao"},
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['state'] == 'waiting'
-        assert 'token' not in data or data['token'] is None
+        assert data["state"] == "waiting"
+        assert "token" not in data or data["token"] is None
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_confirmed(self, mock_request):
         """测试轮询二维码状态：已确认（登录成功）"""
         self.client.force_authenticate(user=self.user)
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {
-                'state': 2,  # 养基宝返回数字 2
-                'token': 'test-token-abc123'
-            }
+            "code": 200,
+            "data": {"state": 2, "token": "test-token-abc123"},  # 养基宝返回数字 2
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
-        response = self.client.get('/api/source-credentials/qrcode/qr-123456/state/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/qrcode/qr-123456/state/",
+            {"source_name": "yangjibao"},
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['state'] == 'confirmed'
-        assert data['token'] == 'test-token-abc123'
+        assert data["state"] == "confirmed"
+        assert data["token"] == "test-token-abc123"
 
         # 验证凭证已保存到数据库
         from api.models import UserSourceCredential
-        cred = UserSourceCredential.objects.get(user=self.user, source_name='yangjibao')
-        assert cred.token == 'test-token-abc123'
+
+        cred = UserSourceCredential.objects.get(user=self.user, source_name="yangjibao")
+        assert cred.token == "test-token-abc123"
         assert cred.is_active is True
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_check_qrcode_state_expired(self, mock_request):
         """测试轮询二维码状态：已过期"""
         self.client.force_authenticate(user=self.user)
 
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {'state': 3}  # 养基宝返回数字 3
+            "code": 200,
+            "data": {"state": 3},  # 养基宝返回数字 3
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
-        response = self.client.get('/api/source-credentials/qrcode/qr-123456/state/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/qrcode/qr-123456/state/",
+            {"source_name": "yangjibao"},
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['state'] == 'expired'
+        assert data["state"] == "expired"
 
     def test_check_qrcode_state_unauthenticated(self):
         """测试未认证用户不能轮询状态"""
-        response = self.client.get('/api/source-credentials/qrcode/qr-123456/state/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/qrcode/qr-123456/state/",
+            {"source_name": "yangjibao"},
+        )
 
         assert response.status_code == 401
 
@@ -478,7 +501,7 @@ class TestSourceCredentialLogoutAPI:
     def setup_method(self):
         """每个测试前创建测试用户和凭证"""
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(username="testuser", password="testpass")
 
     def test_logout_success(self):
         """测试登出成功"""
@@ -488,15 +511,14 @@ class TestSourceCredentialLogoutAPI:
 
         # 创建凭证
         cred = UserSourceCredential.objects.create(
-            user=self.user,
-            source_name='yangjibao',
-            token='test-token',
-            is_active=True
+            user=self.user, source_name="yangjibao", token="test-token", is_active=True
         )
 
-        response = self.client.post('/api/source-credentials/logout/', {
-            'source_name': 'yangjibao'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/logout/",
+            {"source_name": "yangjibao"},
+            format="json",
+        )
 
         assert response.status_code == 200
 
@@ -508,18 +530,22 @@ class TestSourceCredentialLogoutAPI:
         """测试登出时没有凭证"""
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.post('/api/source-credentials/logout/', {
-            'source_name': 'yangjibao'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/logout/",
+            {"source_name": "yangjibao"},
+            format="json",
+        )
 
         # 没有凭证也应该返回成功（幂等操作）
         assert response.status_code == 200
 
     def test_logout_unauthenticated(self):
         """测试未认证用户不能登出"""
-        response = self.client.post('/api/source-credentials/logout/', {
-            'source_name': 'yangjibao'
-        }, format='json')
+        response = self.client.post(
+            "/api/source-credentials/logout/",
+            {"source_name": "yangjibao"},
+            format="json",
+        )
 
         assert response.status_code == 401
 
@@ -531,7 +557,7 @@ class TestSourceCredentialStatusAPI:
     def setup_method(self):
         """每个测试前创建测试用户"""
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(username="testuser", password="testpass")
 
     def test_status_logged_in(self):
         """测试查询状态：已登录"""
@@ -540,33 +566,30 @@ class TestSourceCredentialStatusAPI:
         self.client.force_authenticate(user=self.user)
 
         UserSourceCredential.objects.create(
-            user=self.user,
-            source_name='yangjibao',
-            token='test-token',
-            is_active=True
+            user=self.user, source_name="yangjibao", token="test-token", is_active=True
         )
 
-        response = self.client.get('/api/source-credentials/status/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/status/", {"source_name": "yangjibao"}
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['logged_in'] is True
-        assert data['source_name'] == 'yangjibao'
+        assert data["logged_in"] is True
+        assert data["source_name"] == "yangjibao"
 
     def test_status_not_logged_in(self):
         """测试查询状态：未登录"""
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.get('/api/source-credentials/status/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/status/", {"source_name": "yangjibao"}
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['logged_in'] is False
-        assert data['source_name'] == 'yangjibao'
+        assert data["logged_in"] is False
+        assert data["source_name"] == "yangjibao"
 
     def test_status_logged_out(self):
         """测试查询状态：已登出（is_active=False）"""
@@ -575,25 +598,22 @@ class TestSourceCredentialStatusAPI:
         self.client.force_authenticate(user=self.user)
 
         UserSourceCredential.objects.create(
-            user=self.user,
-            source_name='yangjibao',
-            token='test-token',
-            is_active=False
+            user=self.user, source_name="yangjibao", token="test-token", is_active=False
         )
 
-        response = self.client.get('/api/source-credentials/status/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/status/", {"source_name": "yangjibao"}
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['logged_in'] is False
+        assert data["logged_in"] is False
 
     def test_status_unauthenticated(self):
         """测试未认证用户不能查询状态"""
-        response = self.client.get('/api/source-credentials/status/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/status/", {"source_name": "yangjibao"}
+        )
 
         assert response.status_code == 401
 
@@ -605,9 +625,9 @@ class TestSourceCredentialUpdateOnRelogin:
     def setup_method(self):
         """每个测试前创建测试用户"""
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(username="testuser", password="testpass")
 
-    @patch('api.sources.yangjibao.requests.request')
+    @patch("api.sources.yangjibao.requests.request")
     def test_relogin_updates_existing_credential(self, mock_request):
         """测试重复登录更新已有凭证"""
         from api.models import UserSourceCredential
@@ -616,35 +636,35 @@ class TestSourceCredentialUpdateOnRelogin:
 
         # 创建旧凭证
         old_cred = UserSourceCredential.objects.create(
-            user=self.user,
-            source_name='yangjibao',
-            token='old-token',
-            is_active=False
+            user=self.user, source_name="yangjibao", token="old-token", is_active=False
         )
 
         # Mock 扫码成功
         mock_response = Mock()
         mock_response.json.return_value = {
-            'code': 200,
-            'data': {
-                'state': 2,  # 养基宝返回数字 2
-                'token': 'new-token-xyz'
-            }
+            "code": 200,
+            "data": {"state": 2, "token": "new-token-xyz"},  # 养基宝返回数字 2
         }
         mock_response.status_code = 200
         mock_request.return_value = mock_response
 
-        response = self.client.get('/api/source-credentials/qrcode/qr-123456/state/', {
-            'source_name': 'yangjibao'
-        })
+        response = self.client.get(
+            "/api/source-credentials/qrcode/qr-123456/state/",
+            {"source_name": "yangjibao"},
+        )
 
         assert response.status_code == 200
 
         # 验证凭证已更新（不是新建）
-        assert UserSourceCredential.objects.filter(user=self.user, source_name='yangjibao').count() == 1
+        assert (
+            UserSourceCredential.objects.filter(
+                user=self.user, source_name="yangjibao"
+            ).count()
+            == 1
+        )
 
         old_cred.refresh_from_db()
-        assert old_cred.token == 'new-token-xyz'
+        assert old_cred.token == "new-token-xyz"
         assert old_cred.is_active is True
 
 
@@ -652,13 +672,14 @@ class TestSourceCredentialUpdateOnRelogin:
 # 5. Token 加密存储测试
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestTokenEncryption:
     """Token 加密存储测试"""
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     def test_token_is_encrypted_in_database(self, user):
         """测试 token 在数据库中是加密的"""
@@ -666,8 +687,8 @@ class TestTokenEncryption:
 
         cred = UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
-            token='plaintext-token-123',
+            source_name="yangjibao",
+            token="plaintext-token-123",
         )
 
         # 直接从 ORM 验证 token 已存储
@@ -679,11 +700,11 @@ class TestTokenEncryption:
         """测试读取时自动解密"""
         from api.models import UserSourceCredential
 
-        original_token = 'plaintext-token-123'
+        original_token = "plaintext-token-123"
 
         cred = UserSourceCredential.objects.create(
             user=user,
-            source_name='yangjibao',
+            source_name="yangjibao",
             token=original_token,
         )
 

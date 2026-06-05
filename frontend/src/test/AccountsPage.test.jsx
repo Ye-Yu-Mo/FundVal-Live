@@ -47,9 +47,7 @@ describe('AccountsPage', () => {
         data: [],
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 验证标题存在
       expect(screen.getByText('账户管理')).toBeInTheDocument();
@@ -115,9 +113,7 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 切换到单账户视图查看子账户
       await waitFor(() => {
@@ -166,9 +162,7 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 先切换到单账户视图
       await waitFor(() => {
@@ -190,9 +184,7 @@ describe('AccountsPage', () => {
         data: [],
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 点击创建按钮
       const createButton = screen.getByText('创建账户');
@@ -233,9 +225,7 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 等待列表加载
       await waitFor(() => {
@@ -244,9 +234,7 @@ describe('AccountsPage', () => {
 
       // 点击编辑按钮
       const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(btn =>
-        btn.querySelector('.anticon-edit')
-      );
+      const editButton = editButtons.find((btn) => btn.querySelector('.anticon-edit'));
 
       if (editButton) {
         fireEvent.click(editButton);
@@ -289,9 +277,7 @@ describe('AccountsPage', () => {
         data: { can_delete: true, children_count: 0, positions_count: 0, total_cost: '0.00' },
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 等待列表加载，切换到单账户视图
       await waitFor(() => {
@@ -304,9 +290,7 @@ describe('AccountsPage', () => {
 
       // 点击删除按钮
       const deleteButtons = screen.getAllByRole('button');
-      const deleteButton = deleteButtons.find(btn =>
-        btn.querySelector('.anticon-delete')
-      );
+      const deleteButton = deleteButtons.find((btn) => btn.querySelector('.anticon-delete'));
 
       if (deleteButton) {
         fireEvent.click(deleteButton);
@@ -343,9 +327,7 @@ describe('AccountsPage', () => {
         data: mockAccounts,
       });
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       await waitFor(() => {
         // 默认应显示全部账户汇总
@@ -366,9 +348,7 @@ describe('AccountsPage', () => {
     it('加载失败显示错误', async () => {
       api.accountsAPI.list.mockRejectedValue(new Error('加载失败'));
 
-      renderWithProviders(
-          <AccountsPage />
-      );
+      renderWithProviders(<AccountsPage />);
 
       // 等待错误处理
       await waitFor(() => {

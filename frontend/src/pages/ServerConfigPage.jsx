@@ -81,14 +81,23 @@ function ServerConfigPage({ onConfigSaved }) {
 
   return (
     <Layout style={layoutStyle}>
-      <Content style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <Content
+        style={{
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={logoBoxStyle}>
               <CloudServerOutlined style={{ fontSize: 24, color: '#fff' }} />
             </div>
           </div>
-          <Title level={2} style={{ marginBottom: 8 }}>服务器配置</Title>
+          <Title level={2} style={{ marginBottom: 8 }}>
+            服务器配置
+          </Title>
           <Text type="secondary">请输入 Fundval 服务器地址</Text>
         </div>
 
@@ -106,7 +115,7 @@ function ServerConfigPage({ onConfigSaved }) {
               label="服务器地址"
               rules={[
                 { required: true, message: '请输入服务器地址' },
-                { type: 'url', message: '请输入有效的 URL' }
+                { type: 'url', message: '请输入有效的 URL' },
               ]}
               extra="例如: http://192.168.1.100:8000 或 https://fundval.example.com"
             >
@@ -137,8 +146,7 @@ function ServerConfigPage({ onConfigSaved }) {
               • 确保服务器已启动并可访问
               <br />
               • 如果使用局域网，请使用服务器的 IP 地址
-              <br />
-              • 如果使用域名，请确保 DNS 解析正确
+              <br />• 如果使用域名，请确保 DNS 解析正确
             </Text>
           </div>
         </Card>

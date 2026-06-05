@@ -1,6 +1,7 @@
 """
 养基宝数据源实现
 """
+
 import hashlib
 import logging
 import requests
@@ -16,17 +17,17 @@ logger = logging.getLogger(__name__)
 class YangJiBaoSource(BaseEstimateSource):
     """养基宝数据源"""
 
-    BASE_URL = 'http://browser-plug-api.yangjibao.com'
-    SECRET = 'YxmKSrQR4uoJ5lOoWIhcbd7SlUEh9OOc'
+    BASE_URL = "http://browser-plug-api.yangjibao.com"
+    SECRET = "YxmKSrQR4uoJ5lOoWIhcbd7SlUEh9OOc"
 
     def __init__(self):
         self._token = None
 
     def get_source_name(self) -> str:
-        return 'yangjibao'
+        return "yangjibao"
 
     def get_login_type(self) -> str:
-        return 'qrcode'
+        return "qrcode"
 
     def _generate_sign(self, path: str, timestamp: int) -> str:
         """
@@ -43,7 +44,7 @@ class YangJiBaoSource(BaseEstimateSource):
         token = self._token or ""
 
         # 如果 path 包含查询参数，签名时只用路径部分
-        sign_path = path.split('?')[0] if '?' in path else path
+        sign_path = path.split("?")[0] if "?" in path else path
 
         sign_str = pathname + sign_path + token + str(timestamp) + self.SECRET
         return hashlib.md5(sign_str.encode()).hexdigest()
@@ -64,13 +65,13 @@ class YangJiBaoSource(BaseEstimateSource):
         url = self.BASE_URL + path
 
         headers = {
-            'Request-Time': str(timestamp),
-            'Request-Sign': self._generate_sign(path, timestamp),
-            'Content-Type': 'application/json'
+            "Request-Time": str(timestamp),
+            "Request-Sign": self._generate_sign(path, timestamp),
+            "Content-Type": "application/json",
         }
 
         if self._token:
-            headers['Authorization'] = self._token
+            headers["Authorization"] = self._token
 
         response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
         response.raise_for_status()
@@ -78,10 +79,10 @@ class YangJiBaoSource(BaseEstimateSource):
         result = response.json()
 
         # 检查业务状态码
-        if result.get('code') != 200:
+        if result.get("code") != 200:
             raise Exception(f"API 错误: {result.get('message', 'Unknown error')}")
 
-        return result.get('data')
+        return result.get("data")
 
     # ─────────────────────────────────────────────
     # 二维码登录
@@ -98,21 +99,21 @@ class YangJiBaoSource(BaseEstimateSource):
             }
         """
         try:
-            data = self._request('GET', '/qr_code')
+            data = self._request("GET", "/qr_code")
 
-            qr_id = data.get('id')
-            qr_url = data.get('url')
+            qr_id = data.get("id")
+            qr_url = data.get("url")
 
             if not qr_id or not qr_url:
-                raise Exception('二维码数据格式错误')
+                raise Exception("二维码数据格式错误")
 
             return {
-                'qr_id': qr_id,
-                'qr_url': qr_url,
+                "qr_id": qr_id,
+                "qr_url": qr_url,
             }
 
         except Exception as e:
-            logger.error(f'获取二维码失败: {e}')
+            logger.error(f"获取二维码失败: {e}")
             raise
 
     def check_qrcode_state(self, qr_id: str) -> Dict:
@@ -134,30 +135,30 @@ class YangJiBaoSource(BaseEstimateSource):
         - 3: 已过期
         """
         try:
-            data = self._request('GET', f'/qr_code_state/{qr_id}')
+            data = self._request("GET", f"/qr_code_state/{qr_id}")
 
-            state_code = data.get('state')
-            token = data.get('token')
+            state_code = data.get("state")
+            token = data.get("token")
 
             # 映射数字状态码到字符串
             state_map = {
-                1: 'waiting',
-                '1': 'waiting',
-                2: 'confirmed',
-                '2': 'confirmed',
-                3: 'expired',
-                '3': 'expired',
+                1: "waiting",
+                "1": "waiting",
+                2: "confirmed",
+                "2": "confirmed",
+                3: "expired",
+                "3": "expired",
             }
 
-            state = state_map.get(state_code, 'unknown')
+            state = state_map.get(state_code, "unknown")
 
             return {
-                'state': state,
-                'token': token if state == 'confirmed' else None,
+                "state": state,
+                "token": token if state == "confirmed" else None,
             }
 
         except Exception as e:
-            logger.error(f'检查二维码状态失败: {e}')
+            logger.error(f"检查二维码状态失败: {e}")
             raise
 
     def logout(self):
@@ -175,14 +176,14 @@ class YangJiBaoSource(BaseEstimateSource):
             Exception: 未登录
         """
         if not self._token:
-            raise Exception('未登录养基宝，无法获取账户列表')
+            raise Exception("未登录养基宝，无法获取账户列表")
 
         try:
-            data = self._request('GET', '/user_account')
-            accounts = data.get('list', [])
+            data = self._request("GET", "/user_account")
+            accounts = data.get("list", [])
             return accounts if isinstance(accounts, list) else []
         except Exception as e:
-            logger.error(f'获取账户列表失败: {e}')
+            logger.error(f"获取账户列表失败: {e}")
             raise
 
     def _fetch_all_holdings(self) -> List[Dict]:
@@ -196,34 +197,34 @@ class YangJiBaoSource(BaseEstimateSource):
             Exception: 未登录
         """
         if not self._token:
-            raise Exception('未登录养基宝，无法获取持仓数据')
+            raise Exception("未登录养基宝，无法获取持仓数据")
 
         try:
             accounts = self._get_all_accounts()
 
             if not accounts:
-                logger.warning('用户没有账户')
+                logger.warning("用户没有账户")
                 return []
 
             all_holdings = []
 
             for account in accounts:
-                account_id = account.get('id')
+                account_id = account.get("id")
                 if not account_id:
                     continue
 
                 try:
-                    data = self._request('GET', f'/fund_hold?account_id={account_id}')
+                    data = self._request("GET", f"/fund_hold?account_id={account_id}")
                     holdings = data if isinstance(data, list) else []
                     all_holdings.extend(holdings)
                 except Exception as e:
-                    logger.warning(f'获取账户 {account_id} 持仓失败: {e}')
+                    logger.warning(f"获取账户 {account_id} 持仓失败: {e}")
                     continue
 
             return all_holdings
 
         except Exception as e:
-            logger.error(f'获取持仓列表失败: {e}')
+            logger.error(f"获取持仓列表失败: {e}")
             raise
 
     def _find_fund_in_holdings(self, fund_code: str) -> Optional[Dict]:
@@ -239,7 +240,7 @@ class YangJiBaoSource(BaseEstimateSource):
         holdings = self._fetch_all_holdings()
 
         for holding in holdings:
-            if holding.get('code') == fund_code:
+            if holding.get("code") == fund_code:
                 return holding
 
         return None
@@ -269,29 +270,33 @@ class YangJiBaoSource(BaseEstimateSource):
             holding = self._find_fund_in_holdings(fund_code)
 
             if not holding:
-                logger.warning(f'基金 {fund_code} 不在持仓中')
+                logger.warning(f"基金 {fund_code} 不在持仓中")
                 return None
 
-            nv_info = holding.get('nv_info', {})
+            nv_info = holding.get("nv_info", {})
 
             # 优先级：gsz（实时估算） > vgsz（预估） > zsgz（昨日估算）
-            estimate_nav_str = nv_info.get('gsz') or nv_info.get('vgsz') or nv_info.get('zsgz')
-            estimate_growth_str = nv_info.get('gszzl') or nv_info.get('vgszzl') or nv_info.get('zsgzzl')
+            estimate_nav_str = (
+                nv_info.get("gsz") or nv_info.get("vgsz") or nv_info.get("zsgz")
+            )
+            estimate_growth_str = (
+                nv_info.get("gszzl") or nv_info.get("vgszzl") or nv_info.get("zsgzzl")
+            )
 
             if not estimate_nav_str or not estimate_growth_str:
-                logger.warning(f'基金 {fund_code} 无估值数据')
+                logger.warning(f"基金 {fund_code} 无估值数据")
                 return None
 
             return {
-                'fund_code': fund_code,
-                'fund_name': holding.get('short_name', ''),
-                'estimate_nav': Decimal(str(estimate_nav_str)),
-                'estimate_time': datetime.now(),
-                'estimate_growth': Decimal(str(estimate_growth_str)),
+                "fund_code": fund_code,
+                "fund_name": holding.get("short_name", ""),
+                "estimate_nav": Decimal(str(estimate_nav_str)),
+                "estimate_time": datetime.now(),
+                "estimate_growth": Decimal(str(estimate_growth_str)),
             }
 
         except Exception as e:
-            logger.error(f'获取基金 {fund_code} 估值失败: {e}')
+            logger.error(f"获取基金 {fund_code} 估值失败: {e}")
             return None
 
     def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
@@ -313,26 +318,26 @@ class YangJiBaoSource(BaseEstimateSource):
             holding = self._find_fund_in_holdings(fund_code)
 
             if not holding:
-                logger.warning(f'基金 {fund_code} 不在持仓中')
+                logger.warning(f"基金 {fund_code} 不在持仓中")
                 return None
 
-            nv_info = holding.get('nv_info', {})
+            nv_info = holding.get("nv_info", {})
 
-            nav_str = nv_info.get('dwjz')
-            nav_date_str = nv_info.get('jzrq')
+            nav_str = nv_info.get("dwjz")
+            nav_date_str = nv_info.get("jzrq")
 
             if not nav_str or not nav_date_str:
-                logger.warning(f'基金 {fund_code} 无净值数据')
+                logger.warning(f"基金 {fund_code} 无净值数据")
                 return None
 
             return {
-                'fund_code': fund_code,
-                'nav': Decimal(str(nav_str)),
-                'nav_date': datetime.strptime(nav_date_str, '%Y-%m-%d').date(),
+                "fund_code": fund_code,
+                "nav": Decimal(str(nav_str)),
+                "nav_date": datetime.strptime(nav_date_str, "%Y-%m-%d").date(),
             }
 
         except Exception as e:
-            logger.error(f'获取基金 {fund_code} 净值失败: {e}')
+            logger.error(f"获取基金 {fund_code} 净值失败: {e}")
             return None
 
     def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
@@ -354,38 +359,38 @@ class YangJiBaoSource(BaseEstimateSource):
             holding = self._find_fund_in_holdings(fund_code)
 
             if not holding:
-                logger.warning(f'基金 {fund_code} 不在持仓中')
+                logger.warning(f"基金 {fund_code} 不在持仓中")
                 return None
 
-            nv_info = holding.get('nv_info', {})
+            nv_info = holding.get("nv_info", {})
 
-            nav_str = nv_info.get('dwjz')
-            nav_date_str = nv_info.get('jzrq')
+            nav_str = nv_info.get("dwjz")
+            nav_date_str = nv_info.get("jzrq")
 
             if not nav_str or not nav_date_str:
-                logger.warning(f'基金 {fund_code} 无净值数据')
+                logger.warning(f"基金 {fund_code} 无净值数据")
                 return None
 
-            nav_date = datetime.strptime(nav_date_str, '%Y-%m-%d').date()
+            nav_date = datetime.strptime(nav_date_str, "%Y-%m-%d").date()
 
             # 日期校验：只返回当日净值
             if nav_date != date.today():
-                logger.info(f'基金 {fund_code} 净值日期 {nav_date} 不是今天，跳过')
+                logger.info(f"基金 {fund_code} 净值日期 {nav_date} 不是今天，跳过")
                 return None
 
             return {
-                'fund_code': fund_code,
-                'nav': Decimal(str(nav_str)),
-                'nav_date': nav_date,
+                "fund_code": fund_code,
+                "nav": Decimal(str(nav_str)),
+                "nav_date": nav_date,
             }
 
         except Exception as e:
-            logger.error(f'获取基金 {fund_code} 当日净值失败: {e}')
+            logger.error(f"获取基金 {fund_code} 当日净值失败: {e}")
             return None
 
     def fetch_fund_list(self) -> list:
         """获取基金列表（暂未实现）"""
-        raise NotImplementedError('养基宝基金列表获取功能暂未实现')
+        raise NotImplementedError("养基宝基金列表获取功能暂未实现")
 
     # ─────────────────────────────────────────────
     # 账户与持仓导入
@@ -402,18 +407,18 @@ class YangJiBaoSource(BaseEstimateSource):
             Exception: 未登录
         """
         if not self._token:
-            raise Exception('未登录养基宝，无法获取账户列表')
+            raise Exception("未登录养基宝，无法获取账户列表")
 
-        data = self._request('GET', '/user_account')
-        accounts = data.get('list', [])
+        data = self._request("GET", "/user_account")
+        accounts = data.get("list", [])
 
         return [
             {
-                'account_id': acc.get('id', ''),
-                'name': acc.get('title', ''),
+                "account_id": acc.get("id", ""),
+                "name": acc.get("title", ""),
             }
             for acc in accounts
-            if acc.get('id') and acc.get('title')
+            if acc.get("id") and acc.get("title")
         ]
 
     def fetch_holdings(self, account_id: str) -> List[Dict]:
@@ -437,48 +442,57 @@ class YangJiBaoSource(BaseEstimateSource):
             Exception: 未登录
         """
         if not self._token:
-            raise Exception('未登录养基宝，无法获取持仓数据')
+            raise Exception("未登录养基宝，无法获取持仓数据")
 
-        data = self._request('GET', f'/fund_hold?account_id={account_id}')
+        data = self._request("GET", f"/fund_hold?account_id={account_id}")
         holdings = data if isinstance(data, list) else []
 
         result = []
         for h in holdings:
-            fund_code = h.get('code', '')
-            fund_name = h.get('short_name', '')
-            hold_share = h.get('hold_share')
-            hold_cost = h.get('hold_cost')
-            money = h.get('money')
-            hold_day = h.get('hold_day')
+            fund_code = h.get("code", "")
+            fund_name = h.get("short_name", "")
+            hold_share = h.get("hold_share")
+            hold_cost = h.get("hold_cost")
+            money = h.get("money")
+            hold_day = h.get("hold_day")
 
             if not fund_code or hold_share is None or hold_cost is None:
                 continue
 
             try:
                 operation_date = (
-                    datetime.strptime(hold_day, '%Y-%m-%d').date()
-                    if hold_day else date.today()
+                    datetime.strptime(hold_day, "%Y-%m-%d").date()
+                    if hold_day
+                    else date.today()
                 )
-                result.append({
-                    'fund_code': fund_code,
-                    'fund_name': fund_name,
-                    'share': Decimal(str(hold_share)),
-                    'nav': Decimal(str(hold_cost)),
-                    'amount': Decimal(str(money)) if money else Decimal(str(hold_share)) * Decimal(str(hold_cost)),
-                    'operation_date': operation_date,
-                })
+                result.append(
+                    {
+                        "fund_code": fund_code,
+                        "fund_name": fund_name,
+                        "share": Decimal(str(hold_share)),
+                        "nav": Decimal(str(hold_cost)),
+                        "amount": (
+                            Decimal(str(money))
+                            if money
+                            else Decimal(str(hold_share)) * Decimal(str(hold_cost))
+                        ),
+                        "operation_date": operation_date,
+                    }
+                )
             except Exception as e:
-                logger.warning(f'解析持仓数据失败 {fund_code}: {e}')
+                logger.warning(f"解析持仓数据失败 {fund_code}: {e}")
                 continue
 
         return result
 
-    def fetch_nav_history(self, fund_code: str, start_date: date = None, end_date: date = None) -> list:
+    def fetch_nav_history(
+        self, fund_code: str, start_date: date = None, end_date: date = None
+    ) -> list:
         """获取历史净值（养基宝暂不支持）"""
         return []
 
     def fetch_index_holdings(self, fund_code: str) -> list:
         """养基宝没有成分股接口，fallback 到东方财富"""
         from .eastmoney import EastMoneySource
-        return EastMoneySource().fetch_index_holdings(fund_code)
 
+        return EastMoneySource().fetch_index_holdings(fund_code)

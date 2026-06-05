@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Input, Button, Space, message, Typography, Modal, Select, List, Grid, Pagination } from 'antd';
+import {
+  Card,
+  Table,
+  Input,
+  Button,
+  Space,
+  message,
+  Typography,
+  Modal,
+  Select,
+  List,
+  Grid,
+  Pagination,
+} from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, EyeOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Resizable } from 'react-resizable';
@@ -22,12 +35,7 @@ const ResizableTitle = (props) => {
     <Resizable
       width={width}
       height={0}
-      handle={
-        <span
-          className="react-resizable-handle"
-          onClick={(e) => e.stopPropagation()}
-        />
-      }
+      handle={<span className="react-resizable-handle" onClick={(e) => e.stopPropagation()} />}
       onResize={onResize}
       draggableOpts={{ enableUserSelectHack: false }}
     >
@@ -68,12 +76,14 @@ const FundsPage = () => {
   });
 
   // 处理列宽调整
-  const handleResize = (key) => (e, { size }) => {
-    setColumnWidths((prev) => ({
-      ...prev,
-      [key]: size.width,
-    }));
-  };
+  const handleResize =
+    (key) =>
+    (e, { size }) => {
+      setColumnWidths((prev) => ({
+        ...prev,
+        [key]: size.width,
+      }));
+    };
 
   // 加载基金列表
   const loadFunds = async (searchValue = search, pageNum = page) => {
@@ -114,7 +124,7 @@ const FundsPage = () => {
       setLastUpdateTime(new Date());
 
       // 更新基金列表中的净值
-      const updatedFunds = fundList.map(fund => {
+      const updatedFunds = fundList.map((fund) => {
         const navData = navsResponse.data[fund.fund_code];
         if (navData && !navData.error) {
           return {
@@ -296,7 +306,8 @@ const FundsPage = () => {
 
         return (
           <Text strong style={{ color, fontSize: '13px' }}>
-            {prefix}{growth.toFixed(2)}%
+            {prefix}
+            {growth.toFixed(2)}%
           </Text>
         );
       },
@@ -367,10 +378,14 @@ const FundsPage = () => {
           <List
             dataSource={funds}
             loading={loading || estimateLoading}
-            locale={{ emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始' }}
+            locale={{
+              emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始',
+            }}
             renderItem={(fund) => {
               const estimate = estimates[fund.fund_code];
-              const growth = estimate?.estimate_growth ? parseFloat(estimate.estimate_growth) : null;
+              const growth = estimate?.estimate_growth
+                ? parseFloat(estimate.estimate_growth)
+                : null;
               const color = growth !== null ? (growth >= 0 ? '#cf1322' : '#3f8600') : '#999';
               const prefix = growth !== null && growth >= 0 ? '+' : '';
 
@@ -381,12 +396,28 @@ const FundsPage = () => {
                   style={{ marginBottom: 8 }}
                   data-testid="fund-card"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 500, marginBottom: 4 }}>{fund.fund_name}</div>
-                      <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>{fund.fund_code}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span>最新净值: {fund.latest_nav ? Number(fund.latest_nav).toFixed(4) : '-'}</span>
+                      <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+                        {fund.fund_code}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span>
+                          最新净值: {fund.latest_nav ? Number(fund.latest_nav).toFixed(4) : '-'}
+                        </span>
                         <Text strong style={{ color, fontSize: '13px' }}>
                           {growth !== null ? `${prefix}${growth.toFixed(2)}%` : '-'}
                         </Text>
@@ -432,7 +463,9 @@ const FundsPage = () => {
           dataSource={funds}
           rowKey="fund_code"
           loading={loading || estimateLoading}
-          locale={{ emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始' }}
+          locale={{
+            emptyText: search ? '未找到匹配的基金，试试其他关键词' : '搜索基金名称或代码开始',
+          }}
           scroll={{ x: 'max-content' }}
           components={{
             header: {
@@ -461,13 +494,15 @@ const FundsPage = () => {
         cancelText="取消"
         width={isMobile ? '95vw' : 520}
       >
-        <p>基金：{selectedFund?.fund_code} - {selectedFund?.fund_name}</p>
+        <p>
+          基金：{selectedFund?.fund_code} - {selectedFund?.fund_name}
+        </p>
         <Select
           style={{ width: '100%' }}
           placeholder="选择自选列表"
           value={selectedWatchlistId}
           onChange={setSelectedWatchlistId}
-          options={watchlists.map(w => ({
+          options={watchlists.map((w) => ({
             label: w.name,
             value: w.id,
           }))}

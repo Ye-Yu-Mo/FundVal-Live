@@ -8,29 +8,75 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0005_account_constraints'),
+        ("api", "0005_account_constraints"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='FundNavHistory',
+            name="FundNavHistory",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('nav_date', models.DateField(help_text='净值日期')),
-                ('unit_nav', models.DecimalField(decimal_places=4, help_text='单位净值', max_digits=10)),
-                ('accumulated_nav', models.DecimalField(blank=True, decimal_places=4, help_text='累计净值', max_digits=10, null=True)),
-                ('daily_growth', models.DecimalField(blank=True, decimal_places=4, help_text='日增长率（%）', max_digits=10, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='nav_history', to='api.fund')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("nav_date", models.DateField(help_text="净值日期")),
+                (
+                    "unit_nav",
+                    models.DecimalField(
+                        decimal_places=4, help_text="单位净值", max_digits=10
+                    ),
+                ),
+                (
+                    "accumulated_nav",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=4,
+                        help_text="累计净值",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                (
+                    "daily_growth",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=4,
+                        help_text="日增长率（%）",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="nav_history",
+                        to="api.fund",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '基金历史净值',
-                'verbose_name_plural': '基金历史净值',
-                'db_table': 'fund_nav_history',
-                'ordering': ['-nav_date'],
-                'indexes': [models.Index(fields=['fund', '-nav_date'], name='fund_nav_hi_fund_id_4957e8_idx'), models.Index(fields=['nav_date'], name='fund_nav_hi_nav_dat_a0d051_idx')],
-                'unique_together': {('fund', 'nav_date')},
+                "verbose_name": "基金历史净值",
+                "verbose_name_plural": "基金历史净值",
+                "db_table": "fund_nav_history",
+                "ordering": ["-nav_date"],
+                "indexes": [
+                    models.Index(
+                        fields=["fund", "-nav_date"],
+                        name="fund_nav_hi_fund_id_4957e8_idx",
+                    ),
+                    models.Index(
+                        fields=["nav_date"], name="fund_nav_hi_nav_dat_a0d051_idx"
+                    ),
+                ],
+                "unique_together": {("fund", "nav_date")},
             },
         ),
     ]

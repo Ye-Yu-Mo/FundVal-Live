@@ -3,7 +3,16 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import AccountsPage from '../pages/AccountsPage';
 
-vi.mock('../contexts/PreferenceContext', () => ({ usePreference: () => ({ preferredSource: 'eastmoney', updatePreference: vi.fn(), themeMode: 'light', updateThemeMode: vi.fn(), loading: false }), PreferenceProvider: ({ children }) => children }));
+vi.mock('../contexts/PreferenceContext', () => ({
+  usePreference: () => ({
+    preferredSource: 'eastmoney',
+    updatePreference: vi.fn(),
+    themeMode: 'light',
+    updateThemeMode: vi.fn(),
+    loading: false,
+  }),
+  PreferenceProvider: ({ children }) => children,
+}));
 vi.mock('../api', () => ({
   accountsAPI: {
     list: vi.fn(),
@@ -66,14 +75,22 @@ describe('AccountsPage 桌面端', () => {
   });
 
   it('不渲染父账户卡片', async () => {
-    render(<BrowserRouter><AccountsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.queryAllByTestId('parent-account-card')).toHaveLength(0);
     });
   });
 
   it('不渲染子账户卡片', async () => {
-    render(<BrowserRouter><AccountsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.queryAllByTestId('child-account-card')).toHaveLength(0);
     });
@@ -87,23 +104,37 @@ describe('AccountsPage 移动端', () => {
   });
 
   it('显示父账户卡片', async () => {
-    render(<BrowserRouter><AccountsPage /></BrowserRouter>);
-    await waitFor(() => {
-      // 默认显示全部账户汇总，父账户卡片应在 all-accounts-summary 视图中
-      expect(screen.getAllByTestId('parent-account-card').length).toBeGreaterThan(0);
-    }, { timeout: 3000 });
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>
+    );
+    await waitFor(
+      () => {
+        // 默认显示全部账户汇总，父账户卡片应在 all-accounts-summary 视图中
+        expect(screen.getAllByTestId('parent-account-card').length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 }
+    );
   });
 
   it('显示子账户卡片', async () => {
-    render(<BrowserRouter><AccountsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>
+    );
     // 默认全部账户汇总视图，需切换到单账户视图看子账户
     await waitFor(() => {
       expect(screen.getByTestId('all-accounts-summary-button')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
-    await waitFor(() => {
-      expect(screen.getAllByTestId('child-account-card').length).toBeGreaterThan(0);
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('child-account-card').length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 }
+    );
   });
 });
 
@@ -114,7 +145,11 @@ describe('AccountsPage 通用行为', () => {
   });
 
   it('渲染页面标题', async () => {
-    render(<BrowserRouter><AccountsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('账户管理')).toBeInTheDocument();
     });

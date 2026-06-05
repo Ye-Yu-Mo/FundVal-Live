@@ -6,23 +6,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0002_estimateaccuracy'),
+        ("api", "0002_estimateaccuracy"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='fund',
-            name='estimate_growth',
-            field=models.DecimalField(blank=True, decimal_places=4, help_text='估值涨跌幅（%）', max_digits=10, null=True),
+            model_name="fund",
+            name="estimate_growth",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=4,
+                help_text="估值涨跌幅（%）",
+                max_digits=10,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='fund',
-            name='estimate_nav',
-            field=models.DecimalField(blank=True, decimal_places=4, help_text='实时估值净值', max_digits=10, null=True),
+            model_name="fund",
+            name="estimate_nav",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=4,
+                help_text="实时估值净值",
+                max_digits=10,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='fund',
-            name='estimate_time',
-            field=models.DateTimeField(blank=True, help_text='估值更新时间', null=True),
+            model_name="fund",
+            name="estimate_time",
+            field=models.DateTimeField(blank=True, help_text="估值更新时间", null=True),
         ),
     ]

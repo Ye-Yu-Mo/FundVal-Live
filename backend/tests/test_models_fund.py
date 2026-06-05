@@ -6,6 +6,7 @@
 2. fund_code 唯一性
 3. 净值更新
 """
+
 import pytest
 from decimal import Decimal
 from datetime import date
@@ -24,14 +25,14 @@ class TestFundModel:
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
-            fund_type='混合型',
+            fund_code="000001",
+            fund_name="华夏成长混合",
+            fund_type="混合型",
         )
 
-        assert fund.fund_code == '000001'
-        assert fund.fund_name == '华夏成长混合'
-        assert fund.fund_type == '混合型'
+        assert fund.fund_code == "000001"
+        assert fund.fund_name == "华夏成长混合"
+        assert fund.fund_type == "混合型"
         assert fund.latest_nav is None
         assert fund.latest_nav_date is None
 
@@ -40,15 +41,15 @@ class TestFundModel:
         from api.models import Fund
 
         Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
         # 重复的 fund_code 应该报错
         with pytest.raises(IntegrityError):
             Fund.objects.create(
-                fund_code='000001',
-                fund_name='重复基金',
+                fund_code="000001",
+                fund_name="重复基金",
             )
 
     def test_update_nav(self):
@@ -56,18 +57,18 @@ class TestFundModel:
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
         # 更新净值
-        fund.latest_nav = Decimal('1.5000')
+        fund.latest_nav = Decimal("1.5000")
         fund.latest_nav_date = date(2024, 2, 11)
         fund.save()
 
         # 重新查询验证
         fund.refresh_from_db()
-        assert fund.latest_nav == Decimal('1.5000')
+        assert fund.latest_nav == Decimal("1.5000")
         assert fund.latest_nav_date == date(2024, 2, 11)
 
     def test_fund_str_representation(self):
@@ -75,9 +76,9 @@ class TestFundModel:
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
         # 应该返回有意义的字符串
-        assert '000001' in str(fund) or '华夏成长混合' in str(fund)
+        assert "000001" in str(fund) or "华夏成长混合" in str(fund)

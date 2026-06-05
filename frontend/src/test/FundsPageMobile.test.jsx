@@ -35,21 +35,31 @@ vi.mock('antd', async () => {
 });
 
 const mockFunds = [
-  { fund_code: '000001', fund_name: '华夏成长混合', latest_nav: '1.2345', latest_nav_date: '2026-03-22' },
-  { fund_code: '110011', fund_name: '易方达中小盘混合', latest_nav: '2.3456', latest_nav_date: '2026-03-22' },
+  {
+    fund_code: '000001',
+    fund_name: '华夏成长混合',
+    latest_nav: '1.2345',
+    latest_nav_date: '2026-03-22',
+  },
+  {
+    fund_code: '110011',
+    fund_name: '易方达中小盘混合',
+    latest_nav: '2.3456',
+    latest_nav_date: '2026-03-22',
+  },
 ];
 
 const mockEstimates = {
   data: {
     '000001': { estimate_nav: '1.2400', estimate_growth: '0.45' },
-    '110011': { estimate_nav: '2.3500', estimate_growth: '-0.23' },
+    110011: { estimate_nav: '2.3500', estimate_growth: '-0.23' },
   },
 };
 
 const mockNavs = {
   data: {
     '000001': { latest_nav: '1.2345', latest_nav_date: '2026-03-22' },
-    '110011': { latest_nav: '2.3456', latest_nav_date: '2026-03-22' },
+    110011: { latest_nav: '2.3456', latest_nav_date: '2026-03-22' },
   },
 };
 
@@ -63,7 +73,11 @@ describe('FundsPage 桌面端', () => {
   });
 
   it('数据加载后不渲染卡片', async () => {
-    render(<BrowserRouter><FundsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <FundsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
     });
@@ -71,7 +85,11 @@ describe('FundsPage 桌面端', () => {
   });
 
   it('渲染两只基金', async () => {
-    render(<BrowserRouter><FundsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <FundsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
       expect(screen.getByText('易方达中小盘混合')).toBeInTheDocument();
@@ -89,14 +107,22 @@ describe('FundsPage 移动端', () => {
   });
 
   it('显示基金卡片', async () => {
-    render(<BrowserRouter><FundsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <FundsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getAllByTestId('fund-card').length).toBeGreaterThan(0);
     });
   });
 
   it('不显示表格', async () => {
-    render(<BrowserRouter><FundsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <FundsPage />
+      </BrowserRouter>
+    );
     await waitFor(() => {
       expect(screen.getByText('华夏成长混合')).toBeInTheDocument();
     });
@@ -114,7 +140,11 @@ describe('FundsPage 通用行为', () => {
   });
 
   it('渲染搜索框', async () => {
-    render(<BrowserRouter><FundsPage /></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <FundsPage />
+      </BrowserRouter>
+    );
     expect(screen.getByPlaceholderText('搜索基金名称或代码')).toBeInTheDocument();
   });
 });

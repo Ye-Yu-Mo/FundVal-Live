@@ -16,110 +16,253 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Fund',
+            name="Fund",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('fund_code', models.CharField(db_index=True, max_length=10, unique=True)),
-                ('fund_name', models.CharField(max_length=100)),
-                ('fund_type', models.CharField(blank=True, max_length=50, null=True)),
-                ('yesterday_nav', models.DecimalField(blank=True, decimal_places=4, max_digits=10, null=True)),
-                ('yesterday_date', models.DateField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "fund_code",
+                    models.CharField(db_index=True, max_length=10, unique=True),
+                ),
+                ("fund_name", models.CharField(max_length=100)),
+                ("fund_type", models.CharField(blank=True, max_length=50, null=True)),
+                (
+                    "yesterday_nav",
+                    models.DecimalField(
+                        blank=True, decimal_places=4, max_digits=10, null=True
+                    ),
+                ),
+                ("yesterday_date", models.DateField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': '基金',
-                'verbose_name_plural': '基金',
-                'db_table': 'fund',
+                "verbose_name": "基金",
+                "verbose_name_plural": "基金",
+                "db_table": "fund",
             },
         ),
         migrations.CreateModel(
-            name='Account',
+            name="Account",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=100)),
-                ('is_default', models.BooleanField(default=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='children', to='api.account')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='accounts', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("is_default", models.BooleanField(default=False)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "parent",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="children",
+                        to="api.account",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="accounts",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '账户',
-                'verbose_name_plural': '账户',
-                'db_table': 'account',
-                'unique_together': {('user', 'name')},
+                "verbose_name": "账户",
+                "verbose_name_plural": "账户",
+                "db_table": "account",
+                "unique_together": {("user", "name")},
             },
         ),
         migrations.CreateModel(
-            name='PositionOperation',
+            name="PositionOperation",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('operation_type', models.CharField(choices=[('BUY', '建仓/加仓'), ('SELL', '减仓')], max_length=10)),
-                ('operation_date', models.DateField()),
-                ('before_15', models.BooleanField(default=True, help_text='是否 15:00 前操作')),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=20)),
-                ('share', models.DecimalField(decimal_places=4, max_digits=20)),
-                ('nav', models.DecimalField(decimal_places=4, help_text='操作时的净值', max_digits=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('account', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='operations', to='api.account')),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='operations', to='api.fund')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "operation_type",
+                    models.CharField(
+                        choices=[("BUY", "建仓/加仓"), ("SELL", "减仓")], max_length=10
+                    ),
+                ),
+                ("operation_date", models.DateField()),
+                (
+                    "before_15",
+                    models.BooleanField(default=True, help_text="是否 15:00 前操作"),
+                ),
+                ("amount", models.DecimalField(decimal_places=2, max_digits=20)),
+                ("share", models.DecimalField(decimal_places=4, max_digits=20)),
+                (
+                    "nav",
+                    models.DecimalField(
+                        decimal_places=4, help_text="操作时的净值", max_digits=10
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "account",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="operations",
+                        to="api.account",
+                    ),
+                ),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="operations",
+                        to="api.fund",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '持仓操作',
-                'verbose_name_plural': '持仓操作',
-                'db_table': 'position_operation',
-                'ordering': ['operation_date', 'created_at'],
+                "verbose_name": "持仓操作",
+                "verbose_name_plural": "持仓操作",
+                "db_table": "position_operation",
+                "ordering": ["operation_date", "created_at"],
             },
         ),
         migrations.CreateModel(
-            name='Watchlist',
+            name="Watchlist",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=100)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='watchlists', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="watchlists",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '自选列表',
-                'verbose_name_plural': '自选列表',
-                'db_table': 'watchlist',
-                'unique_together': {('user', 'name')},
+                "verbose_name": "自选列表",
+                "verbose_name_plural": "自选列表",
+                "db_table": "watchlist",
+                "unique_together": {("user", "name")},
             },
         ),
         migrations.CreateModel(
-            name='Position',
+            name="Position",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('holding_share', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('holding_cost', models.DecimalField(decimal_places=2, default=0, max_digits=20)),
-                ('holding_nav', models.DecimalField(decimal_places=4, default=0, max_digits=10)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('account', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='positions', to='api.account')),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='positions', to='api.fund')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "holding_share",
+                    models.DecimalField(decimal_places=4, default=0, max_digits=20),
+                ),
+                (
+                    "holding_cost",
+                    models.DecimalField(decimal_places=2, default=0, max_digits=20),
+                ),
+                (
+                    "holding_nav",
+                    models.DecimalField(decimal_places=4, default=0, max_digits=10),
+                ),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "account",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="positions",
+                        to="api.account",
+                    ),
+                ),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="positions",
+                        to="api.fund",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '持仓',
-                'verbose_name_plural': '持仓',
-                'db_table': 'position',
-                'unique_together': {('account', 'fund')},
+                "verbose_name": "持仓",
+                "verbose_name_plural": "持仓",
+                "db_table": "position",
+                "unique_together": {("account", "fund")},
             },
         ),
         migrations.CreateModel(
-            name='WatchlistItem',
+            name="WatchlistItem",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('order', models.IntegerField(default=0, help_text='排序')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='watchlist_items', to='api.fund')),
-                ('watchlist', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='api.watchlist')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("order", models.IntegerField(default=0, help_text="排序")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="watchlist_items",
+                        to="api.fund",
+                    ),
+                ),
+                (
+                    "watchlist",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="items",
+                        to="api.watchlist",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '自选项',
-                'verbose_name_plural': '自选项',
-                'db_table': 'watchlist_item',
-                'ordering': ['order'],
-                'unique_together': {('watchlist', 'fund')},
+                "verbose_name": "自选项",
+                "verbose_name_plural": "自选项",
+                "db_table": "watchlist_item",
+                "ordering": ["order"],
+                "unique_together": {("watchlist", "fund")},
             },
         ),
     ]

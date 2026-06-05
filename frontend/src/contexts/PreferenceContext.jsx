@@ -50,11 +50,15 @@ export const PreferenceProvider = ({ children }) => {
   };
 
   return (
-    <PreferenceContext.Provider value={{
-      preferredSource, updatePreference,
-      themeMode, updateThemeMode,
-      loading,
-    }}>
+    <PreferenceContext.Provider
+      value={{
+        preferredSource,
+        updatePreference,
+        themeMode,
+        updateThemeMode,
+        loading,
+      }}
+    >
       {children}
     </PreferenceContext.Provider>
   );

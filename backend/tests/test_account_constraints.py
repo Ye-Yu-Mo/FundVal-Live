@@ -7,6 +7,7 @@
 3. 父账户不能有持仓
 4. Position.account 必须是子账户
 """
+
 import pytest
 from decimal import Decimal
 from django.db import IntegrityError
@@ -22,7 +23,7 @@ class TestAccountDefaultConstraints:
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     def test_only_one_default_account_per_user(self, user):
         """测试每个用户只能有一个默认账户（自动切换）"""
@@ -31,7 +32,7 @@ class TestAccountDefaultConstraints:
         # 创建第一个默认账户
         account1 = Account.objects.create(
             user=user,
-            name='默认账户1',
+            name="默认账户1",
             is_default=True,
         )
         assert account1.is_default is True
@@ -39,7 +40,7 @@ class TestAccountDefaultConstraints:
         # 创建第二个默认账户（应该自动取消第一个）
         account2 = Account.objects.create(
             user=user,
-            name='默认账户2',
+            name="默认账户2",
             is_default=True,
         )
 
@@ -52,28 +53,25 @@ class TestAccountDefaultConstraints:
         assert account2.is_default is True
 
         # 验证只有一个默认账户
-        default_count = Account.objects.filter(
-            user=user,
-            is_default=True
-        ).count()
+        default_count = Account.objects.filter(user=user, is_default=True).count()
         assert default_count == 1
 
     def test_different_users_can_have_default_accounts(self):
         """测试不同用户可以各自有默认账户"""
         from api.models import Account
 
-        user1 = User.objects.create_user(username='user1', password='pass1')
-        user2 = User.objects.create_user(username='user2', password='pass2')
+        user1 = User.objects.create_user(username="user1", password="pass1")
+        user2 = User.objects.create_user(username="user2", password="pass2")
 
         account1 = Account.objects.create(
             user=user1,
-            name='用户1默认账户',
+            name="用户1默认账户",
             is_default=True,
         )
 
         account2 = Account.objects.create(
             user=user2,
-            name='用户2默认账户',
+            name="用户2默认账户",
             is_default=True,
         )
 
@@ -87,13 +85,13 @@ class TestAccountDefaultConstraints:
         # 创建父账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 创建子账户
         child = Account.objects.create(
             user=user,
-            name='子账户',
+            name="子账户",
             parent=parent,
         )
 
@@ -108,7 +106,7 @@ class TestAccountDefaultConstraints:
 
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
             is_default=True,
         )
 
@@ -122,14 +120,14 @@ class TestAccountDefaultConstraints:
         # 创建第一个默认账户
         account1 = Account.objects.create(
             user=user,
-            name='账户1',
+            name="账户1",
             is_default=True,
         )
 
         # 创建第二个账户
         account2 = Account.objects.create(
             user=user,
-            name='账户2',
+            name="账户2",
             is_default=False,
         )
 
@@ -150,15 +148,16 @@ class TestParentAccountPositionConstraints:
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     @pytest.fixture
     def fund(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000001',
-            fund_name='测试基金',
-            latest_nav=Decimal('1.5000'),
+            fund_code="000001",
+            fund_name="测试基金",
+            latest_nav=Decimal("1.5000"),
         )
 
     def test_parent_account_cannot_have_position(self, user, fund):
@@ -168,14 +167,14 @@ class TestParentAccountPositionConstraints:
         # 创建父账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 尝试为父账户创建持仓应该失败
         position = Position(
             account=parent,
             fund=fund,
-            holding_share=Decimal('100'),
+            holding_share=Decimal("100"),
         )
 
         with pytest.raises(ValidationError):
@@ -188,13 +187,13 @@ class TestParentAccountPositionConstraints:
         # 创建父账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 创建子账户
         child = Account.objects.create(
             user=user,
-            name='子账户',
+            name="子账户",
             parent=parent,
         )
 
@@ -202,7 +201,7 @@ class TestParentAccountPositionConstraints:
         position = Position.objects.create(
             account=child,
             fund=fund,
-            holding_share=Decimal('100'),
+            holding_share=Decimal("100"),
         )
 
         assert position.account == child
@@ -215,7 +214,7 @@ class TestParentAccountPositionConstraints:
         # 创建父账户（没有 parent）
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 尝试为父账户创建持仓
@@ -223,7 +222,7 @@ class TestParentAccountPositionConstraints:
             position = Position(
                 account=parent,
                 fund=fund,
-                holding_share=Decimal('100'),
+                holding_share=Decimal("100"),
             )
             position.full_clean()
 
@@ -235,18 +234,18 @@ class TestParentAccountPositionConstraints:
         # 创建父账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 尝试为父账户创建操作流水应该失败
         operation = PositionOperation(
             account=parent,
             fund=fund,
-            operation_type='BUY',
+            operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal('1000'),
-            share=Decimal('100'),
-            nav=Decimal('10'),
+            amount=Decimal("1000"),
+            share=Decimal("100"),
+            nav=Decimal("10"),
         )
 
         with pytest.raises(ValidationError):
@@ -260,12 +259,12 @@ class TestParentAccountPositionConstraints:
         # 创建父账户和子账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         child = Account.objects.create(
             user=user,
-            name='子账户',
+            name="子账户",
             parent=parent,
         )
 
@@ -273,11 +272,11 @@ class TestParentAccountPositionConstraints:
         operation = PositionOperation.objects.create(
             account=child,
             fund=fund,
-            operation_type='BUY',
+            operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal('1000'),
-            share=Decimal('100'),
-            nav=Decimal('10'),
+            amount=Decimal("1000"),
+            share=Decimal("100"),
+            nav=Decimal("10"),
         )
 
         assert operation.account == child
@@ -289,7 +288,7 @@ class TestAccountHierarchyConstraints:
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     def test_max_two_levels(self, user):
         """测试最多两层：父账户 -> 子账户"""
@@ -298,13 +297,13 @@ class TestAccountHierarchyConstraints:
         # 创建父账户
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         # 创建子账户
         child = Account.objects.create(
             user=user,
-            name='子账户',
+            name="子账户",
             parent=parent,
         )
 
@@ -312,7 +311,7 @@ class TestAccountHierarchyConstraints:
         with pytest.raises(ValidationError):
             grandchild = Account(
                 user=user,
-                name='孙账户',
+                name="孙账户",
                 parent=child,
             )
             grandchild.full_clean()
@@ -323,12 +322,12 @@ class TestAccountHierarchyConstraints:
 
         parent = Account.objects.create(
             user=user,
-            name='父账户',
+            name="父账户",
         )
 
         child = Account.objects.create(
             user=user,
-            name='子账户',
+            name="子账户",
             parent=parent,
         )
 
@@ -336,7 +335,7 @@ class TestAccountHierarchyConstraints:
         with pytest.raises(ValidationError):
             another_child = Account(
                 user=user,
-                name='另一个子账户',
+                name="另一个子账户",
                 parent=child,
             )
             another_child.full_clean()

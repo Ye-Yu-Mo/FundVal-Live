@@ -7,6 +7,7 @@
 3. 排序
 4. 唯一性约束
 """
+
 import pytest
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
@@ -20,22 +21,24 @@ class TestWatchlistModel:
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     @pytest.fixture
     def fund1(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
     @pytest.fixture
     def fund2(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000002',
-            fund_name='华夏大盘精选',
+            fund_code="000002",
+            fund_name="华夏大盘精选",
         )
 
     def test_create_watchlist(self, user):
@@ -44,31 +47,31 @@ class TestWatchlistModel:
 
         watchlist = Watchlist.objects.create(
             user=user,
-            name='我的自选',
+            name="我的自选",
         )
 
         assert watchlist.user == user
-        assert watchlist.name == '我的自选'
+        assert watchlist.name == "我的自选"
 
     def test_watchlist_name_unique_per_user(self, user):
         """测试同一用户下自选列表名唯一"""
         from api.models import Watchlist
 
-        Watchlist.objects.create(user=user, name='我的自选')
+        Watchlist.objects.create(user=user, name="我的自选")
 
         # 重复名称应该报错
         with pytest.raises(IntegrityError):
-            Watchlist.objects.create(user=user, name='我的自选')
+            Watchlist.objects.create(user=user, name="我的自选")
 
     def test_different_users_can_have_same_watchlist_name(self):
         """测试不同用户可以有相同自选列表名"""
         from api.models import Watchlist
 
-        user1 = User.objects.create_user(username='user1', password='pass1')
-        user2 = User.objects.create_user(username='user2', password='pass2')
+        user1 = User.objects.create_user(username="user1", password="pass1")
+        user2 = User.objects.create_user(username="user2", password="pass2")
 
-        wl1 = Watchlist.objects.create(user=user1, name='我的自选')
-        wl2 = Watchlist.objects.create(user=user2, name='我的自选')
+        wl1 = Watchlist.objects.create(user=user1, name="我的自选")
+        wl2 = Watchlist.objects.create(user=user2, name="我的自选")
 
         assert wl1.name == wl2.name
         assert wl1.user != wl2.user
@@ -80,27 +83,30 @@ class TestWatchlistItemModel:
 
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username='testuser', password='pass')
+        return User.objects.create_user(username="testuser", password="pass")
 
     @pytest.fixture
     def watchlist(self, user):
         from api.models import Watchlist
-        return Watchlist.objects.create(user=user, name='我的自选')
+
+        return Watchlist.objects.create(user=user, name="我的自选")
 
     @pytest.fixture
     def fund1(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000001',
-            fund_name='华夏成长混合',
+            fund_code="000001",
+            fund_name="华夏成长混合",
         )
 
     @pytest.fixture
     def fund2(self):
         from api.models import Fund
+
         return Fund.objects.create(
-            fund_code='000002',
-            fund_name='华夏大盘精选',
+            fund_code="000002",
+            fund_name="华夏大盘精选",
         )
 
     def test_add_fund_to_watchlist(self, watchlist, fund1):

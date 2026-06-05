@@ -32,11 +32,12 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
     setResult(null);
     setError(null);
     setTemplatesLoading(true);
-    aiAPI.listTemplates(contextType)
-      .then(res => {
+    aiAPI
+      .listTemplates(contextType)
+      .then((res) => {
         setTemplates(res.data);
         if (res.data.length > 0) {
-          const def = res.data.find(t => t.is_default) || res.data[0];
+          const def = res.data.find((t) => t.is_default) || res.data[0];
           setTemplateId(def.id);
         } else {
           setTemplateId(null);
@@ -92,7 +93,7 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
             loading={templatesLoading}
             value={templateId}
             onChange={setTemplateId}
-            options={templates.map(t => ({ label: t.name, value: t.id }))}
+            options={templates.map((t) => ({ label: t.name, value: t.id }))}
             disabled={noTemplates}
           />
           <Button
@@ -115,10 +116,15 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
             description={
               <span>
                 请先在{' '}
-                <Link onClick={() => { handleClose(); navigate('/dashboard/settings?tab=ai-templates'); }}>
+                <Link
+                  onClick={() => {
+                    handleClose();
+                    navigate('/dashboard/settings?tab=ai-templates');
+                  }}
+                >
                   设置 → 提示词模板
-                </Link>
-                {' '}中创建 {contextType === 'fund' ? '基金分析' : '持仓分析'} 类型的模板。
+                </Link>{' '}
+                中创建 {contextType === 'fund' ? '基金分析' : '持仓分析'} 类型的模板。
               </span>
             }
           />
@@ -136,30 +142,65 @@ const AIAnalysisModal = ({ open, onClose, contextType, contextData, title = 'AI 
 
         {/* 分析结果 */}
         {result && !loading && (
-          <div style={{
-            background: token.colorFillAlter,
-            border: '1px solid #e8e8e8',
-            borderRadius: 8,
-            padding: '16px 20px',
-            maxHeight: 480,
-            overflowY: 'auto',
-            lineHeight: 1.8,
-          }}>
+          <div
+            style={{
+              background: token.colorFillAlter,
+              border: '1px solid #e8e8e8',
+              borderRadius: 8,
+              padding: '16px 20px',
+              maxHeight: 480,
+              overflowY: 'auto',
+              lineHeight: 1.8,
+            }}
+          >
             <ReactMarkdown
               components={{
                 h1: ({ children }) => <h3 style={{ marginTop: 8 }}>{children}</h3>,
                 h2: ({ children }) => <h4 style={{ marginTop: 8 }}>{children}</h4>,
                 h3: ({ children }) => <h5 style={{ marginTop: 8 }}>{children}</h5>,
                 p: ({ children }) => <p style={{ marginBottom: 8 }}>{children}</p>,
-                ul: ({ children }) => <ul style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ul>,
-                ol: ({ children }) => <ol style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ol>,
+                ul: ({ children }) => (
+                  <ul style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ol>
+                ),
                 li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
                 strong: ({ children }) => <strong style={{ color: '#262626' }}>{children}</strong>,
-                code: ({ inline, children }) => inline
-                  ? <code style={{ background: token.colorFillSecondary, padding: '1px 4px', borderRadius: 3, fontSize: 13 }}>{children}</code>
-                  : <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflowX: 'auto', fontSize: 13 }}><code>{children}</code></pre>,
+                code: ({ inline, children }) =>
+                  inline ? (
+                    <code
+                      style={{
+                        background: token.colorFillSecondary,
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        fontSize: 13,
+                      }}
+                    >
+                      {children}
+                    </code>
+                  ) : (
+                    <pre
+                      style={{
+                        background: '#f5f5f5',
+                        padding: 12,
+                        borderRadius: 6,
+                        overflowX: 'auto',
+                        fontSize: 13,
+                      }}
+                    >
+                      <code>{children}</code>
+                    </pre>
+                  ),
                 blockquote: ({ children }) => (
-                  <blockquote style={{ borderLeft: '3px solid #d9d9d9', paddingLeft: 12, color: '#666', margin: '8px 0' }}>
+                  <blockquote
+                    style={{
+                      borderLeft: '3px solid #d9d9d9',
+                      paddingLeft: 12,
+                      color: '#666',
+                      margin: '8px 0',
+                    }}
+                  >
                     {children}
                   </blockquote>
                 ),

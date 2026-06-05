@@ -11,12 +11,24 @@ vi.mock('react-router-dom', async () => {
 
 describe('LoginPage', () => {
   it('渲染登录表单', () => {
-    render(<BrowserRouter><AuthProvider><LoginPage /></AuthProvider></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </BrowserRouter>
+    );
     expect(screen.getByText('登录')).toBeInTheDocument();
   });
 
   it('显示注册链接', () => {
-    render(<BrowserRouter><AuthProvider><LoginPage /></AuthProvider></BrowserRouter>);
+    render(
+      <BrowserRouter>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </BrowserRouter>
+    );
     expect(screen.getByText('立即注册')).toBeInTheDocument();
   });
 });

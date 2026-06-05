@@ -22,82 +22,86 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-change-in-production')
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-dev-only-change-in-production"
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config.get('debug', True)
+DEBUG = config.get("debug", True)
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'corsheaders',
-    'django_celery_results',
-    'django_celery_beat',
-    'api',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "corsheaders",
+    "django_celery_results",
+    "django_celery_beat",
+    "api",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'fundval.urls'
+ROOT_URLCONF = "fundval.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'fundval.wsgi.application'
+WSGI_APPLICATION = "fundval.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-db_type = config.get('db_type', 'sqlite')
-if db_type == 'postgresql':
-    db_config = config.get('db_config', {})
+db_type = config.get("db_type", "sqlite")
+if db_type == "postgresql":
+    db_config = config.get("db_config", {})
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', db_config.get('name', 'fundval')),
-            'USER': os.environ.get('POSTGRES_USER', db_config.get('user', 'fundval')),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', db_config.get('password', 'fundval')),
-            'HOST': os.environ.get('POSTGRES_HOST', db_config.get('host', 'localhost')),
-            'PORT': os.environ.get('POSTGRES_PORT', db_config.get('port', 5432)),
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", db_config.get("name", "fundval")),
+            "USER": os.environ.get("POSTGRES_USER", db_config.get("user", "fundval")),
+            "PASSWORD": os.environ.get(
+                "POSTGRES_PASSWORD", db_config.get("password", "fundval")
+            ),
+            "HOST": os.environ.get("POSTGRES_HOST", db_config.get("host", "localhost")),
+            "PORT": os.environ.get("POSTGRES_PORT", db_config.get("port", 5432)),
         }
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -107,16 +111,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -124,9 +128,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'zh-hans'
+LANGUAGE_CODE = "zh-hans"
 
-TIME_ZONE = 'Asia/Shanghai'
+TIME_ZONE = "Asia/Shanghai"
 
 USE_I18N = True
 
@@ -136,20 +140,24 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # 前端构建文件目录
-FRONTEND_BUILD_DIR = BASE_DIR.parent / 'frontend' / 'dist'
+FRONTEND_BUILD_DIR = BASE_DIR.parent / "frontend" / "dist"
 
-STATICFILES_DIRS = [
-    FRONTEND_BUILD_DIR,
-] if FRONTEND_BUILD_DIR.exists() else []
+STATICFILES_DIRS = (
+    [
+        FRONTEND_BUILD_DIR,
+    ]
+    if FRONTEND_BUILD_DIR.exists()
+    else []
+)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # CORS 配置
 CORS_ALLOW_ALL_ORIGINS = True  # 开发环境，生产环境需要配置白名单
@@ -157,72 +165,73 @@ CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework 配置
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
     ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
     ],
 }
 
 # JWT 配置
 from datetime import timedelta
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
 # Celery 配置
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_CACHE_BACKEND = 'django-cache'  # 使用 Django 缓存
-CELERY_TIMEZONE = 'Asia/Shanghai'  # 时区设置
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_CACHE_BACKEND = "django-cache"  # 使用 Django 缓存
+CELERY_TIMEZONE = "Asia/Shanghai"  # 时区设置
 CELERY_TASK_TRACK_STARTED = True  # 跟踪任务开始状态
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 任务超时时间：30 分钟
-CELERY_ACCEPT_CONTENT = ['json']  # 接受的内容类型
-CELERY_TASK_SERIALIZER = 'json'  # 任务序列化格式
-CELERY_RESULT_SERIALIZER = 'json'  # 结果序列化格式
+CELERY_ACCEPT_CONTENT = ["json"]  # 接受的内容类型
+CELERY_TASK_SERIALIZER = "json"  # 任务序列化格式
+CELERY_RESULT_SERIALIZER = "json"  # 结果序列化格式
 
 from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
-    'capture-estimate-snapshot': {
-        'task': 'api.tasks.capture_estimate_snapshot',
-        'schedule': crontab(minute=5, hour=15),  # 每天 15:05，任务内判断交易日
+    "capture-estimate-snapshot": {
+        "task": "api.tasks.capture_estimate_snapshot",
+        "schedule": crontab(minute=5, hour=15),  # 每天 15:05，任务内判断交易日
     },
-    'audit-accuracy-task': {
-        'task': 'api.tasks.audit_accuracy',
-        'schedule': crontab(minute=0, hour=23),  # 每天 23:00，任务内判断交易日
+    "audit-accuracy-task": {
+        "task": "api.tasks.audit_accuracy",
+        "schedule": crontab(minute=0, hour=23),  # 每天 23:00，任务内判断交易日
     },
-    'update-fund-nav-task': {
-        'task': 'api.tasks.update_fund_nav',
-        'schedule': crontab(minute=30, hour=22),  # 每天 22:30
+    "update-fund-nav-task": {
+        "task": "api.tasks.update_fund_nav",
+        "schedule": crontab(minute=30, hour=22),  # 每天 22:30
     },
-    'update-fund-today-nav-task': {
-        'task': 'api.tasks.update_fund_today_nav',
-        'schedule': crontab(minute=30, hour='21,23'),  # 21:30 和 23:00
+    "update-fund-today-nav-task": {
+        "task": "api.tasks.update_fund_today_nav",
+        "schedule": crontab(minute=30, hour="21,23"),  # 21:30 和 23:00
     },
-    'check-notification-rules': {
-        'task': 'api.tasks.check_notification_rules',
-        'schedule': crontab(minute='*/5'),  # 每 5 分钟
+    "check-notification-rules": {
+        "task": "api.tasks.check_notification_rules",
+        "schedule": crontab(minute="*/5"),  # 每 5 分钟
     },
-    'capture-intraday-snapshots': {
-        'task': 'api.tasks.capture_intraday_snapshots',
-        'schedule': crontab(minute='*/5', hour='9-14'),  # 交易时段每5分钟
+    "capture-intraday-snapshots": {
+        "task": "api.tasks.capture_intraday_snapshots",
+        "schedule": crontab(minute="*/5", hour="9-14"),  # 交易时段每5分钟
     },
-    'capture-intraday-close': {
-        'task': 'api.tasks.capture_intraday_snapshots',
-        'schedule': crontab(minute=5, hour=15),  # 15:05 收盘最后一抓
+    "capture-intraday-close": {
+        "task": "api.tasks.capture_intraday_snapshots",
+        "schedule": crontab(minute=5, hour=15),  # 15:05 收盘最后一抓
     },
-    'generate-weekly-report': {
-        'task': 'api.tasks.generate_investment_reports',
-        'schedule': crontab(minute=0, hour=9, day_of_week=1),  # 每周一 9:00
+    "generate-weekly-report": {
+        "task": "api.tasks.generate_investment_reports",
+        "schedule": crontab(minute=0, hour=9, day_of_week=1),  # 每周一 9:00
     },
-    'generate-monthly-report': {
-        'task': 'api.tasks.generate_investment_reports',
-        'schedule': crontab(minute=0, hour=9, day_of_month=1),  # 每月 1 日 9:00
+    "generate-monthly-report": {
+        "task": "api.tasks.generate_investment_reports",
+        "schedule": crontab(minute=0, hour=9, day_of_month=1),  # 每月 1 日 9:00
     },
 }
-

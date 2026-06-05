@@ -1,14 +1,53 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, Form, Input, Button, message, Space, Divider, Tag, Image, Spin, Modal, Select, Table, Popconfirm, Typography, Alert, Switch, InputNumber, List, Grid, Checkbox } from 'antd';
+import {
+  Card,
+  Form,
+  Input,
+  Button,
+  message,
+  Space,
+  Divider,
+  Tag,
+  Image,
+  Spin,
+  Modal,
+  Select,
+  Table,
+  Popconfirm,
+  Typography,
+  Alert,
+  Switch,
+  InputNumber,
+  List,
+  Grid,
+  Checkbox,
+} from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  SaveOutlined, ReloadOutlined, CloudServerOutlined,
-  QrcodeOutlined, CheckCircleOutlined, CloseCircleOutlined, LogoutOutlined, ImportOutlined,
-  PlusOutlined, EditOutlined, DeleteOutlined, BellOutlined, SendOutlined,
+  SaveOutlined,
+  ReloadOutlined,
+  CloudServerOutlined,
+  QrcodeOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  LogoutOutlined,
+  ImportOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  BellOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
-import { sourceAPI, aiAPI, fundsAPI, notificationChannelsAPI, notificationRulesAPI, preferencesAPI } from '../api';
+import {
+  sourceAPI,
+  aiAPI,
+  fundsAPI,
+  notificationChannelsAPI,
+  notificationRulesAPI,
+  preferencesAPI,
+} from '../api';
 import { usePreference } from '../contexts/PreferenceContext';
 
 const { TextArea } = Input;
@@ -67,11 +106,7 @@ const DataSourceCard = () => {
   return (
     <Card title="数据源设置">
       <Form form={form} layout="vertical" style={{ maxWidth: isMobile ? '100%' : 600 }}>
-        <Form.Item
-          label="默认数据源"
-          name="preferred_source"
-          help="选择基金估值和净值的默认数据源"
-        >
+        <Form.Item label="默认数据源" name="preferred_source" help="选择基金估值和净值的默认数据源">
           <Select>
             <Select.Option value="eastmoney">东方财富</Select.Option>
             <Select.Option value="yangjibao">养基宝</Select.Option>
@@ -85,12 +120,7 @@ const DataSourceCard = () => {
           style={{ marginBottom: 16 }}
         />
         <Form.Item>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSave}
-            loading={loading}
-          >
+          <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={loading}>
             保存设置
           </Button>
         </Form.Item>
@@ -99,19 +129,21 @@ const DataSourceCard = () => {
   );
 };
 
-
 const AIConfigCard = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    aiAPI.getConfig().then(res => {
-      form.setFieldsValue({
-        api_endpoint: res.data.api_endpoint || '',
-        api_key: '',
-        model_name: res.data.model_name || 'gpt-4o-mini',
-      });
-    }).catch(() => {});
+    aiAPI
+      .getConfig()
+      .then((res) => {
+        form.setFieldsValue({
+          api_endpoint: res.data.api_endpoint || '',
+          api_key: '',
+          model_name: res.data.model_name || 'gpt-4o-mini',
+        });
+      })
+      .catch(() => {});
   }, [form]);
 
   const handleSave = async (values) => {
@@ -133,17 +165,32 @@ const AIConfigCard = () => {
   return (
     <Card title="AI 配置">
       <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 600 }}>
-        <Form.Item label="API Endpoint" name="api_endpoint" rules={[{ required: true, message: '请输入接口地址' }]}>
+        <Form.Item
+          label="API Endpoint"
+          name="api_endpoint"
+          rules={[{ required: true, message: '请输入接口地址' }]}
+        >
           <Input placeholder="https://api.openai.com/v1" />
         </Form.Item>
-        <Form.Item label="API Key" name="api_key" rules={[{ required: true, message: '请输入 API Key' }]} extra="每次保存需重新输入 Key，读取时不显示原始值">
+        <Form.Item
+          label="API Key"
+          name="api_key"
+          rules={[{ required: true, message: '请输入 API Key' }]}
+          extra="每次保存需重新输入 Key，读取时不显示原始值"
+        >
           <Input.Password placeholder="sk-..." />
         </Form.Item>
-        <Form.Item label="模型名称" name="model_name" rules={[{ required: true, message: '请输入模型名称' }]}>
+        <Form.Item
+          label="模型名称"
+          name="model_name"
+          rules={[{ required: true, message: '请输入模型名称' }]}
+        >
           <Input placeholder="gpt-4o-mini" />
         </Form.Item>
         <Form.Item>
-          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>保存配置</Button>
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>
+            保存配置
+          </Button>
         </Form.Item>
       </Form>
     </Card>
@@ -172,7 +219,9 @@ const AITemplatesCard = () => {
     }
   };
 
-  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   const openCreate = () => {
     setEditingTemplate(null);
@@ -222,17 +271,34 @@ const AITemplatesCard = () => {
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     {
-      title: '类型', dataIndex: 'context_type', key: 'context_type',
-      render: v => v === 'fund' ? <Tag color="blue">基金</Tag> : <Tag color="green">持仓</Tag>,
+      title: '类型',
+      dataIndex: 'context_type',
+      key: 'context_type',
+      render: (v) => (v === 'fund' ? <Tag color="blue">基金</Tag> : <Tag color="green">持仓</Tag>),
     },
-    { title: '默认', dataIndex: 'is_default', key: 'is_default', render: v => v ? <Tag color="gold">默认</Tag> : '-' },
     {
-      title: '操作', key: 'action',
+      title: '默认',
+      dataIndex: 'is_default',
+      key: 'is_default',
+      render: (v) => (v ? <Tag color="gold">默认</Tag> : '-'),
+    },
+    {
+      title: '操作',
+      key: 'action',
       render: (_, record) => (
         <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-          <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)} okText="删除" cancelText="取消">
-            <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+          <Popconfirm
+            title="确认删除？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="删除"
+            cancelText="取消"
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -242,7 +308,11 @@ const AITemplatesCard = () => {
   return (
     <Card
       title="提示词模板"
-      extra={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建模板</Button>}
+      extra={
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+          新建模板
+        </Button>
+      }
     >
       <Table
         dataSource={templates}
@@ -263,39 +333,59 @@ const AITemplatesCard = () => {
         cancelText="取消"
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="模板名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+          <Form.Item
+            label="模板名称"
+            name="name"
+            rules={[{ required: true, message: '请输入名称' }]}
+          >
             <Input placeholder="例如：基金趋势分析" />
           </Form.Item>
           <Form.Item label="分析维度" name="context_type" rules={[{ required: true }]}>
-            <Select onChange={setContextType} options={[
-              { label: '基金分析', value: 'fund' },
-              { label: '持仓分析', value: 'position' },
-            ]} />
+            <Select
+              onChange={setContextType}
+              options={[
+                { label: '基金分析', value: 'fund' },
+                { label: '持仓分析', value: 'position' },
+              ]}
+            />
           </Form.Item>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ flex: 1 }}>
-              <Form.Item label="系统提示词" name="system_prompt" rules={[{ required: true, message: '请输入系统提示词' }]}>
+              <Form.Item
+                label="系统提示词"
+                name="system_prompt"
+                rules={[{ required: true, message: '请输入系统提示词' }]}
+              >
                 <TextArea rows={4} placeholder="你是一个专业的基金分析师..." />
               </Form.Item>
-              <Form.Item label="用户提示词" name="user_prompt" rules={[{ required: true, message: '请输入用户提示词' }]}>
+              <Form.Item
+                label="用户提示词"
+                name="user_prompt"
+                rules={[{ required: true, message: '请输入用户提示词' }]}
+              >
                 <TextArea rows={8} placeholder="请分析基金 {{fund_code}} ..." />
               </Form.Item>
             </div>
             <div style={{ width: 220, flexShrink: 0 }}>
               <div style={{ marginBottom: 8, fontWeight: 500 }}>可用占位符</div>
-              {placeholders.map(p => (
+              {placeholders.map((p) => (
                 <div key={p.key} style={{ marginBottom: 6 }}>
-                  <Text code copyable style={{ fontSize: 12 }}>{p.key}</Text>
+                  <Text code copyable style={{ fontSize: 12 }}>
+                    {p.key}
+                  </Text>
                   <div style={{ fontSize: 11, color: '#888' }}>{p.desc}</div>
                 </div>
               ))}
             </div>
           </div>
           <Form.Item name="is_default" valuePropName="checked" style={{ marginBottom: 0 }}>
-            <Select placeholder="是否设为默认" options={[
-              { label: '设为默认模板', value: true },
-              { label: '非默认', value: false },
-            ]} />
+            <Select
+              placeholder="是否设为默认"
+              options={[
+                { label: '设为默认模板', value: true },
+                { label: '非默认', value: false },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -330,7 +420,9 @@ const NotificationChannelsCard = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleOpenModal = (channel = null) => {
     setEditingChannel(channel);
@@ -357,17 +449,18 @@ const NotificationChannelsCard = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const config = values.channel_type === 'webhook'
-        ? { webhook_url: values.webhook_url }
-        : {
-            smtp_host: values.smtp_host,
-            smtp_port: values.smtp_port,
-            smtp_ssl: values.smtp_ssl,
-            username: values.username,
-            password: values.password,
-            from_email: values.from_email || values.username,
-            to_email: values.to_email,
-          };
+      const config =
+        values.channel_type === 'webhook'
+          ? { webhook_url: values.webhook_url }
+          : {
+              smtp_host: values.smtp_host,
+              smtp_port: values.smtp_port,
+              smtp_ssl: values.smtp_ssl,
+              username: values.username,
+              password: values.password,
+              from_email: values.from_email || values.username,
+              to_email: values.to_email,
+            };
       const data = { channel_type: values.channel_type, config, is_active: values.is_active };
 
       if (editingChannel) {
@@ -418,16 +511,17 @@ const NotificationChannelsCard = () => {
     {
       title: '配置',
       key: 'config',
-      render: (_, r) => r.channel_type === 'webhook'
-        ? r.config?.webhook_url
-        : `${r.config?.smtp_host} → ${r.config?.to_email}`,
+      render: (_, r) =>
+        r.channel_type === 'webhook'
+          ? r.config?.webhook_url
+          : `${r.config?.smtp_host} → ${r.config?.to_email}`,
       ellipsis: true,
     },
     {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
-      render: (v) => v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>,
+      render: (v) => (v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>),
     },
     {
       title: '操作',
@@ -435,9 +529,23 @@ const NotificationChannelsCard = () => {
       width: 180,
       render: (_, r) => (
         <Space size="small">
-          <Button size="small" icon={<SendOutlined />} loading={testingId === r.id} onClick={() => handleTest(r.id)}>测试</Button>
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>编辑</Button>
-          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)} okText="确定" cancelText="取消">
+          <Button
+            size="small"
+            icon={<SendOutlined />}
+            loading={testingId === r.id}
+            onClick={() => handleTest(r.id)}
+          >
+            测试
+          </Button>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定删除？"
+            onConfirm={() => handleDelete(r.id)}
+            okText="确定"
+            cancelText="取消"
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -449,8 +557,22 @@ const NotificationChannelsCard = () => {
 
   return (
     <Card
-      title={<Space><BellOutlined />通知渠道</Space>}
-      extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>添加渠道</Button>}
+      title={
+        <Space>
+          <BellOutlined />
+          通知渠道
+        </Space>
+      }
+      extra={
+        <Button
+          type="primary"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() => handleOpenModal()}
+        >
+          添加渠道
+        </Button>
+      }
     >
       {isMobile ? (
         <List
@@ -464,7 +586,13 @@ const NotificationChannelsCard = () => {
               style={{ marginBottom: 8 }}
               data-testid="channel-card"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                }}
+              >
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, marginBottom: 4 }}>{channel.name}</div>
                   <div style={{ marginBottom: 4 }}>
@@ -475,9 +603,17 @@ const NotificationChannelsCard = () => {
                   </div>
                 </div>
                 <Space size="small" direction="vertical">
-                  <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(channel)}>编辑</Button>
+                  <Button
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => handleOpenModal(channel)}
+                  >
+                    编辑
+                  </Button>
                   <Popconfirm title="确定删除？" onConfirm={() => handleDelete(channel.id)}>
-                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                    <Button size="small" danger icon={<DeleteOutlined />}>
+                      删除
+                    </Button>
                   </Popconfirm>
                 </Space>
               </div>
@@ -508,36 +644,87 @@ const NotificationChannelsCard = () => {
       >
         <Form form={form} layout="vertical">
           <Form.Item name="channel_type" label="渠道类型" rules={[{ required: true }]}>
-            <Select options={[{ value: 'webhook', label: 'Webhook' }, { value: 'email', label: 'Email' }]} />
+            <Select
+              options={[
+                { value: 'webhook', label: 'Webhook' },
+                { value: 'email', label: 'Email' },
+              ]}
+            />
           </Form.Item>
           {channelType === 'webhook' && (
-            <Form.Item name="webhook_url" label="Webhook URL" rules={[{ required: true, message: '请输入 Webhook URL' }, { type: 'url', message: '请输入有效的 URL' }]}>
+            <Form.Item
+              name="webhook_url"
+              label="Webhook URL"
+              rules={[
+                { required: true, message: '请输入 Webhook URL' },
+                { type: 'url', message: '请输入有效的 URL' },
+              ]}
+            >
               <Input placeholder="https://example.com/webhook" />
             </Form.Item>
           )}
           {channelType === 'email' && (
             <>
-              <Form.Item name="smtp_host" label="SMTP 服务器" rules={[{ required: true, message: '请输入 SMTP 服务器地址' }]} extra="例如：smtp.qq.com / smtp.gmail.com / smtp.163.com">
+              <Form.Item
+                name="smtp_host"
+                label="SMTP 服务器"
+                rules={[{ required: true, message: '请输入 SMTP 服务器地址' }]}
+                extra="例如：smtp.qq.com / smtp.gmail.com / smtp.163.com"
+              >
                 <Input placeholder="smtp.qq.com" />
               </Form.Item>
               <Space.Compact style={{ width: '100%' }}>
-                <Form.Item name="smtp_port" label="端口" style={{ width: '40%' }} initialValue={465}>
+                <Form.Item
+                  name="smtp_port"
+                  label="端口"
+                  style={{ width: '40%' }}
+                  initialValue={465}
+                >
                   <InputNumber style={{ width: '100%' }} placeholder="465" />
                 </Form.Item>
-                <Form.Item name="smtp_ssl" label="SSL" valuePropName="checked" style={{ width: '60%', paddingLeft: 12 }} initialValue={true}>
+                <Form.Item
+                  name="smtp_ssl"
+                  label="SSL"
+                  valuePropName="checked"
+                  style={{ width: '60%', paddingLeft: 12 }}
+                  initialValue={true}
+                >
                   <Switch checkedChildren="SSL" unCheckedChildren="STARTTLS" />
                 </Form.Item>
               </Space.Compact>
-              <Form.Item name="username" label="用户名（邮箱地址）" rules={[{ required: true, message: '请输入用户名' }, { type: 'email', message: '请输入有效的邮箱' }]}>
+              <Form.Item
+                name="username"
+                label="用户名（邮箱地址）"
+                rules={[
+                  { required: true, message: '请输入用户名' },
+                  { type: 'email', message: '请输入有效的邮箱' },
+                ]}
+              >
                 <Input placeholder="your@qq.com" />
               </Form.Item>
-              <Form.Item name="password" label="密码 / 授权码" rules={[{ required: true, message: '请输入密码或授权码' }]} extra="QQ/163/Gmail 等需使用授权码，非登录密码">
+              <Form.Item
+                name="password"
+                label="密码 / 授权码"
+                rules={[{ required: true, message: '请输入密码或授权码' }]}
+                extra="QQ/163/Gmail 等需使用授权码，非登录密码"
+              >
                 <Input.Password placeholder="授权码" />
               </Form.Item>
-              <Form.Item name="to_email" label="收件人邮箱" rules={[{ required: true, message: '请输入收件人邮箱' }, { type: 'email', message: '请输入有效的邮箱' }]}>
+              <Form.Item
+                name="to_email"
+                label="收件人邮箱"
+                rules={[
+                  { required: true, message: '请输入收件人邮箱' },
+                  { type: 'email', message: '请输入有效的邮箱' },
+                ]}
+              >
                 <Input placeholder="recipient@example.com" />
               </Form.Item>
-              <Form.Item name="from_email" label="发件人邮箱（可选）" extra="留空则使用用户名作为发件人">
+              <Form.Item
+                name="from_email"
+                label="发件人邮箱（可选）"
+                extra="留空则使用用户名作为发件人"
+              >
                 <Input placeholder="your@qq.com" />
               </Form.Item>
             </>
@@ -580,7 +767,9 @@ const NotificationRulesCard = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleFundSearch = async (keyword) => {
     if (!keyword) return;
@@ -600,7 +789,7 @@ const NotificationRulesCard = () => {
         rule_type: rule.rule_type,
         threshold: parseFloat(rule.threshold),
         cooldown_minutes: rule.cooldown_minutes,
-        channel_ids: rule.channels.map(c => c.id),
+        channel_ids: rule.channels.map((c) => c.id),
         is_active: rule.is_active,
       });
     } else {
@@ -653,9 +842,10 @@ const NotificationRulesCard = () => {
     {
       title: '通知渠道',
       key: 'channels',
-      render: (_, r) => r.channels.map(c => (
-        <Tag key={c.id}>{c.channel_type === 'webhook' ? 'Webhook' : 'Email'}</Tag>
-      )),
+      render: (_, r) =>
+        r.channels.map((c) => (
+          <Tag key={c.id}>{c.channel_type === 'webhook' ? 'Webhook' : 'Email'}</Tag>
+        )),
     },
     {
       title: '冷却',
@@ -667,7 +857,7 @@ const NotificationRulesCard = () => {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
-      render: (v) => v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>,
+      render: (v) => (v ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>),
     },
     {
       title: '操作',
@@ -675,8 +865,15 @@ const NotificationRulesCard = () => {
       width: 120,
       render: (_, r) => (
         <Space size="small">
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>编辑</Button>
-          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)} okText="确定" cancelText="取消">
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(r)}>
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定删除？"
+            onConfirm={() => handleDelete(r.id)}
+            okText="确定"
+            cancelText="取消"
+          >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -684,20 +881,40 @@ const NotificationRulesCard = () => {
     },
   ];
 
-  const channelOptions = channels.map(c => ({
+  const channelOptions = channels.map((c) => ({
     value: c.id,
-    label: c.channel_type === 'webhook'
-      ? `Webhook: ${c.config?.webhook_url?.slice(0, 30)}...`
-      : `Email: ${c.config?.email}`,
+    label:
+      c.channel_type === 'webhook'
+        ? `Webhook: ${c.config?.webhook_url?.slice(0, 30)}...`
+        : `Email: ${c.config?.email}`,
   }));
 
   return (
     <Card
-      title={<Space><BellOutlined />通知规则</Space>}
-      extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleOpenModal()}>添加规则</Button>}
+      title={
+        <Space>
+          <BellOutlined />
+          通知规则
+        </Space>
+      }
+      extra={
+        <Button
+          type="primary"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() => handleOpenModal()}
+        >
+          添加规则
+        </Button>
+      }
     >
       {channels.length === 0 && (
-        <Alert message="请先添加通知渠道，再配置通知规则" type="warning" showIcon style={{ marginBottom: 12 }} />
+        <Alert
+          message="请先添加通知渠道，再配置通知规则"
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+        />
       )}
       {isMobile ? (
         <List
@@ -705,24 +922,35 @@ const NotificationRulesCard = () => {
           loading={loading}
           locale={{ emptyText: '暂无通知规则' }}
           renderItem={(rule) => (
-            <Card
-              key={rule.id}
-              size="small"
-              style={{ marginBottom: 8 }}
-              data-testid="rule-card"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Card key={rule.id} size="small" style={{ marginBottom: 8 }} data-testid="rule-card">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                }}
+              >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, marginBottom: 4 }}>{rule.name || rule.fund_name}</div>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                    {rule.name || rule.fund_name}
+                  </div>
                   <div style={{ marginBottom: 4 }}>
                     <Tag color="blue">{rule.trigger_type}</Tag>
                     {rule.is_active ? <Tag color="green">启用</Tag> : <Tag>禁用</Tag>}
                   </div>
                 </div>
                 <Space size="small" direction="vertical">
-                  <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenModal(rule)}>编辑</Button>
+                  <Button
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => handleOpenModal(rule)}
+                  >
+                    编辑
+                  </Button>
                   <Popconfirm title="确定删除？" onConfirm={() => handleDelete(rule.id)}>
-                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                    <Button size="small" danger icon={<DeleteOutlined />}>
+                      删除
+                    </Button>
                   </Popconfirm>
                 </Space>
               </div>
@@ -758,25 +986,51 @@ const NotificationRulesCard = () => {
               placeholder="输入基金代码或名称搜索"
               filterOption={false}
               onSearch={handleFundSearch}
-              options={funds.results
-                ? funds.results.map(f => ({ value: f.id, label: `${f.fund_name}（${f.fund_code}）` }))
-                : (Array.isArray(funds) ? funds.map(f => ({ value: f.id, label: `${f.fund_name}（${f.fund_code}）` })) : [])
+              options={
+                funds.results
+                  ? funds.results.map((f) => ({
+                      value: f.id,
+                      label: `${f.fund_name}（${f.fund_code}）`,
+                    }))
+                  : Array.isArray(funds)
+                    ? funds.map((f) => ({ value: f.id, label: `${f.fund_name}（${f.fund_code}）` }))
+                    : []
               }
             />
           </Form.Item>
           <Form.Item name="rule_type" label="触发条件" rules={[{ required: true }]}>
-            <Select options={[
-              { value: 'growth_up', label: '涨幅超过' },
-              { value: 'growth_down', label: '跌幅超过' },
-            ]} />
+            <Select
+              options={[
+                { value: 'growth_up', label: '涨幅超过' },
+                { value: 'growth_down', label: '跌幅超过' },
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="threshold" label="阈值（%）" rules={[{ required: true, message: '请输入阈值' }]}>
-            <InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} placeholder="例如：5 表示 5%" />
+          <Form.Item
+            name="threshold"
+            label="阈值（%）"
+            rules={[{ required: true, message: '请输入阈值' }]}
+          >
+            <InputNumber
+              min={0}
+              max={100}
+              step={0.5}
+              style={{ width: '100%' }}
+              placeholder="例如：5 表示 5%"
+            />
           </Form.Item>
-          <Form.Item name="channel_ids" label="通知渠道" rules={[{ required: true, message: '请选择至少一个渠道' }]}>
+          <Form.Item
+            name="channel_ids"
+            label="通知渠道"
+            rules={[{ required: true, message: '请选择至少一个渠道' }]}
+          >
             <Select mode="multiple" options={channelOptions} placeholder="选择通知渠道" />
           </Form.Item>
-          <Form.Item name="cooldown_minutes" label="冷却时间（分钟）" extra="同一规则触发后，冷却时间内不重复通知">
+          <Form.Item
+            name="cooldown_minutes"
+            label="冷却时间（分钟）"
+            extra="同一规则触发后，冷却时间内不重复通知"
+          >
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="is_active" label="启用" valuePropName="checked">
@@ -789,7 +1043,7 @@ const NotificationRulesCard = () => {
 };
 
 const YangJiBaoLogin = () => {
-  const [status, setStatus] = useState(null);   // null | 'logged_in' | 'logged_out'
+  const [status, setStatus] = useState(null); // null | 'logged_in' | 'logged_out'
   const [qrUrl, setQrUrl] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [polling, setPolling] = useState(false);
@@ -900,8 +1154,12 @@ const YangJiBaoLogin = () => {
         <div>
           <p>请选择导入方式：</p>
           <ul style={{ paddingLeft: 20, color: '#666' }}>
-            <li><b>新建账户</b>：跳过已有持仓记录，仅新增</li>
-            <li><b>覆盖账户</b>：清空已有持仓流水后重新导入</li>
+            <li>
+              <b>新建账户</b>：跳过已有持仓记录，仅新增
+            </li>
+            <li>
+              <b>覆盖账户</b>：清空已有持仓流水后重新导入
+            </li>
           </ul>
         </div>
       ),
@@ -931,10 +1189,14 @@ const YangJiBaoLogin = () => {
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <span>养基宝</span>
         {status === 'logged_in' && (
-          <Tag icon={<CheckCircleOutlined />} color="success">已登录</Tag>
+          <Tag icon={<CheckCircleOutlined />} color="success">
+            已登录
+          </Tag>
         )}
         {status === 'logged_out' && (
-          <Tag icon={<CloseCircleOutlined />} color="default">未登录</Tag>
+          <Tag icon={<CloseCircleOutlined />} color="default">
+            未登录
+          </Tag>
         )}
         {status === null && <Tag>检查中...</Tag>}
       </div>
@@ -950,12 +1212,7 @@ const YangJiBaoLogin = () => {
             >
               一键导入持仓
             </Button>
-            <Button
-              icon={<LogoutOutlined />}
-              onClick={handleLogout}
-              loading={logoutLoading}
-              danger
-            >
+            <Button icon={<LogoutOutlined />} onClick={handleLogout} loading={logoutLoading} danger>
               退出登录
             </Button>
           </Space>
@@ -965,9 +1222,7 @@ const YangJiBaoLogin = () => {
               新增持仓 {importResult.holdings_created}，跳过 {importResult.holdings_skipped}
             </div>
           )}
-          <div style={{ color: '#aaa', fontSize: 12 }}>
-            注：仅支持导入当前持仓中的基金
-          </div>
+          <div style={{ color: '#aaa', fontSize: 12 }}>注：仅支持导入当前持仓中的基金</div>
         </Space>
       ) : (
         <Space orientation="vertical" size={12}>
@@ -990,22 +1245,23 @@ const YangJiBaoLogin = () => {
                 style={{ border: '1px solid #f0f0f0', borderRadius: 4 }}
               />
               {polling && (
-                <div style={{
-                  position: 'absolute', bottom: 4, right: 4,
-                  background: 'rgba(0,0,0,0.5)', borderRadius: 4,
-                  padding: '2px 6px',
-                }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 4,
+                    right: 4,
+                    background: 'rgba(0,0,0,0.5)',
+                    borderRadius: 4,
+                    padding: '2px 6px',
+                  }}
+                >
                   <Spin size="small" style={{ color: '#fff' }} />
                 </div>
               )}
             </div>
           )}
 
-          {qrUrl && (
-            <div style={{ color: '#888', fontSize: 12 }}>
-              用 微信 扫码登录
-            </div>
-          )}
+          {qrUrl && <div style={{ color: '#888', fontSize: 12 }}>用 微信 扫码登录</div>}
         </Space>
       )}
     </div>
@@ -1027,8 +1283,9 @@ const XiaoBeiYangJiLogin = () => {
   const countdownRef = useRef(null);
 
   useEffect(() => {
-    sourceAPI.getStatus('xiaobeiyangji')
-      .then(res => setStatus(res.data.logged_in ? 'logged_in' : 'logged_out'))
+    sourceAPI
+      .getStatus('xiaobeiyangji')
+      .then((res) => setStatus(res.data.logged_in ? 'logged_in' : 'logged_out'))
       .catch(() => setStatus('logged_out'));
     return () => clearInterval(countdownRef.current);
   }, []);
@@ -1036,7 +1293,7 @@ const XiaoBeiYangJiLogin = () => {
   const startCountdown = () => {
     setCountdown(SMS_COOLDOWN);
     countdownRef.current = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(countdownRef.current);
           return 0;
@@ -1047,7 +1304,10 @@ const XiaoBeiYangJiLogin = () => {
   };
 
   const handleSendSms = async () => {
-    if (!phone) { message.warning('请输入手机号'); return; }
+    if (!phone) {
+      message.warning('请输入手机号');
+      return;
+    }
     setSmsLoading(true);
     try {
       await sourceAPI.sendSms('xiaobeiyangji', phone);
@@ -1061,7 +1321,10 @@ const XiaoBeiYangJiLogin = () => {
   };
 
   const handleLogin = async () => {
-    if (!phone || !code) { message.warning('请输入手机号和验证码'); return; }
+    if (!phone || !code) {
+      message.warning('请输入手机号和验证码');
+      return;
+    }
     setLoginLoading(true);
     try {
       await sourceAPI.verifyPhone('xiaobeiyangji', phone, code);
@@ -1097,8 +1360,12 @@ const XiaoBeiYangJiLogin = () => {
         <div>
           <p>请选择导入方式：</p>
           <ul style={{ paddingLeft: 20, color: '#666' }}>
-            <li><b>新建账户</b>：跳过已有持仓记录，仅新增</li>
-            <li><b>覆盖账户</b>：清空已有持仓流水后重新导入</li>
+            <li>
+              <b>新建账户</b>：跳过已有持仓记录，仅新增
+            </li>
+            <li>
+              <b>覆盖账户</b>：清空已有持仓流水后重新导入
+            </li>
           </ul>
         </div>
       ),
@@ -1127,15 +1394,28 @@ const XiaoBeiYangJiLogin = () => {
     <div>
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <span>小倍养基</span>
-        {status === 'logged_in' && <Tag icon={<CheckCircleOutlined />} color="success">已登录</Tag>}
-        {status === 'logged_out' && <Tag icon={<CloseCircleOutlined />} color="default">未登录</Tag>}
+        {status === 'logged_in' && (
+          <Tag icon={<CheckCircleOutlined />} color="success">
+            已登录
+          </Tag>
+        )}
+        {status === 'logged_out' && (
+          <Tag icon={<CloseCircleOutlined />} color="default">
+            未登录
+          </Tag>
+        )}
         {status === null && <Tag>检查中...</Tag>}
       </div>
 
       {status === 'logged_in' ? (
         <Space direction="vertical" size={12}>
           <Space>
-            <Button icon={<ImportOutlined />} onClick={handleImport} loading={importLoading} type="primary">
+            <Button
+              icon={<ImportOutlined />}
+              onClick={handleImport}
+              loading={importLoading}
+              type="primary"
+            >
               一键导入持仓
             </Button>
             <Button icon={<LogoutOutlined />} onClick={handleLogout} loading={logoutLoading} danger>
@@ -1155,7 +1435,7 @@ const XiaoBeiYangJiLogin = () => {
             <Input
               placeholder="手机号"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value)}
               style={{ width: 160 }}
               maxLength={11}
             />
@@ -1172,12 +1452,17 @@ const XiaoBeiYangJiLogin = () => {
             <Input
               placeholder="验证码"
               value={code}
-              onChange={e => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value)}
               style={{ width: 160 }}
               maxLength={6}
               onPressEnter={handleLogin}
             />
-            <Button type="primary" onClick={handleLogin} loading={loginLoading} style={{ width: 120 }}>
+            <Button
+              type="primary"
+              onClick={handleLogin}
+              loading={loginLoading}
+              style={{ width: 120 }}
+            >
               登录
             </Button>
           </Space.Compact>
@@ -1192,14 +1477,22 @@ const SettingsPage = () => {
   const [loading, setLoading] = useState(false);
   const isNative = isNativeApp();
   const [prefs, setPrefs] = useState({ report_enabled: false, report_frequency: 'monthly' });
-  const freqList = prefs.report_frequency ? prefs.report_frequency.split(',').filter(Boolean) : ['monthly'];
+  const freqList = prefs.report_frequency
+    ? prefs.report_frequency.split(',').filter(Boolean)
+    : ['monthly'];
   const [reportGenerating, setReportGenerating] = useState(false);
   const [reportPreview, setReportPreview] = useState({ open: false, content: '' });
 
   useEffect(() => {
-    preferencesAPI.get().then(res => {
-      setPrefs({ report_enabled: res.data.report_enabled || false, report_frequency: res.data.report_frequency || 'monthly' });
-    }).catch(() => {});
+    preferencesAPI
+      .get()
+      .then((res) => {
+        setPrefs({
+          report_enabled: res.data.report_enabled || false,
+          report_frequency: res.data.report_frequency || 'monthly',
+        });
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1247,12 +1540,16 @@ const SettingsPage = () => {
       <DataSourceCard />
 
       <Card title="数据源管理">
-        <Divider orientation="left" plain style={{ marginTop: 0 }}>养基宝</Divider>
+        <Divider orientation="left" plain style={{ marginTop: 0 }}>
+          养基宝
+        </Divider>
         <YangJiBaoLogin />
         <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
           注：养基宝数据源仅支持查询您持仓中的基金估值
         </div>
-        <Divider orientation="left" plain>小倍养基</Divider>
+        <Divider orientation="left" plain>
+          小倍养基
+        </Divider>
         <XiaoBeiYangJiLogin />
       </Card>
 
@@ -1263,12 +1560,7 @@ const SettingsPage = () => {
 
       {isNative && (
         <Card title="系统设置">
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSave}
-            style={{ maxWidth: 600 }}
-          >
+          <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 600 }}>
             <Form.Item
               label="服务器地址"
               name="apiBaseUrl"
@@ -1276,25 +1568,17 @@ const SettingsPage = () => {
                 { required: true, message: '请输入服务器地址' },
                 {
                   pattern: /^https?:\/\/.+/,
-                  message: '请输入有效的 URL（以 http:// 或 https:// 开头）'
-                }
+                  message: '请输入有效的 URL（以 http:// 或 https:// 开头）',
+                },
               ]}
               extra="后端 API 服务器地址，例如：http://192.168.1.100:8000"
             >
-              <Input
-                prefix={<CloudServerOutlined />}
-                placeholder="http://your-server:8000"
-              />
+              <Input prefix={<CloudServerOutlined />} placeholder="http://your-server:8000" />
             </Form.Item>
 
             <Form.Item>
               <Space>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  icon={<SaveOutlined />}
-                  loading={loading}
-                >
+                <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>
                   保存配置
                 </Button>
                 <Button icon={<ReloadOutlined />} onClick={handleReset}>
@@ -1307,36 +1591,46 @@ const SettingsPage = () => {
       )}
 
       {/* 投资报告设置 */}
-      <Card title="投资报告" extra={
-        <Button type="primary" loading={reportGenerating}
-          onClick={() => {
-            setReportGenerating(true);
-            aiAPI.reportPreview('weekly')
-              .then(res => {
-                setReportPreview({ open: true, content: res.data.result });
-              })
-              .catch(err => message.error(err.response?.data?.error || '生成失败'))
-              .finally(() => setReportGenerating(false));
-          }}
-        >
-          立即生成周报
-        </Button>
-      }>
+      <Card
+        title="投资报告"
+        extra={
+          <Button
+            type="primary"
+            loading={reportGenerating}
+            onClick={() => {
+              setReportGenerating(true);
+              aiAPI
+                .reportPreview('weekly')
+                .then((res) => {
+                  setReportPreview({ open: true, content: res.data.result });
+                })
+                .catch((err) => message.error(err.response?.data?.error || '生成失败'))
+                .finally(() => setReportGenerating(false));
+            }}
+          >
+            立即生成周报
+          </Button>
+        }
+      >
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space>
-            <Switch checked={prefs.report_enabled} onChange={v => {
-              setPrefs(p => ({ ...p, report_enabled: v }));
-              preferencesAPI.update({ report_enabled: v });
-            }} />
+            <Switch
+              checked={prefs.report_enabled}
+              onChange={(v) => {
+                setPrefs((p) => ({ ...p, report_enabled: v }));
+                preferencesAPI.update({ report_enabled: v });
+              }}
+            />
             <span>开启投资报告</span>
           </Space>
           {prefs.report_enabled && (
             <Space direction="vertical">
               <span>推送频率（可多选）：</span>
-              <Checkbox.Group value={freqList}
-                onChange={vals => {
+              <Checkbox.Group
+                value={freqList}
+                onChange={(vals) => {
                   const v = vals.length > 0 ? vals.join(',') : 'monthly';
-                  setPrefs(p => ({ ...p, report_frequency: v }));
+                  setPrefs((p) => ({ ...p, report_frequency: v }));
                   preferencesAPI.update({ report_frequency: v });
                 }}
               >
@@ -1351,7 +1645,9 @@ const SettingsPage = () => {
         </Space>
       </Card>
 
-      <Modal title="投资报告预览" open={reportPreview.open}
+      <Modal
+        title="投资报告预览"
+        open={reportPreview.open}
         onOk={() => setReportPreview({ open: false, content: '' })}
         onCancel={() => setReportPreview({ open: false, content: '' })}
         width={720}

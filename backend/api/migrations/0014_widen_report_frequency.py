@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0013_add_report_prefs'),
+        ("api", "0013_add_report_prefs"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='userpreference',
-            name='report_frequency',
-            field=models.CharField(default='monthly', help_text='逗号分隔: weekly,monthly,yearly', max_length=30),
+            model_name="userpreference",
+            name="report_frequency",
+            field=models.CharField(
+                default="monthly",
+                help_text="逗号分隔: weekly,monthly,yearly",
+                max_length=30,
+            ),
         ),
     ]

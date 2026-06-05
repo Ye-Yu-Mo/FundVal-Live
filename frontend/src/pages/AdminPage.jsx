@@ -1,6 +1,32 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Input, Tag, message, Modal, Space, Typography, Row, Col, Statistic, List, Grid } from 'antd';
-import { SearchOutlined, ReloadOutlined, LockOutlined, StopOutlined, CheckCircleOutlined, SyncOutlined, BarChartOutlined, UserOutlined, MailOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Table,
+  Button,
+  Input,
+  Tag,
+  message,
+  Modal,
+  Space,
+  Typography,
+  Row,
+  Col,
+  Statistic,
+  List,
+  Grid,
+} from 'antd';
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  LockOutlined,
+  StopOutlined,
+  CheckCircleOutlined,
+  SyncOutlined,
+  BarChartOutlined,
+  UserOutlined,
+  MailOutlined,
+  ClockCircleOutlined,
+} from '@ant-design/icons';
 import { adminAPI } from '../api';
 
 const { Text } = Typography;
@@ -33,24 +59,29 @@ const AdminPage = () => {
     }
   };
 
-  useEffect(() => { loadUsers(); loadStats(); }, []);
+  useEffect(() => {
+    loadUsers();
+    loadStats();
+  }, []);
 
   const loadStats = async () => {
     try {
       const { data } = await adminAPI.getStats();
       setStats(data);
-    } catch { /* stats 加载失败不影响用户列表 */ }
+    } catch {
+      /* stats 加载失败不影响用户列表 */
+    }
   };
 
   const handleTriggerTask = async (taskName, label) => {
-    setTaskLoading(prev => ({ ...prev, [taskName]: true }));
+    setTaskLoading((prev) => ({ ...prev, [taskName]: true }));
     try {
       await adminAPI.triggerTask(taskName);
       message.success(`${label}已触发`);
     } catch (err) {
       message.error(`${label}触发失败: ${err.response?.data?.error || '未知错误'}`);
     } finally {
-      setTaskLoading(prev => ({ ...prev, [taskName]: false }));
+      setTaskLoading((prev) => ({ ...prev, [taskName]: false }));
     }
   };
 
@@ -61,11 +92,13 @@ const AdminPage = () => {
       onOk: async () => {
         try {
           const { data } = await adminAPI.toggleUser(user.id);
-          setUsers(prev => prev.map(u =>
-            u.id === user.id ? { ...u, is_active: data.is_active } : u
-          ));
+          setUsers((prev) =>
+            prev.map((u) => (u.id === user.id ? { ...u, is_active: data.is_active } : u))
+          );
           message.success(`${action}成功`);
-        } catch { message.error(`${action}失败`); }
+        } catch {
+          message.error(`${action}失败`);
+        }
       },
     });
   };
@@ -82,28 +115,44 @@ const AdminPage = () => {
             password: data.new_password,
             username: user.username,
           });
-        } catch { message.error('重置密码失败'); }
+        } catch {
+          message.error('重置密码失败');
+        }
       },
     });
   };
 
   const columns = [
     { title: '用户名', dataIndex: 'username', key: 'username', width: 150 },
-    { title: '邮箱', dataIndex: 'email', key: 'email', width: 250, render: v => v || '-' },
+    { title: '邮箱', dataIndex: 'email', key: 'email', width: 250, render: (v) => v || '-' },
     {
-      title: '角色', dataIndex: 'role', key: 'role', width: 80,
-      render: role => <Tag color={role === 'admin' ? 'red' : 'blue'}>{role === 'admin' ? '管理员' : '用户'}</Tag>,
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
+      width: 80,
+      render: (role) => (
+        <Tag color={role === 'admin' ? 'red' : 'blue'}>{role === 'admin' ? '管理员' : '用户'}</Tag>
+      ),
     },
     {
-      title: '状态', dataIndex: 'is_active', key: 'is_active', width: 80,
-      render: v => <Tag color={v ? 'green' : 'red'}>{v ? '正常' : '已禁用'}</Tag>,
+      title: '状态',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 80,
+      render: (v) => <Tag color={v ? 'green' : 'red'}>{v ? '正常' : '已禁用'}</Tag>,
     },
     {
-      title: '注册时间', dataIndex: 'date_joined', key: 'date_joined', width: 180,
-      render: v => v ? new Date(v).toLocaleString('zh-CN') : '-',
+      title: '注册时间',
+      dataIndex: 'date_joined',
+      key: 'date_joined',
+      width: 180,
+      render: (v) => (v ? new Date(v).toLocaleString('zh-CN') : '-'),
     },
     {
-      title: '操作', key: 'action', width: 200, fixed: 'right',
+      title: '操作',
+      key: 'action',
+      width: 200,
+      fixed: 'right',
       render: (_, record) => (
         <Space>
           <Button
@@ -139,9 +188,11 @@ const AdminPage = () => {
             <Col xs={12} sm={6}>
               <Statistic
                 title="最新估值"
-                value={stats.latest_estimate_time
-                  ? new Date(stats.latest_estimate_time).toLocaleTimeString('zh-CN')
-                  : '无数据'}
+                value={
+                  stats.latest_estimate_time
+                    ? new Date(stats.latest_estimate_time).toLocaleTimeString('zh-CN')
+                    : '无数据'
+                }
               />
             </Col>
           </Row>
@@ -179,12 +230,17 @@ const AdminPage = () => {
                 placeholder="搜索用户名"
                 allowClear
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                onSearch={val => { setPage(1); loadUsers(1, val); }}
+                onChange={(e) => setSearch(e.target.value)}
+                onSearch={(val) => {
+                  setPage(1);
+                  loadUsers(1, val);
+                }}
                 style={{ width: 200 }}
                 prefix={<SearchOutlined />}
               />
-              <Button icon={<ReloadOutlined />} onClick={() => loadUsers(page, search)}>刷新</Button>
+              <Button icon={<ReloadOutlined />} onClick={() => loadUsers(page, search)}>
+                刷新
+              </Button>
             </Space>
           )
         }
@@ -195,8 +251,11 @@ const AdminPage = () => {
               placeholder="搜索用户名"
               allowClear
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              onSearch={val => { setPage(1); loadUsers(1, val); }}
+              onChange={(e) => setSearch(e.target.value)}
+              onSearch={(val) => {
+                setPage(1);
+                loadUsers(1, val);
+              }}
               prefix={<SearchOutlined />}
             />
           </Space>
@@ -210,11 +269,20 @@ const AdminPage = () => {
               total,
               pageSize: 20,
               showSizeChanger: false,
-              onChange: p => { setPage(p); loadUsers(p, search); },
+              onChange: (p) => {
+                setPage(p);
+                loadUsers(p, search);
+              },
             }}
-            renderItem={user => (
+            renderItem={(user) => (
               <Card size="small" style={{ marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 500, marginBottom: 4 }}>
                       {user.username}
@@ -226,11 +294,14 @@ const AdminPage = () => {
                       </Tag>
                     </div>
                     <div style={{ color: '#999', fontSize: 12 }}>
-                      <MailOutlined style={{ marginRight: 4 }} />{user.email || '无邮箱'}
+                      <MailOutlined style={{ marginRight: 4 }} />
+                      {user.email || '无邮箱'}
                     </div>
                     <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
                       <ClockCircleOutlined style={{ marginRight: 4 }} />
-                      {user.date_joined ? new Date(user.date_joined).toLocaleDateString('zh-CN') : '-'}
+                      {user.date_joined
+                        ? new Date(user.date_joined).toLocaleDateString('zh-CN')
+                        : '-'}
                     </div>
                   </div>
                   <Space direction="vertical" size="small">
@@ -243,7 +314,12 @@ const AdminPage = () => {
                     >
                       {user.is_active ? '禁用' : '启用'}
                     </Button>
-                    <Button size="small" icon={<LockOutlined />} onClick={() => handleResetPassword(user)} block>
+                    <Button
+                      size="small"
+                      icon={<LockOutlined />}
+                      onClick={() => handleResetPassword(user)}
+                      block
+                    >
                       重置密码
                     </Button>
                   </Space>
@@ -262,8 +338,11 @@ const AdminPage = () => {
               total,
               pageSize: 20,
               showSizeChanger: false,
-              showTotal: t => `共 ${t} 个用户`,
-              onChange: p => { setPage(p); loadUsers(p, search); },
+              showTotal: (t) => `共 ${t} 个用户`,
+              onChange: (p) => {
+                setPage(p);
+                loadUsers(p, search);
+              },
             }}
             scroll={{ x: 'max-content' }}
           />
@@ -278,12 +357,10 @@ const AdminPage = () => {
         okText="已保存"
         cancelButtonProps={{ style: { display: 'none' } }}
       >
-        <p>用户 <Text strong>{passwordModal.username}</Text> 的密码已重置为：</p>
-        <Input.Password
-          value={passwordModal.password}
-          readOnly
-          style={{ marginTop: 8 }}
-        />
+        <p>
+          用户 <Text strong>{passwordModal.username}</Text> 的密码已重置为：
+        </p>
+        <Input.Password value={passwordModal.password} readOnly style={{ marginTop: 8 }} />
         <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
           请立即告知用户，此密码仅显示一次。
         </Text>

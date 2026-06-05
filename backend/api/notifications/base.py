@@ -1,6 +1,7 @@
 """
 通知渠道抽象基类
 """
+
 from abc import ABC, abstractmethod
 
 

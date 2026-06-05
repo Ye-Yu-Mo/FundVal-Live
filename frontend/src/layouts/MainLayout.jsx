@@ -39,7 +39,9 @@ const MainLayout = ({ children }) => {
     { key: '/dashboard/compare', icon: <RadarChartOutlined />, label: '基金对比' },
     { key: '/dashboard/accounts', icon: <AccountBookOutlined />, label: '账户管理' },
     { key: '/dashboard/settings', icon: <SettingOutlined />, label: '系统设置' },
-    ...(user?.role === 'admin' ? [{ key: '/dashboard/admin', icon: <UserOutlined />, label: '用户管理' }] : []),
+    ...(user?.role === 'admin'
+      ? [{ key: '/dashboard/admin', icon: <UserOutlined />, label: '用户管理' }]
+      : []),
   ];
   const mobileMenuItems = [
     { key: '/dashboard/watchlists', icon: <StarOutlined />, label: '自选' },
@@ -122,7 +124,8 @@ const MainLayout = ({ children }) => {
             marginBottom: 'calc(56px + env(safe-area-inset-bottom))',
             padding: 12,
             background: token.colorBgLayout,
-            minHeight: 'calc(100vh - 112px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+            minHeight:
+              'calc(100vh - 112px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
           }}
         >
           {children}
@@ -235,7 +238,14 @@ const MainLayout = ({ children }) => {
             </Dropdown>
           </Space>
         </Header>
-        <Content style={{ marginTop: 64, padding: 24, background: token.colorBgLayout, minHeight: 'calc(100vh - 64px)' }}>
+        <Content
+          style={{
+            marginTop: 64,
+            padding: 24,
+            background: token.colorBgLayout,
+            minHeight: 'calc(100vh - 64px)',
+          }}
+        >
           {children}
         </Content>
         <Footer />

@@ -1,6 +1,7 @@
 """
 数据源抽象基类
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict
 from decimal import Decimal
@@ -83,7 +84,7 @@ class BaseEstimateSource(ABC):
             'qrcode' — 二维码扫码登录（如养基宝）
             'phone'  — 手机号 + 短信验证码登录（如小倍养基）
         """
-        return 'none'
+        return "none"
 
     def get_qrcode(self) -> Dict:
         """
@@ -119,7 +120,7 @@ class BaseEstimateSource(ABC):
         Raises:
             NotImplementedError: 数据源不支持手机号登录
         """
-        raise NotImplementedError(f'{self.get_source_name()} 不支持手机号登录')
+        raise NotImplementedError(f"{self.get_source_name()} 不支持手机号登录")
 
     def verify_phone(self, phone: str, code: str) -> dict:
         """
@@ -135,7 +136,7 @@ class BaseEstimateSource(ABC):
         Raises:
             NotImplementedError: 数据源不支持手机号登录
         """
-        raise NotImplementedError(f'{self.get_source_name()} 不支持手机号登录')
+        raise NotImplementedError(f"{self.get_source_name()} 不支持手机号登录")
 
     @abstractmethod
     def fetch_fund_list(self) -> list:
@@ -149,8 +150,11 @@ class BaseEstimateSource(ABC):
                 'fund_type': str,
             }, ...]
         """
+
     @abstractmethod
-    def fetch_nav_history(self, fund_code: str, start_date: date = None, end_date: date = None) -> list:
+    def fetch_nav_history(
+        self, fund_code: str, start_date: date = None, end_date: date = None
+    ) -> list:
         """获取历史净值"""
         pass
 

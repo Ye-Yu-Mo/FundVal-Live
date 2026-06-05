@@ -8,28 +8,66 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0001_initial'),
+        ("api", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='EstimateAccuracy',
+            name="EstimateAccuracy",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('source_name', models.CharField(db_index=True, max_length=50)),
-                ('estimate_date', models.DateField()),
-                ('estimate_nav', models.DecimalField(decimal_places=4, max_digits=10)),
-                ('actual_nav', models.DecimalField(blank=True, decimal_places=4, max_digits=10, null=True)),
-                ('error_rate', models.DecimalField(blank=True, decimal_places=6, help_text='误差率', max_digits=10, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('fund', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='accuracy_records', to='api.fund')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("source_name", models.CharField(db_index=True, max_length=50)),
+                ("estimate_date", models.DateField()),
+                ("estimate_nav", models.DecimalField(decimal_places=4, max_digits=10)),
+                (
+                    "actual_nav",
+                    models.DecimalField(
+                        blank=True, decimal_places=4, max_digits=10, null=True
+                    ),
+                ),
+                (
+                    "error_rate",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=6,
+                        help_text="误差率",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "fund",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="accuracy_records",
+                        to="api.fund",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '估值准确率',
-                'verbose_name_plural': '估值准确率',
-                'db_table': 'estimate_accuracy',
-                'indexes': [models.Index(fields=['fund', 'estimate_date'], name='estimate_ac_fund_id_ea14b0_idx'), models.Index(fields=['source_name', 'estimate_date'], name='estimate_ac_source__4ae310_idx')],
-                'unique_together': {('source_name', 'fund', 'estimate_date')},
+                "verbose_name": "估值准确率",
+                "verbose_name_plural": "估值准确率",
+                "db_table": "estimate_accuracy",
+                "indexes": [
+                    models.Index(
+                        fields=["fund", "estimate_date"],
+                        name="estimate_ac_fund_id_ea14b0_idx",
+                    ),
+                    models.Index(
+                        fields=["source_name", "estimate_date"],
+                        name="estimate_ac_source__4ae310_idx",
+                    ),
+                ],
+                "unique_together": {("source_name", "fund", "estimate_date")},
             },
         ),
     ]

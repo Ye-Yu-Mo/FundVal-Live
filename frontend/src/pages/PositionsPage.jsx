@@ -23,7 +23,16 @@ import {
   List,
   Grid,
 } from 'antd';
-import { RollbackOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, RobotOutlined, SyncOutlined, AccountBookOutlined } from '@ant-design/icons';
+import {
+  RollbackOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined,
+  RobotOutlined,
+  SyncOutlined,
+  AccountBookOutlined,
+} from '@ant-design/icons';
 import { positionsAPI, fundsAPI, aiAPI } from '../api';
 import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
@@ -37,17 +46,13 @@ const PositionsPage = () => {
   const { preferredSource } = usePreference();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const {
-    accounts: allAccounts,
-    loading: accountsLoading,
-    loadAccounts,
-  } = useAccounts();
+  const { accounts: allAccounts, loading: accountsLoading, loadAccounts } = useAccounts();
 
   // 过滤出子账户
   const accounts = allAccounts
-    .filter(a => a.parent !== null)
-    .map(child => {
-      const parent = allAccounts.find(a => a.id === child.parent);
+    .filter((a) => a.parent !== null)
+    .map((child) => {
+      const parent = allAccounts.find((a) => a.id === child.parent);
       return {
         ...child,
         parent_name: parent?.name || '',
@@ -73,7 +78,10 @@ const PositionsPage = () => {
   const buildAiContextData = () => {
     const account = getSelectedAccount();
     const positionsStr = positions
-      .map(p => `${p.fund?.fund_code}|${p.fund?.fund_name}|${p.holding_share}|${p.holding_cost}|${p.holding_value || ''}|${p.pnl || ''}`)
+      .map(
+        (p) =>
+          `${p.fund?.fund_code}|${p.fund?.fund_name}|${p.holding_share}|${p.holding_cost}|${p.holding_value || ''}|${p.pnl || ''}`
+      )
       .join('\n');
     return {
       account_name: account?.name || '',
@@ -112,7 +120,7 @@ const PositionsPage = () => {
 
     if (accountIdFromUrl && accounts.length > 0) {
       // 如果 URL 中有 accountId，且该账户存在，则选中
-      const accountExists = accounts.some(a => a.id === accountIdFromUrl);
+      const accountExists = accounts.some((a) => a.id === accountIdFromUrl);
       if (accountExists) {
         setSelectedAccountId(accountIdFromUrl);
         return;
@@ -137,7 +145,7 @@ const PositionsPage = () => {
 
       // 自动刷新持仓中基金的净值和估值
       if (positionsData.length > 0) {
-        const fundCodes = positionsData.map(p => p.fund_code);
+        const fundCodes = positionsData.map((p) => p.fund_code);
         try {
           const [navsResponse, estimatesResponse] = await Promise.all([
             fundsAPI.batchUpdateNav(fundCodes),
@@ -145,7 +153,7 @@ const PositionsPage = () => {
           ]);
 
           // 更新持仓列表中的基金数据
-          const updatedPositions = positionsData.map(position => {
+          const updatedPositions = positionsData.map((position) => {
             const navData = navsResponse.data[position.fund_code];
             const estimateData = estimatesResponse.data[position.fund_code];
 
@@ -185,8 +193,10 @@ const PositionsPage = () => {
       const response = await positionsAPI.listOperations({ account: accountId });
       // 按日期倒序排列
       const sorted = response.data.sort((a, b) => {
-        return new Date(b.operation_date) - new Date(a.operation_date) ||
-               new Date(b.created_at) - new Date(a.created_at);
+        return (
+          new Date(b.operation_date) - new Date(a.operation_date) ||
+          new Date(b.created_at) - new Date(a.created_at)
+        );
       });
       setOperations(sorted);
     } catch (error) {
@@ -233,7 +243,7 @@ const PositionsPage = () => {
 
   // 获取当前选中的账户
   const getSelectedAccount = () => {
-    return accounts.find(a => a.id === selectedAccountId);
+    return accounts.find((a) => a.id === selectedAccountId);
   };
 
   // 计算统计数据
@@ -265,7 +275,7 @@ const PositionsPage = () => {
     if (fundTypeFilter === 'all') {
       return positions;
     }
-    return positions.filter(p => {
+    return positions.filter((p) => {
       const fundType = p.fund_type || '';
       return fundType.includes(fundTypeFilter);
     });
@@ -290,11 +300,13 @@ const PositionsPage = () => {
   // 格式化日期
   const formatDate = (date) => {
     if (!date) return '-';
-    return new Date(date).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).replace(/\//g, '-');
+    return new Date(date)
+      .toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      .replace(/\//g, '-');
   };
 
   // 回滚操作
@@ -317,7 +329,9 @@ const PositionsPage = () => {
       icon: <ExclamationCircleOutlined />,
       content: (
         <div>
-          <p>将删除 <strong>{position.fund_name}</strong> 的所有操作记录</p>
+          <p>
+            将删除 <strong>{position.fund_name}</strong> 的所有操作记录
+          </p>
           <p>持仓份额：{formatMoney(position.holding_share)}</p>
           <p>持仓成本：{formatMoney(position.holding_cost)}</p>
           <p style={{ color: '#ff4d4f', marginTop: 8 }}>此操作不可恢复！</p>
@@ -352,7 +366,9 @@ const PositionsPage = () => {
       icon: <ExclamationCircleOutlined />,
       content: (
         <div>
-          <p>将删除 <strong>{selectedOperationIds.length}</strong> 条操作记录</p>
+          <p>
+            将删除 <strong>{selectedOperationIds.length}</strong> 条操作记录
+          </p>
           <p style={{ color: '#ff4d4f', marginTop: 8 }}>此操作不可恢复，删除后将自动重算持仓！</p>
         </div>
       ),
@@ -383,8 +399,8 @@ const PositionsPage = () => {
     const isBuild = type === 'BUY' && isFirstOperation(record);
 
     const typeMap = {
-      'BUY': { text: isBuild ? '建仓' : '加仓', color: 'red' },
-      'SELL': { text: '减仓', color: 'green' },
+      BUY: { text: isBuild ? '建仓' : '加仓', color: 'red' },
+      SELL: { text: '减仓', color: 'green' },
     };
     const config = typeMap[type] || { text: type, color: 'default' };
     return <Tag color={config.color}>{config.text}</Tag>;
@@ -394,7 +410,7 @@ const PositionsPage = () => {
   const isFirstOperation = (record) => {
     // 找到该基金的所有操作，按时间排序
     const fundOperations = operations
-      .filter(op => op.fund_code === record.fund_code)
+      .filter((op) => op.fund_code === record.fund_code)
       .sort((a, b) => {
         const dateCompare = new Date(a.operation_date) - new Date(b.operation_date);
         if (dateCompare !== 0) return dateCompare;
@@ -444,16 +460,12 @@ const PositionsPage = () => {
 
       console.log('Calling API:', { fundCode, dateStr, before15Bool });
 
-      const response = await fundsAPI.queryNav(
-        fundCode,
-        dateStr,
-        before15Bool
-      );
+      const response = await fundsAPI.queryNav(fundCode, dateStr, before15Bool);
 
       console.log('API response:', response.data);
 
       operationForm.setFieldsValue({
-        nav: parseFloat(response.data.nav)
+        nav: parseFloat(response.data.nav),
       });
     } catch (error) {
       console.error('queryNav error:', error);
@@ -480,7 +492,7 @@ const PositionsPage = () => {
       // API 返回分页格式：{count, results}
       const funds = response.data.results || [];
 
-      const options = funds.map(fund => ({
+      const options = funds.map((fund) => ({
         value: fund.fund_code,
         label: `${fund.fund_code} - ${fund.fund_name}`,
         fund: fund,
@@ -547,7 +559,7 @@ const PositionsPage = () => {
       const values = await buildForm.validateFields();
 
       // 检查基金是否已有持仓
-      const existingPosition = positions.find(p => p.fund_code === values.fund_code);
+      const existingPosition = positions.find((p) => p.fund_code === values.fund_code);
       if (existingPosition) {
         message.error('该基金已有持仓，请使用加仓功能');
         return;
@@ -588,9 +600,10 @@ const PositionsPage = () => {
         return;
       }
       console.error('建仓失败:', error);
-      const errorMsg = error.response?.data?.message ||
-                       error.response?.data?.fund_code?.[0] ||
-                       '建仓失败，请检查输入信息';
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.fund_code?.[0] ||
+        '建仓失败，请检查输入信息';
       message.error(errorMsg);
     }
   };
@@ -634,9 +647,10 @@ const PositionsPage = () => {
         return;
       }
       console.error('操作失败:', error);
-      const errorMsg = error.response?.data?.message ||
-                       error.response?.data?.fund_code?.[0] ||
-                       '操作失败，请检查输入信息';
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.fund_code?.[0] ||
+        '操作失败，请检查输入信息';
       message.error(errorMsg);
     }
   };
@@ -657,7 +671,7 @@ const PositionsPage = () => {
 
     // 获取最新净值（从选中的基金）
     const fundCode = buildForm.getFieldValue('fund_code');
-    const selectedFund = fundOptions.find(opt => opt.value === fundCode);
+    const selectedFund = fundOptions.find((opt) => opt.value === fundCode);
     if (!selectedFund || !selectedFund.fund.latest_nav) {
       message.warning('请先选择基金以获取最新净值');
       return;
@@ -770,7 +784,7 @@ const PositionsPage = () => {
       dataIndex: 'before_15',
       key: 'before_15',
       width: 100,
-      render: (before15) => before15 ? '15:00前' : '15:00后',
+      render: (before15) => (before15 ? '15:00前' : '15:00后'),
       responsive: ['md'],
     },
     {
@@ -789,12 +803,7 @@ const PositionsPage = () => {
             okText="确定"
             cancelText="取消"
           >
-            <Button
-              type="link"
-              size="small"
-              icon={<RollbackOutlined />}
-              danger
-            >
+            <Button type="link" size="small" icon={<RollbackOutlined />} danger>
               回滚
             </Button>
           </Popconfirm>
@@ -849,7 +858,8 @@ const PositionsPage = () => {
         return va - vb;
       },
       render: (_, record) => {
-        const value = parseFloat(record.holding_share || 0) * parseFloat(record.fund?.latest_nav || 0);
+        const value =
+          parseFloat(record.holding_share || 0) * parseFloat(record.fund?.latest_nav || 0);
         return formatMoney(value);
       },
     },
@@ -862,9 +872,7 @@ const PositionsPage = () => {
       render: (value) => {
         const num = parseFloat(value || 0);
         return (
-          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {formatMoney(value)}
-          </span>
+          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>{formatMoney(value)}</span>
         );
       },
     },
@@ -873,8 +881,14 @@ const PositionsPage = () => {
       key: 'pnl_rate',
       width: 100,
       sorter: (a, b) => {
-        const ra = parseFloat(a.holding_cost || 0) === 0 ? 0 : parseFloat(a.pnl || 0) / parseFloat(a.holding_cost);
-        const rb = parseFloat(b.holding_cost || 0) === 0 ? 0 : parseFloat(b.pnl || 0) / parseFloat(b.holding_cost);
+        const ra =
+          parseFloat(a.holding_cost || 0) === 0
+            ? 0
+            : parseFloat(a.pnl || 0) / parseFloat(a.holding_cost);
+        const rb =
+          parseFloat(b.holding_cost || 0) === 0
+            ? 0
+            : parseFloat(b.pnl || 0) / parseFloat(b.holding_cost);
         return ra - rb;
       },
       render: (_, record) => {
@@ -883,9 +897,7 @@ const PositionsPage = () => {
         if (cost === 0) return '-';
         const rate = pnl / cost;
         return (
-          <span style={{ color: rate >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {formatPercent(rate)}
-          </span>
+          <span style={{ color: rate >= 0 ? '#ff4d4f' : '#52c41a' }}>{formatPercent(rate)}</span>
         );
       },
       responsive: ['md'],
@@ -932,13 +944,18 @@ const PositionsPage = () => {
         if (!latestNav || !estimateNav) return '-';
         const share = parseFloat(record.holding_share || 0);
         const todayPnl = share * (parseFloat(estimateNav) - parseFloat(latestNav));
-        const todayRate = parseFloat(latestNav) === 0 ? null : (parseFloat(estimateNav) - parseFloat(latestNav)) / parseFloat(latestNav);
+        const todayRate =
+          parseFloat(latestNav) === 0
+            ? null
+            : (parseFloat(estimateNav) - parseFloat(latestNav)) / parseFloat(latestNav);
         const isEstimate = estimateNav && estimateNav !== latestNav;
 
         return (
           <span style={{ color: todayPnl >= 0 ? '#ff4d4f' : '#52c41a' }}>
             {formatMoney(todayPnl)}
-            {todayRate !== null && <span style={{ fontSize: '12px' }}> ({formatPercent(todayRate)})</span>}
+            {todayRate !== null && (
+              <span style={{ fontSize: '12px' }}> ({formatPercent(todayRate)})</span>
+            )}
             {isEstimate && <span style={{ color: '#999', fontSize: '12px' }}> (预估)</span>}
           </span>
         );
@@ -984,7 +1001,13 @@ const PositionsPage = () => {
             <p style={{ color: '#666' }}>② 创建子账户（如「天天基金」、「支付宝」）</p>
             <p style={{ color: '#666' }}>③ 在子账户中建仓，输入基金代码和金额</p>
             <br />
-            <Button type="primary" icon={<AccountBookOutlined />} onClick={() => navigate('/dashboard/accounts')}>去创建账户</Button>
+            <Button
+              type="primary"
+              icon={<AccountBookOutlined />}
+              onClick={() => navigate('/dashboard/accounts')}
+            >
+              去创建账户
+            </Button>
           </div>
         </Empty>
       </Card>
@@ -999,7 +1022,7 @@ const PositionsPage = () => {
           placeholder="选择子账户"
           value={selectedAccountId}
           onChange={setSelectedAccountId}
-          options={accounts.map(a => ({
+          options={accounts.map((a) => ({
             label: `${a.name} (${a.parent_name})`,
             value: a.id,
           }))}
@@ -1027,18 +1050,10 @@ const PositionsPage = () => {
 
         <Row gutter={[16, 16]}>
           <Col span={isMobile ? 12 : 6}>
-            <Statistic
-              title="持仓总成本"
-              value={statistics.holding_cost}
-              prefix="¥"
-            />
+            <Statistic title="持仓总成本" value={statistics.holding_cost} prefix="¥" />
           </Col>
           <Col span={isMobile ? 12 : 6}>
-            <Statistic
-              title="持仓总市值"
-              value={statistics.holding_value}
-              prefix="¥"
-            />
+            <Statistic title="持仓总市值" value={statistics.holding_value} prefix="¥" />
           </Col>
           <Col span={isMobile ? 12 : 6}>
             <Statistic
@@ -1046,10 +1061,13 @@ const PositionsPage = () => {
               value={statistics.pnl}
               formatter={(v) => {
                 const color = Number(v) >= 0 ? '#ff4d4f' : '#52c41a';
-                const suffix = statistics.pnl_rate ? ` (${formatPercent(statistics.pnl_rate)})` : '';
+                const suffix = statistics.pnl_rate
+                  ? ` (${formatPercent(statistics.pnl_rate)})`
+                  : '';
                 return (
                   <span style={{ color }}>
-                    ¥{v}{suffix}
+                    ¥{v}
+                    {suffix}
                   </span>
                 );
               }}
@@ -1061,10 +1079,13 @@ const PositionsPage = () => {
               value={statistics.today_pnl}
               formatter={(v) => {
                 const color = Number(v) >= 0 ? '#ff4d4f' : '#52c41a';
-                const suffix = statistics.today_pnl_rate ? ` (${formatPercent(statistics.today_pnl_rate)})` : '';
+                const suffix = statistics.today_pnl_rate
+                  ? ` (${formatPercent(statistics.today_pnl_rate)})`
+                  : '';
                 return (
                   <span style={{ color }}>
-                    ¥{v}{suffix}
+                    ¥{v}
+                    {suffix}
                   </span>
                 );
               }}
@@ -1079,11 +1100,7 @@ const PositionsPage = () => {
       <Card
         title="持仓列表"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleOpenBuildModal}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenBuildModal}>
             建仓
           </Button>
         }
@@ -1123,19 +1140,39 @@ const PositionsPage = () => {
                 style={{ marginBottom: 8 }}
                 data-testid="position-card"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>{position.fund?.fund_name}</div>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                      {position.fund?.fund_name}
+                    </div>
                     <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
                       {position.fund?.fund_code} <Tag color="blue">{position.fund?.fund_type}</Tag>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div
+                      style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
+                    >
                       <span>持仓份额: {position.holding_share}</span>
-                      <span>成本: ¥{position.holding_cost ? parseFloat(position.holding_cost).toFixed(2) : '-'}</span>
+                      <span>
+                        成本: ¥
+                        {position.holding_cost ? parseFloat(position.holding_cost).toFixed(2) : '-'}
+                      </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>市值: ¥{position.holding_value ? parseFloat(position.holding_value).toFixed(2) : '-'}</span>
-                      <span style={{ color: parseFloat(position.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      <span>
+                        市值: ¥
+                        {position.holding_value
+                          ? parseFloat(position.holding_value).toFixed(2)
+                          : '-'}
+                      </span>
+                      <span
+                        style={{ color: parseFloat(position.pnl) >= 0 ? '#ff4d4f' : '#52c41a' }}
+                      >
                         {position.pnl !== null && position.pnl !== undefined
                           ? `${parseFloat(position.pnl) >= 0 ? '+' : ''}¥${parseFloat(position.pnl).toFixed(2)} (${formatPercent(position.pnl_rate)})`
                           : '-'}
@@ -1207,9 +1244,7 @@ const PositionsPage = () => {
             dataSource={operations}
             loading={operationsLoading}
             locale={{
-              emptyText: (
-                <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />
-              ),
+              emptyText: <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />,
             }}
             renderItem={(operation) => (
               <Card
@@ -1218,13 +1253,21 @@ const PositionsPage = () => {
                 style={{ marginBottom: 8 }}
                 data-testid="operation-card"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <div style={{ flex: 1 }}>
                     <div style={{ marginBottom: 4 }}>
                       <Tag color={operation.operation_type === 'BUY' ? 'green' : 'red'}>
                         {operation.operation_type === 'BUY' ? '买入' : '卖出'}
                       </Tag>
-                      <span style={{ marginLeft: 8, color: '#999', fontSize: 12 }}>{operation.date}</span>
+                      <span style={{ marginLeft: 8, color: '#999', fontSize: 12 }}>
+                        {operation.date}
+                      </span>
                     </div>
                     <div style={{ marginBottom: 4 }}>
                       份额: {operation.share} | 净值: ¥{operation.nav}
@@ -1235,7 +1278,9 @@ const PositionsPage = () => {
                     title="确定删除？"
                     onConfirm={() => handleDeleteOperation(operation.id)}
                   >
-                    <Button type="link" danger size="small">删除</Button>
+                    <Button type="link" danger size="small">
+                      删除
+                    </Button>
                   </Popconfirm>
                 </div>
               </Card>
@@ -1257,9 +1302,7 @@ const PositionsPage = () => {
               }),
             }}
             locale={{
-              emptyText: (
-                <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />
-              ),
+              emptyText: <Empty description="暂无操作记录，点击右上角「添加操作」开始记录" />,
             }}
           />
         )}
@@ -1275,10 +1318,7 @@ const PositionsPage = () => {
         cancelText="取消"
         width={isMobile ? '95vw' : 600}
       >
-        <Form
-          form={buildForm}
-          layout="vertical"
-        >
+        <Form form={buildForm} layout="vertical">
           <Form.Item
             label="基金代码或基金名称"
             name="fund_code"
@@ -1299,12 +1339,12 @@ const PositionsPage = () => {
           {selectedFundInfo && (
             <Card size="small" style={{ marginBottom: 16, backgroundColor: '#f5f5f5' }}>
               <div style={{ fontSize: '12px' }}>
-                <div><strong>{selectedFundInfo.fund_name}</strong> ({selectedFundInfo.fund_code})</div>
+                <div>
+                  <strong>{selectedFundInfo.fund_name}</strong> ({selectedFundInfo.fund_code})
+                </div>
                 <div style={{ marginTop: 8 }}>
                   <span>最新净值: </span>
-                  <span style={{ fontWeight: 'bold' }}>
-                    {selectedFundInfo.latest_nav || '-'}
-                  </span>
+                  <span style={{ fontWeight: 'bold' }}>{selectedFundInfo.latest_nav || '-'}</span>
                   {selectedFundInfo.latest_nav_date && (
                     <span style={{ color: '#999', marginLeft: 8 }}>
                       ({formatDate(selectedFundInfo.latest_nav_date)})
@@ -1314,15 +1354,19 @@ const PositionsPage = () => {
                 {selectedFundInfo.estimate_nav && (
                   <div style={{ marginTop: 4 }}>
                     <span>估算净值: </span>
-                    <span style={{ fontWeight: 'bold' }}>
-                      {selectedFundInfo.estimate_nav}
-                    </span>
+                    <span style={{ fontWeight: 'bold' }}>{selectedFundInfo.estimate_nav}</span>
                     {selectedFundInfo.estimate_growth && (
-                      <span style={{
-                        color: parseFloat(selectedFundInfo.estimate_growth) >= 0 ? '#ff4d4f' : '#52c41a',
-                        marginLeft: 8
-                      }}>
-                        ({parseFloat(selectedFundInfo.estimate_growth) >= 0 ? '+' : ''}{selectedFundInfo.estimate_growth}%)
+                      <span
+                        style={{
+                          color:
+                            parseFloat(selectedFundInfo.estimate_growth) >= 0
+                              ? '#ff4d4f'
+                              : '#52c41a',
+                          marginLeft: 8,
+                        }}
+                      >
+                        ({parseFloat(selectedFundInfo.estimate_growth) >= 0 ? '+' : ''}
+                        {selectedFundInfo.estimate_growth}%)
                       </span>
                     )}
                   </div>
@@ -1332,7 +1376,10 @@ const PositionsPage = () => {
           )}
 
           <Form.Item label="建仓方式">
-            <Radio.Group value={buildPositionMode} onChange={(e) => setBuildPositionMode(e.target.value)}>
+            <Radio.Group
+              value={buildPositionMode}
+              onChange={(e) => setBuildPositionMode(e.target.value)}
+            >
               <Radio.Button value="value">持有市值 + 收益金额</Radio.Button>
               <Radio.Button value="nav">持有净值 + 份额</Radio.Button>
             </Radio.Group>
@@ -1365,37 +1412,16 @@ const PositionsPage = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                label="成本（自动计算）"
-                name="amount"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="成本（自动计算）" name="amount">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
 
-              <Form.Item
-                label="份额（自动计算）"
-                name="share"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="份额（自动计算）" name="share">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
 
-              <Form.Item
-                label="持有净值（自动计算）"
-                name="nav"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="持有净值（自动计算）" name="nav">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
             </>
           ) : (
@@ -1426,15 +1452,8 @@ const PositionsPage = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                label="金额（自动计算）"
-                name="amount"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="金额（自动计算）" name="amount">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
             </>
           )}
@@ -1529,15 +1548,8 @@ const PositionsPage = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                label="份额（自动计算）"
-                name="share"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="份额（自动计算）" name="share">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
             </>
           ) : (
@@ -1570,15 +1582,8 @@ const PositionsPage = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                label="金额（自动计算）"
-                name="amount"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="自动计算"
-                  disabled
-                />
+              <Form.Item label="金额（自动计算）" name="amount">
+                <InputNumber style={{ width: '100%' }} placeholder="自动计算" disabled />
               </Form.Item>
             </>
           )}

@@ -54,143 +54,139 @@ function AppInner() {
       }}
     >
       <Router>
-              <Routes>
-              <Route
-                path="/"
-                element={
-                  isAuthenticated() ? (
-                    <Navigate to="/dashboard/watchlists" />
-                  ) : (
-                    <Navigate to="/login" />
-                  )
-                }
-              />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/admin" element={<Navigate to="/dashboard/admin" />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/initialize" element={<InitializePage />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Navigate to="/dashboard/watchlists" />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/funds"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <FundsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/funds/:code"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <FundDetailPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/accounts"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <AccountsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/positions"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <PositionsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/watchlists"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <WatchlistsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/settings"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <SettingsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/market"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <MarketPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/profile"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ProfilePage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/rankings"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <RankingsPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/compare"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ComparePage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard/admin"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <AdminPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-            </Routes>
-          </Router>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              isAuthenticated() ? <Navigate to="/dashboard/watchlists" /> : <Navigate to="/login" />
+            }
+          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<Navigate to="/dashboard/admin" />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/initialize" element={<InitializePage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Navigate to="/dashboard/watchlists" />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/funds"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <FundsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/funds/:code"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <FundDetailPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/accounts"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <AccountsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/positions"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <PositionsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/watchlists"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <WatchlistsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/settings"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <SettingsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/market"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <MarketPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/profile"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ProfilePage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/rankings"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <RankingsPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/compare"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ComparePage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard/admin"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <AdminPage />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Router>
     </ConfigProvider>
   );
 }
