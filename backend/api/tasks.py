@@ -235,24 +235,44 @@ def capture_intraday_snapshots():
     fund_ids = Position.objects.values_list("fund_id", flat=True).distinct()
     funds = Fund.objects.filter(id__in=fund_ids)
 
+    # 注入凭证到需要登录的数据源
+    from api.models import UserSourceCredential
+
+    source_names = SourceRegistry.list_sources()
+    sources = []
+    for name in source_names:
+        s = SourceRegistry.get_source(name)
+        if not s or name == "sina":
+            continue
+        # 注入凭证
+        if s.get_login_type() != "none":
+            cred = UserSourceCredential.objects.filter(
+                source_name=name, is_active=True
+            ).first()
+            if cred:
+                if hasattr(s, "set_token"):
+                    s.set_token(cred.token)
+                else:
+                    s._token = cred.token
+        sources.append(s)
+
     count = 0
     for fund in funds:
-        source = SourceRegistry.get_source("eastmoney")
-        if not source:
-            continue
-        try:
-            data = source.fetch_estimate(fund.fund_code)
-            if data and data.get("estimate_nav"):
-                EstimateSnapshot.objects.create(
-                    fund=fund,
-                    source="eastmoney",
-                    timestamp=now,
-                    estimate_nav=data["estimate_nav"],
-                    estimate_growth=data.get("estimate_growth"),
-                )
-                count += 1
-        except Exception as e:
-            logger.warning(f"抓取 {fund.fund_code} 估值快照失败: {e}")
+        for source in sources:
+            try:
+                data = source.fetch_estimate(fund.fund_code)
+                if data and data.get("estimate_nav"):
+                    EstimateSnapshot.objects.create(
+                        fund=fund,
+                        source=source.get_source_name(),
+                        timestamp=now,
+                        estimate_nav=data["estimate_nav"],
+                        estimate_growth=data.get("estimate_growth"),
+                    )
+                    count += 1
+                    break  # 一个源成功就不再尝试其他源
+            except Exception as e:
+                continue
 
     logger.info(f"已抓取 {count} 个基金的估值快照")
     return f"已抓取 {count} 个快照"

@@ -35,17 +35,35 @@ def _fetch_nav_from_source(source, fund_code, use_today, today):
         return None
 
 
+def _inject_credentials(source):
+    """注入用户凭证到需要登录的数据源"""
+    from api.models import UserSourceCredential
+
+    name = source.get_source_name()
+    if source.get_login_type() == "none":
+        return
+    credential = UserSourceCredential.objects.filter(
+        source_name=name, is_active=True
+    ).first()
+    if credential:
+        if hasattr(source, "set_token"):
+            source.set_token(credential.token)
+        else:
+            source._token = credential.token
+
+
 def _fetch_best_nav(fund_code, use_today, today):
     """
     并发从所有数据源获取净值，返回 nav_date 最新的那条。
     """
     source_names = SourceRegistry.list_sources()
-    # 排除 sina 等行情类源，只保留净值类源用于更新
     sources = [
         SourceRegistry.get_source(n)
         for n in source_names
         if SourceRegistry.get_source(n) and n != "sina"
     ]
+    for s in sources:
+        _inject_credentials(s)
 
     results = []
     with ThreadPoolExecutor(max_workers=len(sources) or 1) as executor:

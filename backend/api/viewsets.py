@@ -102,25 +102,37 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 养基宝需要注入用户 token
-        if source_name == "yangjibao" and request.user.is_authenticated:
+        # 需要登录的数据源：优先当前用户凭证，fallback 到任意用户的凭证
+        if source_name in ("yangjibao", "xiaobeiyangji"):
             from .models import UserSourceCredential
 
-            credential = UserSourceCredential.objects.filter(
-                user=request.user,
-                source_name="yangjibao",
-                is_active=True,
-            ).first()
+            credential = None
+            if request.user.is_authenticated:
+                credential = UserSourceCredential.objects.filter(
+                    user=request.user, source_name=source_name, is_active=True
+                ).first()
+            if not credential:
+                credential = UserSourceCredential.objects.filter(
+                    source_name=source_name, is_active=True
+                ).first()
             if credential:
-                source._token = credential.token
+                if hasattr(source, "set_token"):
+                    source.set_token(credential.token)
+                else:
+                    source._token = credential.token
             else:
                 return Response(
-                    {"error": "未登录养基宝，请先扫码登录"},
+                    {"error": f"未登录 {source_name}，请先在设置中扫码登录"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
         try:
             data = source.fetch_estimate(fund_code)
+            if data is None:
+                return Response(
+                    {"error": f"{source_name} 未返回数据，请检查是否已登录或 token 是否过期"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(data)
         except Exception as e:
             return Response(
@@ -631,17 +643,24 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 source_name
             ) or SourceRegistry.get_source("eastmoney")
 
-            # 养基宝需要注入用户 token
-            if source_name == "yangjibao" and request.user.is_authenticated:
+            # 需要登录的数据源：优先当前用户，fallback 任意用户
+            if source_name in ("yangjibao", "xiaobeiyangji"):
                 from .models import UserSourceCredential
 
-                credential = UserSourceCredential.objects.filter(
-                    user=request.user,
-                    source_name="yangjibao",
-                    is_active=True,
-                ).first()
+                credential = None
+                if request.user.is_authenticated:
+                    credential = UserSourceCredential.objects.filter(
+                        user=request.user, source_name=source_name, is_active=True
+                    ).first()
+                if not credential:
+                    credential = UserSourceCredential.objects.filter(
+                        source_name=source_name, is_active=True
+                    ).first()
                 if credential:
-                    source._token = credential.token
+                    if hasattr(source, "set_token"):
+                        source.set_token(credential.token)
+                    else:
+                        source._token = credential.token
 
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {
@@ -1853,9 +1872,16 @@ class SourceCredentialViewSet(viewsets.ViewSet):
         source = SourceRegistry.get_source(source_name)
         login_type = source.get_login_type() if source else "none"
 
-        credential = UserSourceCredential.objects.filter(
-            user=request.user, source_name=source_name, is_active=True
-        ).first()
+        # 优先当前用户，fallback 任意用户
+        credential = None
+        if request.user.is_authenticated:
+            credential = UserSourceCredential.objects.filter(
+                user=request.user, source_name=source_name, is_active=True
+            ).first()
+        if not credential:
+            credential = UserSourceCredential.objects.filter(
+                source_name=source_name, is_active=True
+            ).first()
 
         if credential:
             serializer = UserSourceCredentialSerializer(credential)
