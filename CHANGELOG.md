@@ -16,6 +16,20 @@
 
 ---
 
+## [v2.5.3] - 2026-06-11
+
+### Fixed
+
+- **多数据源凭证注入**：修复 Celery 任务和管理命令仅使用 eastmoney 的问题。估值快照、净值同步、准确率审计现在均支持 yangjibao 和 xiaobeiyangji，自动注入任意用户的活跃凭证
+- **数据源切换静默失败**：切换 yangjibao/xiaobeiyangji 时返回空响应 → 现在返回明确错误提示（未登录或 token 过期）
+- **凭证状态接口**：`/api/source-credentials/status/` 支持 fallback 到任意用户的凭证，不再仅限当前用户
+
+### Changed
+
+- **数据源凭证 fallback 逻辑**：estimate、batch_estimate、status 三个接口改为「当前用户凭证 → 任意用户凭证」的 fallback 策略，管理员配置后全局可用
+
+---
+
 ## [v2.5.2] - 2026-06-05
 
 ### Added

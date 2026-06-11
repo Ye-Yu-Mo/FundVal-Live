@@ -1,6 +1,6 @@
 {
   "productName": "Fundval",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "identifier": "com.fundval.app",
   "build": {
     "beforeDevCommand": "npm run dev",
