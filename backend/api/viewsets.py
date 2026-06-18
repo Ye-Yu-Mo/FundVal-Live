@@ -95,6 +95,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         fund = self.get_object()
         source_name = request.query_params.get("source", "eastmoney")
 
+        # 蛋卷不支持实时估值，静默 fallback 到 eastmoney
+        if source_name == "danjuan":
+            source_name = "eastmoney"
+
         source = SourceRegistry.get_source(source_name)
         if not source:
             return Response(
@@ -588,6 +592,11 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         """
         fund_codes = request.data.get("fund_codes", [])
         source_name = request.data.get("source", "eastmoney")
+
+        # 蛋卷不支持实时估值，静默 fallback 到 eastmoney
+        if source_name == "danjuan":
+            source_name = "eastmoney"
+
         ttl_minutes = config.get("estimate_cache_ttl", 5)
 
         if not fund_codes:
@@ -1041,6 +1050,74 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["get"], url_path="fund_detail")
+    def fund_detail(self, request, fund_code=None):
+        """
+        获取基金详情（评级排名数据）
+
+        GET /api/funds/{code}/fund_detail/?source=danjuan
+
+        目前只有 danjuan 数据源支持此接口。
+        """
+        fund = self.get_object()
+        source_name = request.query_params.get("source", "danjuan")
+
+        if source_name != "danjuan":
+            return Response(
+                {"error": f"数据源 {source_name} 不支持基金详情查询"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        source = SourceRegistry.get_source("danjuan")
+        if not source:
+            return Response(
+                {"error": "danjuan 数据源未注册"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        try:
+            detail = source.fetch_fund_detail(fund_code)
+            if not detail:
+                return Response(
+                    {"error": "未找到该基金的详情数据"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            return Response(
+                {
+                    "fund_code": fund_code,
+                    "source": "danjuan",
+                    "detail": {
+                        "fund_name": detail.get("fund_name", ""),
+                        "fund_type": detail.get("fund_type"),
+                        "risk_level": detail.get("risk_level"),
+                        "manager_name": detail.get("manager_name"),
+                        "company_name": detail.get("company_name"),
+                        "latest_nav": (
+                            str(detail["latest_nav"])
+                            if detail.get("latest_nav") is not None
+                            else None
+                        ),
+                        "nav_date": (
+                            detail["nav_date"].isoformat()
+                            if detail.get("nav_date")
+                            else None
+                        ),
+                        "period_returns": {
+                            k: str(v)
+                            for k, v in detail.get("period_returns", {}).items()
+                        },
+                        "peer_ranking": detail.get("peer_ranking", {}),
+                    },
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": f"获取基金详情失败: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -2072,7 +2149,7 @@ class UserPreferenceViewSet(viewsets.ViewSet):
 
     permission_classes = [IsAuthenticated]
 
-    VALID_SOURCES = {"eastmoney", "yangjibao", "xiaobeiyangji"}
+    VALID_SOURCES = {"eastmoney", "yangjibao", "xiaobeiyangji", "danjuan"}
 
     def list(self, request):
         """
