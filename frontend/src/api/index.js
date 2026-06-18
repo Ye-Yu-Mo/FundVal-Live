@@ -65,6 +65,8 @@ export const fundsAPI = {
   compare: (codes) => api.get('/funds/compare/', { params: { codes: codes.join(',') } }),
   marketIndices: () => api.get('/funds/market-indices/'),
   rankings: (params) => api.get('/funds/rankings/', { params }),
+  fundDetail: (fundCode, source = 'danjuan') =>
+    api.get(`/funds/${fundCode}/fund_detail/`, { params: { source } }),
 };
 
 // 账户管理

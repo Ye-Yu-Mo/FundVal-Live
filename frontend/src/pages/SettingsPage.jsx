@@ -115,6 +115,7 @@ const DataSourceCard = () => {
             <Select.Option value="eastmoney">东方财富</Select.Option>
             <Select.Option value="yangjibao">养基宝</Select.Option>
             <Select.Option value="xiaobeiyangji">小倍养基</Select.Option>
+            <Select.Option value="danjuan">蛋卷基金（净值补充，无实时估值）</Select.Option>
           </Select>
         </Form.Item>
         <Alert
