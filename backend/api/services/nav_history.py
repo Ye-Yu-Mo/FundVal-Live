@@ -49,6 +49,21 @@ def sync_nav_history(
     source = SourceRegistry.get_source("eastmoney")
     nav_data = source.fetch_nav_history(fund_code, start_date, end_date)
 
+    # eastmoney 无数据 → fallback 到蛋卷基金
+    if not nav_data:
+        logger.info(f"eastmoney 无 {fund_code} 净值数据，尝试 danjuan fallback")
+        danjuan = SourceRegistry.get_source("danjuan")
+        if danjuan:
+            try:
+                nav_data = danjuan.fetch_nav_history(
+                    fund_code, start_date, end_date
+                )
+            except Exception as e:
+                logger.warning(
+                    f"danjuan fallback 失败：{fund_code}, 错误：{e}"
+                )
+                nav_data = []
+
     count = 0
     if not nav_data:
         logger.info(f"没有新的历史净值数据：{fund_code}")
