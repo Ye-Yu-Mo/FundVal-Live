@@ -26,7 +26,7 @@
 
 ## 功能特性
 
-- **实时估值**：基于持仓穿透 + 实时行情加权计算，支持东方财富、养基宝、小倍养基三数据源
+- **实时估值**：基于持仓穿透 + 实时行情加权计算，支持东方财富、养基宝、小倍养基、蛋卷（雪球）四数据源，多源 fallback 提升净值覆盖率
 - **持仓穿透**：指数/ETF 基金前十大持仓股实时行情，瀑布图 + 表格双视图，30s 自动刷新
 - **基金 PK 对比**：2-5 只基金雷达图多维对比，收益/风险/回撤/夏普一站图，结果可分享
 - **基金排行榜**：涨幅榜 / 人气榜 / 估值准度榜，分类板块筛选
@@ -273,6 +273,7 @@ graph TD
         EM["东方财富"]
         YJB["养基宝"]
         XBYJ["小倍养基"]
+        DJ["蛋卷/雪球"]
     end
 
     Browser & Desktop & Android -->|HTTP| FE
@@ -282,8 +283,8 @@ graph TD
     BE <-->|缓存 / Broker| Redis
     Beat -->|任务入队| Redis
     Redis -->|任务分发| Worker
-    Worker -->|数据抓取| EM & YJB & XBYJ
-    Django -->|按需请求| EM & YJB & XBYJ
+    Worker -->|数据抓取| EM & YJB & XBYJ & DJ
+    Django -->|按需请求| EM & YJB & XBYJ & DJ
 ```
 
 前端通过 Nginx 反向代理 `/api/` 到后端。Celery Beat 定时触发净值同步，Worker 并发抓取多数据源后写入 PostgreSQL。
@@ -316,7 +317,7 @@ fundval/
 ├── frontend/          # React 前端
 ├── backend/           # Django 后端
 │   ├── api/
-│   │   ├── sources/   # 数据源（东方财富、养基宝、小倍养基）
+│   │   ├── sources/   # 数据源（东方财富、养基宝、小倍养基、蛋卷）
 │   │   └── services/  # 业务逻辑（持仓计算、养基宝/小倍养基导入）
 │   └── entrypoint.sh  # Docker 启动脚本（自动迁移）
 ├── docker-compose.yml # Docker 编排

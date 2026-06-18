@@ -16,6 +16,34 @@
 
 ---
 
+## [v2.6.0] - 2026-06-18
+
+### Added
+
+- **蛋卷基金数据源**：新增雪球基金（蛋卷）作为第五个数据源
+  - `DanjuanSource` 实现 `BaseEstimateSource`，调用 `danjuanfunds.com` API
+  - 历史净值查询（`/djapi/fund/nav/history/{code}`）
+  - 基金详情 + 评级排名（`/djapi/fund/{code}`）：阶段收益 + 同类排名百分位
+  - `GET /api/funds/{code}/fund_detail/?source=danjuan` 提供评级排名数据
+  - 无需认证，设置页可选"蛋卷基金（净值补充，无实时估值）"
+- **东方财富移动端 API fallback**：`EastMoneySource` 净值相关方法增加移动端 API 作为 fallback
+  - `fetch_nav_history`：Web API 返回空时自动尝试 `FundMNHisNetList`（JSON）
+  - `fetch_realtime_nav`：Web API 失败时自动尝试 `FundMNFInfo`（批量）
+  - `fetch_today_nav` 自动受益（底层依赖 `fetch_nav_history`）
+  - 零新增依赖，提升净值覆盖率
+- **净值同步多源 fallback**：`sync_nav_history` 链路支持 eastmoney → danjuan 自动 fallback
+  - eastmoney 无数据时自动尝试 danjuan
+  - `batch_sync_nav_history`、管理命令、`query_nav` API 自动受益
+  - 基金 `latest_nav` 回写逻辑不受影响
+- **蛋卷估值静默 fallback**：选择 danjuan 作为 preferred_source 时，估值接口自动 fallback 到 eastmoney
+  - `estimate` 和 `batch_estimate` 均支持，前端无需特殊处理
+
+### Changed
+
+- **数据源偏好**：`UserPreference.VALID_SOURCES` 新增 `"danjuan"`，前端设置页新增蛋卷选项
+
+---
+
 ## [v2.5.3] - 2026-06-11
 
 ### Fixed
