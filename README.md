@@ -156,6 +156,7 @@ curl http://localhost:21345/api/health/
 
 **注意**：
 - `postgres_data` 和 `config_data` 两个 volume 是持久化的，更新不会影响数据
+- **严禁 `docker compose down -v`**：`-v` 会删除 volume，导致 Bootstrap Key 丢失和数据清空
 - `.env` 文件不会被覆盖，自定义配置保留
 - 如果 `.env` 有新增的配置项，需要对照 `.env.example` 手动添加
 - 更新后如页面仍显示旧版，请**强制刷新浏览器**（Ctrl+Shift+R / Cmd+Shift+R）清除 JS 缓存

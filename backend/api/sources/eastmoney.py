@@ -26,6 +26,22 @@ class EastMoneySource(BaseEstimateSource):
     )
     STOCK_QUOTE_URL = "http://push2.eastmoney.com/api/qt/ulist.np/get"
 
+    # 移动端 API（作为 Web API 的 fallback，提升净值覆盖率）
+    MOBILE_NAV_HISTORY_URL = (
+        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
+    )
+    MOBILE_REALTIME_NAV_URL = (
+        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
+    )
+
+    MOBILE_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 "
+            "eastmoney/6.2.8"
+        ),
+    }
+
     def get_source_name(self) -> str:
         return "eastmoney"
 
@@ -93,8 +109,11 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取实际净值
 
-        使用同一个 API，但只取昨日净值
+        先尝试 Web API（fundgz JSONP），失败时 fallback 到移动端 API。
         """
+        result = None
+
+        # 1. 尝试 Web API
         try:
             url = self.ESTIMATE_URL.format(code=fund_code)
             response = requests.get(url, timeout=10)
@@ -104,35 +123,103 @@ class EastMoneySource(BaseEstimateSource):
             match = re.search(r"jsonpgz\((.*)\);?", text)
             if not match:
                 logger.warning(f"无法解析净值数据：{fund_code}，响应格式不正确")
+            else:
+                json_str = match.group(1)
+                data = json.loads(json_str)
+
+                required_fields = ["fundcode", "dwjz", "jzrq"]
+                missing = [f for f in required_fields if f not in data]
+                if missing:
+                    logger.warning(
+                        f"净值数据缺少字段 {missing}：{fund_code}"
+                    )
+                else:
+                    result = {
+                        "fund_code": data["fundcode"],
+                        "nav": Decimal(data["dwjz"]),
+                        "nav_date": datetime.strptime(
+                            data["jzrq"], "%Y-%m-%d"
+                        ).date(),
+                    }
+                    return result  # Web API 成功，不调 mobile
+
+        except Exception as e:
+            logger.warning(f"Web API 获取净值失败：{fund_code}, 错误：{e}")
+
+        # 2. Fallback: 移动端 API
+        if result is None:
+            logger.info(f"Web API 净值失败，尝试移动端 fallback：{fund_code}")
+            result = self._fetch_realtime_nav_mobile(fund_code)
+
+        return result
+
+    def _fetch_realtime_nav_mobile(self, fund_code: str) -> Optional[Dict]:
+        """
+        从东方财富移动端 API 获取最新净值（作为 Web API 的 fallback）
+
+        使用 FundMNFInfo 批量接口，取单只基金的最新净值。
+
+        Returns:
+            dict: {'fund_code': str, 'nav': Decimal, 'nav_date': date}
+            失败返回 None
+        """
+        try:
+            params = {
+                "Fcodes": fund_code,
+                "pageIndex": "1",
+                "pageSize": "1",
+                "Sort": "",
+                "SortColumn": "",
+                "IsShowSE": "false",
+                "P": "F",
+                "deviceid": "3EA024C2-7F22-408B-95E4-383D38160FB3",
+                "plat": "Iphone",
+                "product": "EFund",
+                "version": "6.2.8",
+            }
+            response = requests.get(
+                self.MOBILE_REALTIME_NAV_URL,
+                params=params,
+                headers=self.MOBILE_HEADERS,
+                timeout=15,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if not data or not data.get("Datas"):
+                logger.warning(
+                    f"移动端净值查询无数据（FundMNFInfo）：{fund_code}"
+                )
                 return None
 
-            json_str = match.group(1)
-            data = json.loads(json_str)
+            items = data["Datas"]
+            if not items:
+                return None
 
-            # 验证必需字段
-            required_fields = ["fundcode", "dwjz", "jzrq"]
-            for field in required_fields:
-                if field not in data:
-                    logger.warning(f"净值数据缺少字段 {field}：{fund_code}")
-                    return None
+            item = items[0]
+            nav_str = item.get("ACCNAV")
+            date_str = item.get("PDATE")
+
+            if not nav_str or not date_str:
+                logger.warning(
+                    f"移动端净值数据缺少字段（ACCNAV/PDATE）：{fund_code}"
+                )
+                return None
 
             return {
-                "fund_code": data["fundcode"],
-                "nav": Decimal(data["dwjz"]),
-                "nav_date": datetime.strptime(data["jzrq"], "%Y-%m-%d").date(),
+                "fund_code": fund_code,
+                "nav": Decimal(str(nav_str)),
+                "nav_date": datetime.strptime(date_str, "%Y-%m-%d").date(),
             }
 
         except requests.RequestException as e:
-            logger.error(f"获取净值失败（网络错误）：{fund_code}, 错误：{e}")
+            logger.warning(f"移动端净值查询失败（网络）：{fund_code}, 错误：{e}")
             return None
-        except json.JSONDecodeError as e:
-            logger.error(f"获取净值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
-            return None
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"获取净值失败（数据格式错误）：{fund_code}, 错误：{e}")
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
+            logger.warning(f"移动端净值查询失败（解析）：{fund_code}, 错误：{e}")
             return None
         except Exception as e:
-            logger.error(f"获取净值失败（未知错误）：{fund_code}, 错误：{e}")
+            logger.warning(f"移动端净值查询失败（未知）：{fund_code}, 错误：{e}")
             return None
 
     def fetch_fund_list(self) -> list:
@@ -220,13 +307,8 @@ class EastMoneySource(BaseEstimateSource):
         """
         获取基金历史净值
 
-        API 返回格式：
-        var Data_netWorthTrend = [
-            {"x":1704067200000,"y":1.2345,"equityReturn":0.9,"unitMoney":""}
-        ];
-        var Data_ACWorthTrend = [
-            {"x":1704067200000,"y":2.3456,"equityReturn":0,"unitMoney":""}
-        ];
+        先尝试 Web API（pingzhongdata JSONP），
+        返回空或失败时 fallback 到移动端 API（FundMNHisNetList JSON）。
 
         字段说明：
         - x: 时间戳（毫秒）
@@ -243,6 +325,27 @@ class EastMoneySource(BaseEstimateSource):
         Returns:
             历史净值列表
         """
+        # 1. 尝试 Web API
+        result = self._try_web_nav_history(fund_code, start_date, end_date)
+
+        # 2. Web API 返回空 → fallback 到移动端 API
+        if not result:
+            logger.info(
+                f"Web API 历史净值为空，尝试移动端 fallback：{fund_code}"
+            )
+            result = self._fetch_nav_history_mobile(
+                fund_code, start_date, end_date
+            )
+
+        return result
+
+    def _try_web_nav_history(
+        self,
+        fund_code: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Dict]:
+        """Web API 历史净值获取（内部方法）"""
         try:
             url = self.HISTORY_URL.format(code=fund_code)
             response = requests.get(url, timeout=30)
@@ -355,6 +458,120 @@ class EastMoneySource(BaseEstimateSource):
             return []
         except Exception as e:
             logger.error(f"获取历史净值失败（未知错误）：{fund_code}, 错误：{e}")
+            return []
+
+    def _fetch_nav_history_mobile(
+        self,
+        fund_code: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Dict]:
+        """
+        从东方财富移动端 API 获取历史净值（作为 Web API 的 fallback）
+
+        使用 FundMNHisNetList 接口，返回 JSON 而非 JSONP。
+
+        Returns:
+            与 fetch_nav_history 相同格式的列表
+            失败返回空列表
+        """
+        try:
+            params = {
+                "FCODE": fund_code,
+                "IsShareNet": "true",
+                "MobileKey": "1",
+                "appType": "ttjj",
+                "appVersion": "6.2.8",
+                "cToken": "1",
+                "deviceid": "1",
+                "pageIndex": "1",
+                "pageSize": "100000",
+                "plat": "Iphone",
+                "product": "EFund",
+                "serverVersion": "6.2.8",
+                "uToken": "1",
+                "userId": "1",
+                "version": "6.2.8",
+            }
+            response = requests.get(
+                self.MOBILE_NAV_HISTORY_URL,
+                params=params,
+                headers=self.MOBILE_HEADERS,
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if not data or not data.get("Datas"):
+                logger.warning(
+                    f"移动端历史净值无数据（FundMNHisNetList）：{fund_code}"
+                )
+                return []
+
+            items = data["Datas"]
+            if not items:
+                return []
+
+            result = []
+            for item in items:
+                # 必需字段：FSRQ（日期）和 DWJZ（单位净值）
+                date_str = item.get("FSRQ")
+                nav_str = item.get("DWJZ")
+                if not date_str or not nav_str:
+                    continue
+
+                try:
+                    nav_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    continue
+
+                # 日期过滤
+                if start_date and nav_date < start_date:
+                    continue
+                if end_date and nav_date > end_date:
+                    continue
+
+                accumulated_nav = None
+                ljjz_str = item.get("LJJZ")
+                if ljjz_str:
+                    try:
+                        accumulated_nav = Decimal(str(ljjz_str))
+                    except Exception:
+                        pass
+
+                daily_growth = None
+                jzzzl_str = item.get("JZZZL")
+                if jzzzl_str:
+                    try:
+                        daily_growth = Decimal(str(jzzzl_str))
+                    except Exception:
+                        pass
+
+                result.append(
+                    {
+                        "nav_date": nav_date,
+                        "unit_nav": Decimal(str(nav_str)),
+                        "accumulated_nav": accumulated_nav,
+                        "daily_growth": daily_growth,
+                    }
+                )
+
+            return result
+
+        except requests.RequestException as e:
+            logger.warning(
+                f"移动端历史净值获取失败（网络）：{fund_code}, 错误：{e}"
+            )
+            return []
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
+            logger.warning(
+                f"移动端历史净值获取失败（解析）：{fund_code}, 错误：{e}"
+            )
+            return []
+        except Exception as e:
+            logger.warning(
+                f"移动端历史净值获取失败（未知）：{fund_code}, 错误：{e}"
+            )
             return []
 
     def fetch_index_holdings(self, fund_code: str) -> list:
