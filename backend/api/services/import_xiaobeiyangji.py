@@ -110,9 +110,8 @@ def import_from_xiaobeiyangji(user, source, overwrite: bool = False) -> dict:
                 share = Decimal(str(holding["share"])).quantize(
                     Decimal("0.0001"), rounding=ROUND_DOWN
                 )
-                amount = Decimal(str(holding["amount"])).quantize(
-                    Decimal("0.01"), rounding=ROUND_DOWN
-                )
+                # amount = 买入总成本 = share × nav，不用外部 market value
+                amount = (share * nav).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
                 PositionOperation.objects.create(
                     account=sub_account,

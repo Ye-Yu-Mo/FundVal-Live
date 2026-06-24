@@ -160,8 +160,42 @@ jobs:
           name: android-aab
           path: frontend/android/app/build/outputs/bundle/release/*.aab
 
+  build-android-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        working-directory: fundval-app
+        run: ./gradlew assembleRelease
+
+      - name: Build release AAB
+        working-directory: fundval-app
+        run: ./gradlew bundleRelease
+
+      - name: Upload native APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-native-apk
+          path: fundval-app/app/build/outputs/apk/release/*.apk
+
+      - name: Upload native AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-native-aab
+          path: fundval-app/app/build/outputs/bundle/release/*.aab
+
   create-release:
-    needs: [build-desktop, build-android]
+    needs: [build-desktop, build-android, build-android-native]
     runs-on: ubuntu-latest
     permissions:
       contents: write

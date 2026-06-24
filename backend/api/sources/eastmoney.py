@@ -49,25 +49,14 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取估值
 
-        API 返回格式：
-        jsonpgz({"fundcode":"000001","name":"华夏成长混合","jzrq":"2026-02-10",
-                 "dwjz":"1.1490","gsz":"1.1370","gszzl":"-1.05","gztime":"2026-02-11 15:00"});
-
-        字段说明：
-        - fundcode: 基金代码
-        - name: 基金名称
-        - jzrq: 净值日期（昨日）
-        - dwjz: 单位净值（昨日净值）
-        - gsz: 估算净值
-        - gszzl: 估算增长率
-        - gztime: 估值时间
+        QDII 基金净值 T+2 延迟公布，fundgz 的基准净值可能过期。
+        此时从 Mobile API 取最新净值，重新计算涨跌幅。
         """
         try:
             url = self.ESTIMATE_URL.format(code=fund_code)
             response = requests.get(url, timeout=10)
             response.raise_for_status()
 
-            # 解析 JSONP：jsonpgz({...});
             text = response.text
             match = re.search(r"jsonpgz\((.*)\);?", text)
             if not match:
@@ -77,19 +66,44 @@ class EastMoneySource(BaseEstimateSource):
             json_str = match.group(1)
             data = json.loads(json_str)
 
-            # 验证必需字段
             required_fields = ["fundcode", "name", "gsz", "gszzl", "gztime"]
             for field in required_fields:
                 if field not in data:
                     logger.warning(f"估值数据缺少字段 {field}：{fund_code}")
                     return None
 
+            estimate_nav = Decimal(data["gsz"])
+            estimate_growth = Decimal(data["gszzl"])
+            estimate_time = datetime.strptime(data["gztime"], "%Y-%m-%d %H:%M")
+
+            # QDII / 净值延迟: 如果 fundgz 的基准净值日期过期，
+            # 用 Mobile API 取最新净值重新计算涨跌幅
+            jzrq_str = data.get("jzrq")
+            if jzrq_str:
+                try:
+                    jzrq_date = datetime.strptime(jzrq_str, "%Y-%m-%d").date()
+                    latest = self._fetch_realtime_nav_mobile(fund_code)
+                    if latest and latest["nav_date"] > jzrq_date:
+                        # 用最新净值作为基准重新计算涨跌幅
+                        old_nav = latest["nav"]
+                        if old_nav and old_nav > 0:
+                            estimate_growth = (
+                                (estimate_nav - old_nav) / old_nav * 100
+                            )
+                            logger.info(
+                                f"QDII 净值校正: {fund_code} "
+                                f"jzrq={jzrq_date}→{latest['nav_date']} "
+                                f"growth={data['gszzl']}%→{estimate_growth:.2f}%"
+                            )
+                except (ValueError, TypeError):
+                    pass
+
             return {
                 "fund_code": data["fundcode"],
                 "fund_name": data["name"],
-                "estimate_nav": Decimal(data["gsz"]),
-                "estimate_growth": Decimal(data["gszzl"]),
-                "estimate_time": datetime.strptime(data["gztime"], "%Y-%m-%d %H:%M"),
+                "estimate_nav": estimate_nav,
+                "estimate_growth": estimate_growth,
+                "estimate_time": estimate_time,
             }
 
         except requests.RequestException as e:

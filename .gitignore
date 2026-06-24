@@ -1,4 +1,6 @@
-# Python
+# ─────────────────────────────────────────────
+# Python / Django
+# ─────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -38,7 +40,14 @@ db.sqlite3-journal
 /backend/media/
 /backend/db.sqlite3.backup.*
 
-# Node
+# Celery beat schedule
+backend/celerybeat-schedule
+backend/celerybeat-schedule-shm
+backend/celerybeat-schedule-wal
+
+# ─────────────────────────────────────────────
+# Node.js / Frontend
+# ─────────────────────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -46,80 +55,111 @@ yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 
-# Frontend build
 /frontend/dist/
 /frontend/dist-ssr/
 /frontend/.vite/
 
-# Tauri
+# ─────────────────────────────────────────────
+# Android / Gradle (fundval-app)
+# ─────────────────────────────────────────────
+/fundval-app/.gradle/
+/fundval-app/build/
+/fundval-app/app/build/
+/fundval-app/app/release/
+/fundval-app/local.properties
+/fundval-app/.idea/
+/fundval-app/*.iml
+/fundval-app/.externalNativeBuild/
+/fundval-app/.cxx/
+
+# Android signing keys & builds
+*.jks
+*.keystore
+*.apk
+*.aab
+
+# ─────────────────────────────────────────────
+# Tauri Desktop
+# ─────────────────────────────────────────────
 /frontend/src-tauri/target/
 /frontend/src-tauri/Cargo.lock
 
-# Capacitor
+# ─────────────────────────────────────────────
+# Capacitor Mobile
+# ─────────────────────────────────────────────
 /frontend/android/
 /frontend/ios/
 /frontend/.capacitor/
 
-# Android signing (保留签名配置但不提交密钥)
+# Capacitor Android signing exception
 !/frontend/android/key.properties
 !/frontend/android/app/build.gradle
-/frontend/android/app/*.keystore
-/frontend/android/app/*.jks
 
-# IDE
+# ─────────────────────────────────────────────
+# IDE & Editor
+# ─────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Environment
+# ─────────────────────────────────────────────
+# Environment & Config
+# ─────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 /backend/config.json
 
-# Logs
+# ─────────────────────────────────────────────
+# Logs & Runtime Data
+# ─────────────────────────────────────────────
 logs/
 *.log
 pids/
 *.pid
 *.seed
 *.pid.lock
+dump.rdb
 
-# Testing
+# ─────────────────────────────────────────────
+# Testing & Coverage
+# ─────────────────────────────────────────────
 .coverage
 htmlcov/
 .pytest_cache/
 .vitest/
 
+# ─────────────────────────────────────────────
 # OS
+# ─────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Temporary
+# ─────────────────────────────────────────────
+# Temporary & Backup
+# ─────────────────────────────────────────────
 *.tmp
 *.temp
 *.bak
 *.backup
+*.orig
 
-*.md
-__pycache__
-.pytest_cache
-.venv
-backend/celerybeat-schedule
-backend/celerybeat-schedule-shm
-backend/celerybeat-schedule-wal
-dump.rdb
-
-# Local Tools
+# ─────────────────────────────────────────────
+# Local Dev Tools
+# ─────────────────────────────────────────────
 node-env/
-redis-7.4.2/
+redis-*/
 redis-cli
 redis-server
 redis.tar.gz
 
-# Upstream Mixed
+# ─────────────────────────────────────────────
+# Miscellaneous
+# ─────────────────────────────────────────────
 image.png
 yjb
 Raw_*
+*.md

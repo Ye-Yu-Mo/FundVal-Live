@@ -424,6 +424,9 @@ const PositionsPage = () => {
   // 打开建仓 Modal
   const handleOpenBuildModal = () => {
     buildForm.resetFields();
+    buildForm.setFieldsValue({
+      before_15: 'before',
+    });
     setBuildPositionMode('value');
     setFundOptions([]);
     setSearchKeyword('');
@@ -550,6 +553,13 @@ const PositionsPage = () => {
           nav: parseFloat(fund.latest_nav),
         });
       }
+
+      // 触发净值查询（根据操作日期和时间）
+      const opDate = buildForm.getFieldValue('operation_date');
+      const b15 = buildForm.getFieldValue('before_15');
+      if (opDate && b15) {
+        queryNav(fund.fund_code, opDate, b15);
+      }
     }
   };
 
@@ -565,14 +575,13 @@ const PositionsPage = () => {
         return;
       }
 
-      // 构造提交数据（建仓默认当前时间，15:00前）
-      const now = new Date();
+      // 构造提交数据
       const data = {
         account: selectedAccountId,
         fund_code: values.fund_code,
         operation_type: 'BUY',
-        operation_date: now.toISOString().split('T')[0],
-        before_15: true,
+        operation_date: values.operation_date.format('YYYY-MM-DD'),
+        before_15: values.before_15 === 'before',
         amount: values.amount,
         share: values.share,
         nav: values.nav,
@@ -1382,6 +1391,40 @@ const PositionsPage = () => {
             >
               <Radio.Button value="value">持有市值 + 收益金额</Radio.Button>
               <Radio.Button value="nav">持有净值 + 份额</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            label="操作日期"
+            name="operation_date"
+            rules={[{ required: true, message: '请选择操作日期' }]}
+          >
+            <DatePicker
+              style={{ width: '100%' }}
+              onChange={(date) => {
+                const before15 = buildForm.getFieldValue('before_15');
+                if (date && before15 && selectedFundInfo) {
+                  queryNav(selectedFundInfo.fund_code, date, before15);
+                }
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="操作时间"
+            name="before_15"
+            rules={[{ required: true, message: '请选择操作时间' }]}
+          >
+            <Radio.Group
+              onChange={(e) => {
+                const operationDate = buildForm.getFieldValue('operation_date');
+                if (operationDate && selectedFundInfo) {
+                  queryNav(selectedFundInfo.fund_code, operationDate, e.target.value);
+                }
+              }}
+            >
+              <Radio value="before">15:00前</Radio>
+              <Radio value="after">15:00后</Radio>
             </Radio.Group>
           </Form.Item>
 

@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.nb-gradle/
+
+# Kotlin
+.kotlin/
+
+# Android
+app/build/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Gradle distribution (downloaded by wrapper)
+gradle-*.zip
+gradle-[0-9]*/
