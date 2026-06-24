@@ -2,8 +2,10 @@ package com.fundval.app.di
 
 import android.content.Context
 import com.fundval.app.data.api.AuthApi
+import com.fundval.app.data.api.FundsApi
 import com.fundval.app.data.local.TokenManager
 import com.fundval.app.data.network.HttpClient
+import com.fundval.app.data.repository.FundRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,5 +59,17 @@ object AppModule {
     @Singleton
     fun provideAuthApi(retrofit: Retrofit): AuthApi {
         return retrofit.create(AuthApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFundsApi(retrofit: Retrofit): FundsApi {
+        return retrofit.create(FundsApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFundRepository(api: FundsApi): FundRepository {
+        return FundRepository(api)
     }
 }

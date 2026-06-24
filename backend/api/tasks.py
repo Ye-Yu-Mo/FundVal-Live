@@ -64,8 +64,10 @@ def capture_estimate_snapshot():
     funds = Fund.objects.exclude(estimate_nav__isnull=True)
     count = 0
     for fund in funds:
-        # 只捕捉当天的预估
+        # 只捕捉当天的预估，记录当前数据源
         if fund.estimate_time and fund.estimate_time.date() == today:
+            # 从 UserPreference 获取该基金对应的数据源（取任意用户的偏好）
+            # 简化处理：以 eastmoney 为主源，因为其估值数据最全
             EstimateAccuracy.objects.update_or_create(
                 source_name="eastmoney",
                 fund=fund,
@@ -190,7 +192,10 @@ def audit_accuracy():
         return "非交易日"
 
     try:
-        call_command("calculate_accuracy", date=today.isoformat())
+        # 审计昨天的准确率（昨天的净值今天已确认）
+        from datetime import timedelta
+        yesterday = today - timedelta(days=1)
+        call_command("calculate_accuracy", date=yesterday.isoformat())
         logger.info(f"{today} 准确率审计完成")
         return "审计完成"
     except Exception as e:
@@ -235,7 +240,7 @@ def capture_intraday_snapshots():
     fund_ids = Position.objects.values_list("fund_id", flat=True).distinct()
     funds = Fund.objects.filter(id__in=fund_ids)
 
-    # 注入凭证到需要登录的数据源
+    # 批量快照: yjb 需要持仓上下文，跳过；xbyj 有批量 API，可查任意基金
     from api.models import UserSourceCredential
 
     source_names = SourceRegistry.list_sources()
@@ -244,16 +249,16 @@ def capture_intraday_snapshots():
         s = SourceRegistry.get_source(name)
         if not s or name == "sina":
             continue
-        # 注入凭证
-        if s.get_login_type() != "none":
+        if name == "yangjibao":
+            continue  # 需要持仓上下文，批量任务不适用
+        if name == "xiaobeiyangji":
+            # 有凭证时可用（批量 API 支持任意基金查询）
             cred = UserSourceCredential.objects.filter(
                 source_name=name, is_active=True
             ).first()
-            if cred:
-                if hasattr(s, "set_token"):
-                    s.set_token(cred.token)
-                else:
-                    s._token = cred.token
+            if not cred:
+                continue
+            s.set_token(cred.token)
         sources.append(s)
 
     count = 0
@@ -269,8 +274,13 @@ def capture_intraday_snapshots():
                         estimate_nav=data["estimate_nav"],
                         estimate_growth=data.get("estimate_growth"),
                     )
+                    # 同时更新 Fund 表的估值缓存
+                    fund.estimate_nav = data["estimate_nav"]
+                    fund.estimate_growth = data.get("estimate_growth")
+                    fund.estimate_time = now
+                    fund.save(update_fields=["estimate_nav", "estimate_growth", "estimate_time"])
                     count += 1
-                    break  # 一个源成功就不再尝试其他源
+                    break
             except Exception as e:
                 continue
 

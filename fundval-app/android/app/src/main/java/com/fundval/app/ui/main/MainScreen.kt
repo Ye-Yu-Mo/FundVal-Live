@@ -8,15 +8,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fundval.app.navigation.Destination
-import com.fundval.app.ui.auth.LoginScreen
-import com.fundval.app.ui.auth.RegisterScreen
-import com.fundval.app.ui.main.MainTab
+import com.fundval.app.ui.funds.FundListScreen
 
 data class MainTab(
     val label: String,
@@ -35,6 +32,8 @@ val mainTabs = listOf(
 
 @Composable
 fun MainScreen(
+    onNavigateToFundDetail: (String) -> Unit,
+    onNavigateToCompare: () -> Unit,
     onLogout: () -> Unit
 ) {
     val innerNavController = rememberNavController()
@@ -78,13 +77,16 @@ fun MainScreen(
         NavHost(
             navController = innerNavController,
             startDestination = Destination.Watchlist.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable(Destination.Watchlist.route) {
                 PlaceholderScreen("自选列表\n即将上线")
             }
             composable(Destination.Funds.route) {
-                PlaceholderScreen("基金浏览\n即将上线")
+                FundListScreen(
+                    onFundClick = onNavigateToFundDetail,
+                    onNavigateToCompare = onNavigateToCompare
+                )
             }
             composable(Destination.Positions.route) {
                 PlaceholderScreen("持仓管理\n即将上线")

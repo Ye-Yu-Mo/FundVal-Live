@@ -11,4 +11,10 @@ sealed class Destination(val route: String) {
     data object Positions : Destination("main/positions")
     data object Accounts : Destination("main/accounts")
     data object Profile : Destination("main/profile")
+
+    // Sub-routes (not tabs)
+    data object FundDetail : Destination("funds/{fundCode}") {
+        fun createRoute(fundCode: String) = "funds/$fundCode"
+    }
+    data object Compare : Destination("compare")
 }

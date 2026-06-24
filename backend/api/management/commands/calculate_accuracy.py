@@ -47,22 +47,23 @@ class Command(BaseCommand):
         # 并发从所有数据源获取实际净值
         from api.models import UserSourceCredential
 
+        from api.models import UserSourceCredential
+
         source_names = SourceRegistry.list_sources()
         sources = []
         for name in source_names:
             s = SourceRegistry.get_source(name)
             if not s or name == "sina":
                 continue
-            # 注入凭证
-            if s.get_login_type() != "none":
+            if name == "yangjibao":
+                continue  # 需要持仓上下文
+            if name == "xiaobeiyangji":
                 cred = UserSourceCredential.objects.filter(
                     source_name=name, is_active=True
                 ).first()
-                if cred:
-                    if hasattr(s, "set_token"):
-                        s.set_token(cred.token)
-                    else:
-                        s._token = cred.token
+                if not cred:
+                    continue
+                s.set_token(cred.token)
             sources.append(s)
         if not sources:
             self.stdout.write(self.style.ERROR("没有可用的数据源"))
@@ -73,24 +74,20 @@ class Command(BaseCommand):
 
         for record in records:
             try:
-                # 多源尝试获取实际净值
+                # 多源尝试获取实际净值（不强制日期精确匹配，QDII T+2 延迟场景）
                 data = None
                 for s in sources:
                     try:
                         d = s.fetch_realtime_nav(record.fund.fund_code)
-                        if d and d.get("nav_date") == record.estimate_date:
-                            data = d
-                            break
+                        if d and d.get("nav_date"):
+                            # 优先精确匹配，否则取最新的
+                            if not data or d["nav_date"] == record.estimate_date:
+                                data = d
+                            elif d["nav_date"] > data["nav_date"]:
+                                data = d
                     except Exception:
                         continue
                 if not data:
-                    continue
-
-                # 核心修正：强校验日期必须匹配
-                if data["nav_date"] != record.estimate_date:
-                    logger.warning(
-                        f"数据尚未同步: {record.fund.fund_code} 审计日期为 {record.estimate_date}, 但接口返回净值日期为 {data['nav_date']}"
-                    )
                     continue
 
                 record.actual_nav = data["nav"]
