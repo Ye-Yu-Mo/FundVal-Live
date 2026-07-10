@@ -142,12 +142,7 @@ class Account(models.Model):
         else:
             # 子账户：汇总所有持仓
             return sum(
-                (
-                    pos.fund.latest_nav * pos.holding_share
-                    for pos in self.positions.all()
-                    if pos.fund.latest_nav
-                ),
-                Decimal("0"),
+                (pos.holding_value for pos in self.positions.all()), Decimal("0")
             )
 
     @property
@@ -184,6 +179,9 @@ class Account(models.Model):
             has_any = False
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None:
+                    if pos.source_market_value is not None:
+                        total += pos.source_market_value
+                        has_any = True
                     continue
                 total += pos.fund.estimate_nav * pos.holding_share
                 has_any = True
@@ -263,6 +261,13 @@ class Position(models.Model):
     holding_share = models.DecimalField(max_digits=20, decimal_places=4, default=0)
     holding_cost = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     holding_nav = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    source_market_value = models.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="数据源仅提供金额时的持仓市值快照",
+    )
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -289,11 +294,20 @@ class Position(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def holding_value(self):
+        """持仓市值"""
+        from decimal import Decimal
+
+        if self.source_market_value is not None:
+            return self.source_market_value
+        if not self.fund.latest_nav or self.holding_share == 0:
+            return Decimal("0")
+        return self.fund.latest_nav * self.holding_share
+
+    @property
     def pnl(self):
         """盈亏（实时计算）"""
-        if not self.fund.latest_nav or self.holding_share == 0:
-            return 0
-        return (self.fund.latest_nav - self.holding_nav) * self.holding_share
+        return self.holding_value - self.holding_cost
 
 
 class PositionOperation(models.Model):
@@ -317,6 +331,13 @@ class PositionOperation(models.Model):
     amount = models.DecimalField(max_digits=20, decimal_places=2)
     share = models.DecimalField(max_digits=20, decimal_places=4)
     nav = models.DecimalField(max_digits=10, decimal_places=4, help_text="操作时的净值")
+    source_market_value = models.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="数据源仅提供金额时的当前市值快照",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 

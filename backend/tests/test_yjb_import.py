@@ -187,6 +187,40 @@ class TestYangJiBaoFetchHoldings:
 
         assert result == []
 
+    @patch("api.sources.yangjibao.requests.request")
+    def test_fetch_holdings_preserves_amount_only_holding(self, mock_request):
+        """测试保留仅提供市值和收益的持仓"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "code": 200,
+            "data": [
+                {
+                    "code": "009999",
+                    "short_name": "示例金额型基金",
+                    "hold_share": 0,
+                    "hold_cost": 0,
+                    "money": "1200.00",
+                    "hold_earn": "200.00",
+                    "hold_day": "2024-03-01",
+                }
+            ],
+        }
+        mock_request.return_value = mock_response
+
+        from api.sources.yangjibao import YangJiBaoSource
+
+        source = YangJiBaoSource()
+        source._token = "test-token"
+
+        result = source.fetch_holdings("acc-001")
+
+        assert len(result) == 1
+        assert result[0]["share"] == Decimal("0")
+        assert result[0]["nav"] == Decimal("0")
+        assert result[0]["amount"] == Decimal("1200.00")
+        assert result[0]["earnings"] == Decimal("200.00")
+
     def test_fetch_holdings_no_token(self):
         """测试未登录时抛出异常"""
         from api.sources.yangjibao import YangJiBaoSource
@@ -293,6 +327,42 @@ class TestImportFromYangJiBao:
         assert "holdings_skipped" in result
         assert result["accounts_created"] == 1
         assert result["holdings_created"] == 1
+
+    def test_import_creates_amount_only_position(self, user):
+        """测试金额型持仓保留来源市值和真实成本"""
+        from api.models import Account, Position, PositionOperation
+        from api.services.import_yjb import import_from_yangjibao
+
+        source = Mock()
+        source.fetch_accounts.return_value = [
+            {"account_id": "acc-amount", "name": "示例账户"},
+        ]
+        source.fetch_holdings.return_value = [
+            {
+                "fund_code": "009999",
+                "fund_name": "示例金额型基金",
+                "share": Decimal("0"),
+                "nav": Decimal("0"),
+                "amount": Decimal("1200.00"),
+                "earnings": Decimal("200.00"),
+                "operation_date": date(2024, 3, 1),
+            }
+        ]
+
+        result = import_from_yangjibao(user, source)
+
+        account = Account.objects.get(user=user, name="示例账户")
+        operation = PositionOperation.objects.get(account=account)
+        position = Position.objects.get(account=account)
+
+        assert result["holdings_created"] == 1
+        assert operation.amount == Decimal("1000.00")
+        assert operation.source_market_value == Decimal("1200.00")
+        assert position.holding_share == Decimal("0")
+        assert position.holding_cost == Decimal("1000.00")
+        assert position.holding_value == Decimal("1200.00")
+        assert position.pnl == Decimal("200.00")
+        assert account.holding_value == Decimal("1200.00")
 
     def test_import_idempotent_accounts(self, user, mock_source):
         """测试重复导入账户不重复创建"""

@@ -28,11 +28,9 @@ const PositionCharts = ({ positions, accountId }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
 
-  // 计算市值：holding_share * latest_nav
+  // 使用后端统一计算的持仓市值，兼容仅提供金额的持仓
   const calculateMarketValue = (position) => {
-    const share = parseFloat(position.holding_share || 0);
-    const nav = parseFloat(position.fund?.latest_nav || 0);
-    return share * nav;
+    return parseFloat(position.holding_value || 0);
   };
 
   // 计算账户总市值和总成本

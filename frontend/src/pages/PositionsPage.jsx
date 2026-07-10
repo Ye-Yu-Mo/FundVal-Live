@@ -862,15 +862,11 @@ const PositionsPage = () => {
       key: 'holding_value',
       width: 120,
       sorter: (a, b) => {
-        const va = parseFloat(a.holding_share || 0) * parseFloat(a.fund?.latest_nav || 0);
-        const vb = parseFloat(b.holding_share || 0) * parseFloat(b.fund?.latest_nav || 0);
+        const va = parseFloat(a.holding_value || 0);
+        const vb = parseFloat(b.holding_value || 0);
         return va - vb;
       },
-      render: (_, record) => {
-        const value =
-          parseFloat(record.holding_share || 0) * parseFloat(record.fund?.latest_nav || 0);
-        return formatMoney(value);
-      },
+      render: (_, record) => formatMoney(record.holding_value),
     },
     {
       title: '盈亏金额',

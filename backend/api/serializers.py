@@ -150,6 +150,9 @@ class PositionSerializer(serializers.ModelSerializer):
     fund_name = serializers.CharField(source="fund.fund_name", read_only=True)
     fund_type = serializers.CharField(source="fund.fund_type", read_only=True)
     account_name = serializers.CharField(source="account.name", read_only=True)
+    holding_value = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True
+    )
     pnl = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
 
     # 添加基金的估值和净值信息
@@ -191,6 +194,7 @@ class PositionSerializer(serializers.ModelSerializer):
             "holding_share",
             "holding_cost",
             "holding_nav",
+            "holding_value",
             "pnl",
             "updated_at",
         ]

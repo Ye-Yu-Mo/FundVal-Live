@@ -105,6 +105,28 @@ class TestAccountSerializerWithSummary:
         assert data["children"][0]["id"] == str(child_account.id)
         assert data["children"][0]["name"] == "子账户"
 
+    def test_amount_only_position_is_included_in_account_summary(
+        self, child_account, fund
+    ):
+        """测试金额型持仓参与账户市值和盈亏汇总"""
+        from api.models import Position
+        from api.serializers import AccountSerializer
+
+        Position.objects.create(
+            account=child_account,
+            fund=fund,
+            holding_share=Decimal("0"),
+            holding_cost=Decimal("1000.00"),
+            holding_nav=Decimal("0"),
+            source_market_value=Decimal("1200.00"),
+        )
+
+        data = AccountSerializer(child_account).data
+
+        assert Decimal(data["holding_cost"]) == Decimal("1000.00")
+        assert Decimal(data["holding_value"]) == Decimal("1200.00")
+        assert Decimal(data["pnl"]) == Decimal("200.00")
+
     def test_parent_account_serializer_includes_summary_fields(
         self, client, user, parent_account, child_account, fund
     ):

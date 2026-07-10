@@ -226,6 +226,31 @@ class TestPositionCalculation:
         assert position.holding_cost == Decimal("1000")
         assert position.holding_nav == Decimal("10")
 
+    def test_amount_only_buy_calculation(self, account, fund):
+        """测试缺少份额和净值时使用来源市值快照"""
+        from api.models import PositionOperation
+        from api.services import recalculate_position
+
+        PositionOperation.objects.create(
+            account=account,
+            fund=fund,
+            operation_type="BUY",
+            operation_date=date(2024, 3, 1),
+            amount=Decimal("1000.00"),
+            share=Decimal("0"),
+            nav=Decimal("0"),
+            source_market_value=Decimal("1200.00"),
+        )
+
+        position = recalculate_position(account.id, fund.id)
+
+        assert position is not None
+        assert position.holding_share == Decimal("0")
+        assert position.holding_cost == Decimal("1000.00")
+        assert position.source_market_value == Decimal("1200.00")
+        assert position.holding_value == Decimal("1200.00")
+        assert position.pnl == Decimal("200.00")
+
     def test_multiple_buy_calculation(self, account, fund):
         """测试多次加仓计算"""
         from api.models import PositionOperation

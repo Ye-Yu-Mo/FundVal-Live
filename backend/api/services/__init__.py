@@ -38,12 +38,17 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
 
     total_share = Decimal("0")
     total_cost = Decimal("0")
+    source_market_value = None
 
     for op in operations:
         if op.operation_type == "BUY":
             # 买入：增加份额和成本
             total_share += op.share
             total_cost += op.amount
+            if op.source_market_value is not None:
+                source_market_value = op.source_market_value
+            elif op.share > 0:
+                source_market_value = None
         elif op.operation_type == "SELL":
             # 卖出：按比例减少成本
             if total_share > 0:
@@ -77,7 +82,7 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
 
     # 更新或创建 Position（使用对象而不是 ID）
     with transaction.atomic():
-        if total_share > 0:
+        if total_share > 0 or source_market_value is not None:
             # 有持仓：更新或创建
             position, created = Position.objects.update_or_create(
                 account=account,
@@ -86,6 +91,7 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
                     "holding_share": total_share,
                     "holding_cost": total_cost,
                     "holding_nav": holding_nav,
+                    "source_market_value": source_market_value,
                 },
             )
             return position
