@@ -38,6 +38,7 @@ import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
 import PositionCharts from '../components/PositionCharts';
 import AIAnalysisModal from '../components/AIAnalysisModal';
+import EstimateSourceTag from '../components/EstimateSourceTag';
 
 const { useBreakpoint } = Grid;
 
@@ -165,6 +166,7 @@ const PositionsPage = () => {
                 latest_nav_date: navData?.latest_nav_date || position.fund?.latest_nav_date,
                 estimate_nav: estimateData?.estimate_nav || position.fund?.estimate_nav,
                 estimate_growth: estimateData?.estimate_growth || position.fund?.estimate_growth,
+                estimate_source: estimateData?.estimate_source || position.fund?.estimate_source,
                 estimate_time: estimateData?.estimate_time || position.fund?.estimate_time,
               },
             };
@@ -533,6 +535,7 @@ const PositionsPage = () => {
         latest_nav_date: navData?.latest_nav_date,
         estimate_nav: estimateData?.estimate_nav,
         estimate_growth: estimateData?.estimate_growth,
+        estimate_source: estimateData?.estimate_source,
         estimate_time: estimateData?.estimate_time,
       });
 
@@ -919,7 +922,12 @@ const PositionsPage = () => {
         const estimateNav = record.fund?.estimate_nav;
         if (!estimateNav) return '-';
         const value = parseFloat(record.holding_share || 0) * parseFloat(estimateNav);
-        return formatMoney(value);
+        return (
+          <span>
+            {formatMoney(value)}
+            <EstimateSourceTag source={record.fund?.estimate_source} style={{ marginLeft: 4 }} />
+          </span>
+        );
       },
       responsive: ['lg'],
     },
@@ -1162,6 +1170,7 @@ const PositionsPage = () => {
                     </div>
                     <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
                       {position.fund?.fund_code} <Tag color="blue">{position.fund?.fund_type}</Tag>
+                      <EstimateSourceTag source={position.fund?.estimate_source} />
                     </div>
                     <div
                       style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
@@ -1364,6 +1373,7 @@ const PositionsPage = () => {
                   <div style={{ marginTop: 4 }}>
                     <span>估算净值: </span>
                     <span style={{ fontWeight: 'bold' }}>{selectedFundInfo.estimate_nav}</span>
+                    <EstimateSourceTag source={selectedFundInfo.estimate_source} style={{ marginLeft: 4 }} />
                     {selectedFundInfo.estimate_growth && (
                       <span
                         style={{

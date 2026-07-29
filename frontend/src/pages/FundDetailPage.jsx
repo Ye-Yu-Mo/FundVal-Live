@@ -17,6 +17,7 @@ import { RobotOutlined, SyncOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { fundsAPI, positionsAPI } from '../api';
 import AIAnalysisModal from '../components/AIAnalysisModal';
+import EstimateSourceTag from '../components/EstimateSourceTag';
 import { usePreference } from '../contexts/PreferenceContext';
 
 const FundDetailPage = () => {
@@ -349,6 +350,7 @@ const FundDetailPage = () => {
               prefix={estimate?.estimate_nav ? '¥' : ''}
               valueStyle={{ fontSize: '18px' }}
             />
+            <EstimateSourceTag source={estimate?.estimate_source} />
           </Col>
           <Col xs={12} sm={6} md={4}>
             <Statistic

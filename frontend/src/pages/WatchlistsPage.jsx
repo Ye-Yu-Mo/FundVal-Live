@@ -139,12 +139,22 @@ const WatchlistContent = ({
                       {item.latest_nav ? `¥${parseFloat(item.latest_nav).toFixed(4)}` : '-'}
                     </span>
                     <span>
-                      <span style={{ color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                      <span
+                        style={{
+                          color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a',
+                          opacity: item.estimate_stale ? 0.7 : 1,
+                        }}
+                      >
                         {item.estimate_growth !== null && item.estimate_growth !== undefined
                           ? `${item.estimate_growth >= 0 ? '+' : ''}${parseFloat(item.estimate_growth).toFixed(2)}%`
                           : '-'}
                       </span>
                       <EstimateSourceTag source={item.estimate_source} style={{ marginLeft: 4 }} />
+                      {item.estimate_stale && (
+                        <span style={{ fontSize: 10, color: '#999', marginLeft: 4 }}>
+                          收盘估值 15:00
+                        </span>
+                      )}
                     </span>
                   </div>
                   {item.estimate_nav && (
@@ -334,6 +344,7 @@ const WatchlistsPage = () => {
             estimate_nav: estimate.estimate_nav || item.estimate_nav,
             estimate_growth: estimate.estimate_growth || item.estimate_growth,
             estimate_source: estimate.estimate_source || item.estimate_source,
+            estimate_stale: estimate.estimate_stale ?? item.estimate_stale,
             fund_name: estimate.fund_name || item.fund_name,
           };
         });
@@ -519,13 +530,19 @@ const WatchlistsPage = () => {
       render: (value, record) => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
+        const stale = record.estimate_stale;
         return (
           <span>
-            <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
+            <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a', opacity: stale ? 0.7 : 1 }}>
               {num >= 0 ? '+' : ''}
               {num.toFixed(2)}%
             </span>
             <EstimateSourceTag source={record.estimate_source} style={{ marginLeft: 4 }} />
+            {stale && (
+              <span style={{ fontSize: 10, color: '#999', marginLeft: 4 }}>
+                收盘估值 15:00
+              </span>
+            )}
           </span>
         );
       },
