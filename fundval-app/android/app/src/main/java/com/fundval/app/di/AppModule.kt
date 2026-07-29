@@ -1,11 +1,15 @@
 package com.fundval.app.di
 
 import android.content.Context
+import com.fundval.app.data.api.AccountsApi
 import com.fundval.app.data.api.AuthApi
 import com.fundval.app.data.api.FundsApi
+import com.fundval.app.data.api.PositionsApi
 import com.fundval.app.data.local.TokenManager
 import com.fundval.app.data.network.HttpClient
+import com.fundval.app.data.repository.AccountRepository
 import com.fundval.app.data.repository.FundRepository
+import com.fundval.app.data.repository.PositionRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -72,4 +76,20 @@ object AppModule {
     fun provideFundRepository(api: FundsApi): FundRepository {
         return FundRepository(api)
     }
+
+    @Provides
+    @Singleton
+    fun provideAccountsApi(retrofit: Retrofit): AccountsApi = retrofit.create(AccountsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePositionsApi(retrofit: Retrofit): PositionsApi = retrofit.create(PositionsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAccountRepository(api: AccountsApi): AccountRepository = AccountRepository(api)
+
+    @Provides
+    @Singleton
+    fun providePositionRepository(api: PositionsApi): PositionRepository = PositionRepository(api)
 }

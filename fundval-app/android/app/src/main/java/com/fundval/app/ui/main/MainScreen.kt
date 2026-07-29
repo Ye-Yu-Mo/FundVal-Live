@@ -2,6 +2,8 @@ package com.fundval.app.ui.main
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -13,7 +15,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fundval.app.navigation.Destination
+import com.fundval.app.ui.accounts.AccountScreen
 import com.fundval.app.ui.funds.FundListScreen
+import com.fundval.app.ui.positions.PositionScreen
+import com.fundval.app.ui.profile.ProfileScreen
 
 data class MainTab(
     val label: String,
@@ -23,8 +28,7 @@ data class MainTab(
 )
 
 val mainTabs = listOf(
-    MainTab("自选", Destination.Watchlist.route, Icons.Filled.Star, Icons.Outlined.Star),
-    MainTab("基金", Destination.Funds.route, Icons.Filled.TrendingUp, Icons.Outlined.TrendingUp),
+    MainTab("基金", Destination.Funds.route, Icons.AutoMirrored.Filled.TrendingUp, Icons.AutoMirrored.Outlined.TrendingUp),
     MainTab("持仓", Destination.Positions.route, Icons.Filled.AccountBalance, Icons.Outlined.AccountBalance),
     MainTab("账户", Destination.Accounts.route, Icons.Filled.Folder, Icons.Outlined.Folder),
     MainTab("我的", Destination.Profile.route, Icons.Filled.Person, Icons.Outlined.Person)
@@ -76,12 +80,9 @@ fun MainScreen(
     ) { innerPadding ->
         NavHost(
             navController = innerNavController,
-            startDestination = Destination.Watchlist.route,
+            startDestination = Destination.Funds.route,
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
-            composable(Destination.Watchlist.route) {
-                PlaceholderScreen("自选列表\n即将上线")
-            }
             composable(Destination.Funds.route) {
                 FundListScreen(
                     onFundClick = onNavigateToFundDetail,
@@ -89,13 +90,13 @@ fun MainScreen(
                 )
             }
             composable(Destination.Positions.route) {
-                PlaceholderScreen("持仓管理\n即将上线")
+                PositionScreen()
             }
             composable(Destination.Accounts.route) {
-                PlaceholderScreen("账户管理\n即将上线")
+                AccountScreen()
             }
             composable(Destination.Profile.route) {
-                PlaceholderScreen("个人中心\n即将上线")
+                ProfileScreen(onLoggedOut = onLogout)
             }
         }
     }
