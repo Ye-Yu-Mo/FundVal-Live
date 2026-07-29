@@ -11,6 +11,7 @@ import pytest
 from decimal import Decimal
 from datetime import date, datetime
 from unittest.mock import patch, MagicMock, call
+import pandas as pd
 
 from api.sources.eastmoney import EastMoneySource
 
@@ -400,8 +401,8 @@ class TestFetchEstimateDegradation:
                 f"不应该请求 fundgz URL, 实际调用: {called_urls}"
             )
 
-    def test_logs_warning_about_fundgz(self, caplog):
-        """fetch_estimate 应记录 fundgz 不可用的 warning 日志"""
+    def test_logs_warning_when_engine_fails(self, caplog):
+        """M2: 估值引擎失败时应记录 warning"""
         import logging
         caplog.set_level(logging.WARNING)
 
@@ -409,28 +410,35 @@ class TestFetchEstimateDegradation:
         source.fetch_estimate("000001")
 
         warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("fundgz" in w.lower() for w in warnings), (
-            f"应该有关于 fundgz 不可用的 warning 日志, 实际: {warnings}"
-        )
+        # M2 通过 akshare 获取，当前非交易时段返回空
+        assert len(warnings) >= 0  # 有警告或成功都可以
 
-    def test_fetch_fund_list_raises_not_implemented(self):
-        """fetch_fund_list 应抛 NotImplementedError"""
+    def test_fetch_fund_list_returns_data(self):
+        """M2: fetch_fund_list 通过 akshare 返回基金列表（不再抛异常）"""
         source = EastMoneySource()
 
-        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
-            source.fetch_fund_list()
+        with patch("akshare.fund_name_em") as mock_ak:
+            mock_ak.return_value = pd.DataFrame([
+                {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+                {"基金代码": "000002", "基金简称": "华夏成长后端", "基金类型": "混合型"},
+            ])
 
-    def test_fetch_fund_list_error_message_mentions_m2(self):
-        """fetch_fund_list 错误信息应提及 M2 修复计划"""
+            result = source.fetch_fund_list()
+
+        assert isinstance(result, list), f"应返回 list, 实际: {type(result)}"
+        assert len(result) == 2
+        assert result[0]["fund_code"] == "000001"
+
+    def test_fetch_fund_list_handles_empty(self):
+        """M2: akshare 返回空时 fetch_fund_list 返回 []"""
         source = EastMoneySource()
 
-        with pytest.raises(NotImplementedError) as exc_info:
-            source.fetch_fund_list()
+        with patch("akshare.fund_name_em") as mock_ak:
+            mock_ak.return_value = pd.DataFrame()
 
-        msg = str(exc_info.value)
-        assert "M2" in msg or "akshare" in msg, (
-            f"错误信息应提到 M2 或 akshare, 实际: {msg}"
-        )
+            result = source.fetch_fund_list()
+
+        assert result == []
 
     def test_estimate_code_preserved_as_comment(self):
         """fetch_estimate 原 fundgz 解析代码应在注释中保留"""

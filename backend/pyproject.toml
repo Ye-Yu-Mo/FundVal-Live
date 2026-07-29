@@ -4,6 +4,7 @@ version = "2.6.0"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "akshare>=1.18.80",
     "celery>=5.6.2",
     "chinese-calendar>=1.9.1",
     "django>=6.0.2",

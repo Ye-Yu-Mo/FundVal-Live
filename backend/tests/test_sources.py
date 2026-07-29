@@ -132,13 +132,22 @@ class TestSourceRegistry:
 
 
 class TestFundListSync:
-    """基金列表同步测试 (M1: 接口已失效)"""
+    """基金列表同步测试 (M2: 通过 akshare 恢复)"""
 
-    def test_fetch_fund_list_raises_not_implemented(self):
-        """M1: fetch_fund_list 抛 NotImplementedError"""
+    def test_fetch_fund_list_returns_data(self):
+        """M2: fetch_fund_list 通过 ak.fund_name_em() 返回列表"""
         from api.sources.eastmoney import EastMoneySource
+        from unittest.mock import patch
+        import pandas as pd
 
         source = EastMoneySource()
+        with patch("akshare.fund_name_em") as mock_ak:
+            mock_ak.return_value = pd.DataFrame([
+                {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+            ])
 
-        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
-            source.fetch_fund_list()
+            funds = source.fetch_fund_list()
+
+        assert len(funds) == 1
+        assert funds[0]["fund_code"] == "000001"
+        assert funds[0]["fund_name"] == "华夏成长"

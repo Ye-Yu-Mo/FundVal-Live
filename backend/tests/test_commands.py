@@ -19,29 +19,53 @@ from django.core.management import call_command
 class TestSyncFundsCommand:
     """测试同步基金列表命令"""
 
-    def test_sync_funds_raises_not_implemented(self):
-        """M1: sync_funds 调用 fetch_fund_list 抛 NotImplementedError"""
-        out = StringIO()
-        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
-            call_command("sync_funds", stdout=out)
-
-    def test_sync_funds_update_existing_raises_not_implemented(self):
-        """M1: 已存在基金的同步同样抛 NotImplementedError"""
+    @patch("akshare.fund_name_em")
+    def test_sync_funds_success(self, mock_ak):
+        """M2: 同步基金列表成功（通过 akshare）"""
         from api.models import Fund
+        import pandas as pd
+
+        mock_ak.return_value = pd.DataFrame([
+            {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
+            {"基金代码": "000002", "基金简称": "华夏成长混合(后端)", "基金类型": "混合型-灵活"},
+        ])
+
+        out = StringIO()
+        call_command("sync_funds", stdout=out)
+
+        assert Fund.objects.count() == 2
+        fund1 = Fund.objects.get(fund_code="000001")
+        assert fund1.fund_name == "华夏成长混合"
+        assert fund1.fund_type == "混合型-灵活"
+
+    @patch("akshare.fund_name_em")
+    def test_sync_funds_update_existing(self, mock_ak):
+        """M2: 更新已存在的基金"""
+        from api.models import Fund
+        import pandas as pd
 
         Fund.objects.create(
             fund_code="000001", fund_name="旧名称", fund_type="旧类型",
         )
 
-        out = StringIO()
-        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
-            call_command("sync_funds", stdout=out)
+        mock_ak.return_value = pd.DataFrame([
+            {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
+        ])
 
-    def test_sync_funds_api_error(self):
-        """M1: sync_funds 因为 fetch_fund_list 不可用而抛 NotImplementedError"""
+        call_command("sync_funds", stdout=StringIO())
+
+        fund = Fund.objects.get(fund_code="000001")
+        assert fund.fund_name == "华夏成长混合"
+        assert fund.fund_type == "混合型-灵活"
+
+    @patch("akshare.fund_name_em")
+    def test_sync_funds_api_error(self, mock_ak):
+        """M2: akshare 异常时返回空列表"""
+        mock_ak.side_effect = Exception("akshare unavailable")
+
         out = StringIO()
-        with pytest.raises(NotImplementedError):
-            call_command("sync_funds", stdout=out)
+        call_command("sync_funds", stdout=out)
+        # 不应抛异常，输出为空
 
 
 @pytest.mark.django_db

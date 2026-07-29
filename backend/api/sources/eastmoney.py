@@ -51,6 +51,18 @@ class EastMoneySource(BaseEstimateSource):
     def get_source_name(self) -> str:
         return "eastmoney"
 
+    def __init__(self):
+        super().__init__()
+        # M2: 估值引擎（lazy init，避免循环导入）
+        self._estimate_engine = None
+
+    def _get_estimate_engine(self):
+        """懒加载估值引擎"""
+        if self._estimate_engine is None:
+            from .akshare_estimate import AkshareEstimateEngine
+            self._estimate_engine = AkshareEstimateEngine()
+        return self._estimate_engine
+
     def is_available(self) -> bool:
         """
         检查东方财富 Mobile API 连通性
@@ -89,18 +101,18 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取估值
 
-        M1 (2026-07-29): fundgz.1234567.com.cn 返回 HTML 而非 JSONP，
-        实时估值 API 已不可用。待 M2 通过 akshare 恢复估值能力。
+        M2 (2026-07-29): 通过 AkshareEstimateEngine 获取全市场估值。
+        fundgz JSONP 已失效，M1 中返回 None，M2 恢复估值能力。
+        引擎失败时 fallback 返回 None（M1 的 unavailable 降级逻辑不变）。
 
-        原 fundgz JSONP 解析逻辑（gsz/gszzl/gztime）和 QDII 净值校正
-        代码保留在下方注释中，以备 API 恢复时使用。
+        原 fundgz JSONP 解析代码保留在下方注释中，以备将来参考。
         """
-        logger.warning(
-            "fundgz API 不可用（2026-07-29 起返回 HTML），"
-            "实时估值暂不可用，待 M2 通过 akshare 恢复。"
-            f" 当前请求基金: {fund_code}"
-        )
-        return None
+        try:
+            engine = self._get_estimate_engine()
+            return engine.get_estimate(fund_code)
+        except Exception as e:
+            logger.warning(f"akshare 估值获取失败（{fund_code}）: {e}")
+            return None
 
         # ── 以下为原 fundgz JSONP 估值解析逻辑，保留以备 API 恢复 ──
         # try:
@@ -276,15 +288,57 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取基金列表
 
-        M1 (2026-07-29): fund.eastmoney.com/js/fundcode_search.js 返回空响应，
-        基金列表同步接口已不可用。待 M2 通过 akshare 实现。
+        M2 (2026-07-29): 通过 ak.fund_name_em() 获取全量基金列表。
+        M1 中 fundcode_search.js 已失效，此处恢复功能。
 
-        原 Web API 解析逻辑保留在下方注释中，以备 API 恢复时使用。
+        原 Web API (fundcode_search.js) 解析代码保留在下方注释中。
+
+        ak.fund_name_em() 返回 DataFrame，列包括:
+        - 基金代码, 基金简称, 基金类型, 拼音全称, 拼音缩写
         """
-        raise NotImplementedError(
-            "基金列表同步接口已失效（2026-07-29 起 fundcode_search.js 返回空响应），"
-            "待 M2 通过 akshare 实现。"
-        )
+        try:
+            import akshare as ak
+
+            df = ak.fund_name_em()
+            if df is None or df.empty:
+                logger.warning("ak.fund_name_em() 返回空数据")
+                return []
+
+            # 列名兼容性检查
+            code_col = None
+            name_col = None
+            type_col = None
+            for col in df.columns:
+                if "代码" in str(col):
+                    code_col = col
+                elif "简称" in str(col) or "名称" in str(col):
+                    name_col = col
+                elif "类型" in str(col):
+                    type_col = col
+
+            if code_col is None:
+                logger.warning("ak.fund_name_em() 缺少基金代码列")
+                return []
+
+            funds = []
+            for _, row in df.iterrows():
+                try:
+                    fund_code = str(row[code_col]).zfill(6)
+                    fund_name = str(row[name_col]) if name_col and row.get(name_col) else ""
+                    fund_type = str(row[type_col]) if type_col and row.get(type_col) else ""
+                    funds.append({
+                        "fund_code": fund_code,
+                        "fund_name": fund_name,
+                        "fund_type": fund_type,
+                    })
+                except Exception:
+                    continue
+
+            return funds
+
+        except Exception as e:
+            logger.error(f"akshare 获取基金列表失败: {e}")
+            return []
 
         # ── 以下为原 fundcode_search.js 解析逻辑，保留以备 API 恢复 ──
         # response = requests.get(self.FUND_LIST_URL, timeout=30)

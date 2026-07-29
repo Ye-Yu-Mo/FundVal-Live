@@ -162,28 +162,28 @@ class TestBatchEstimateGracefulDegradation:
 
 @pytest.mark.django_db
 class TestSyncGracefulDegradation:
-    """FundViewSet.sync — 基金列表同步失败时返回明确提示"""
+    """FundViewSet.sync — M2: 基金列表同步通过 akshare 恢复"""
 
     def setup_method(self):
         self.client = APIClient()
-        # sync action 要求 IsAdminUser
         self.user = User.objects.create_superuser(
             username="admin", password="admin123", email="admin@test.com"
         )
         self.client.force_authenticate(user=self.user)
 
-    def test_sync_returns_error_when_fund_list_not_implemented(self):
-        """fetch_fund_list 抛 NotImplementedError → 返回明确错误信息（非 500）"""
+    @patch("akshare.fund_name_em")
+    def test_sync_returns_success(self, mock_ak):
+        """M2: sync 通过 akshare 正常返回基金列表"""
+        import pandas as pd
+        mock_ak.return_value = pd.DataFrame([
+            {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+        ])
+
         response = self.client.post("/api/funds/sync/")
 
-        # 不应是 500 traceback
-        assert response.status_code in (200, 400, 503), (
-            f"状态码应为 200/400/503，不是 {response.status_code}: {response.data}"
+        assert response.status_code == 200, (
+            f"应为 200, 实际 {response.status_code}: {response.data}"
         )
         data = response.json()
-        assert "error" in data, f"应返回 error 字段: {data}"
-        # 错误信息应提及"不可用"或"修复中"或"暂不支持"
-        msg = str(data.get("error", ""))
-        assert any(kw in msg for kw in ["不可用", "修复", "暂", "akshare", "M2"]), (
-            f"错误信息应提及修复计划, 实际: {msg}"
-        )
+        assert data["total"] == 1
+        assert data["created"] > 0 or data["updated"] > 0
