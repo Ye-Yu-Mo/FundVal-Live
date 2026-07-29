@@ -51,6 +51,40 @@ class EastMoneySource(BaseEstimateSource):
     def get_source_name(self) -> str:
         return "eastmoney"
 
+    def is_available(self) -> bool:
+        """
+        检查东方财富 Mobile API 连通性
+
+        M1: 使用 FundMNFInfo 端点做轻量健康检查。
+        查询 000001（华夏成长混合），只判断能否获取到数据。
+        """
+        try:
+            response = requests.get(
+                self.MOBILE_REALTIME_NAV_URL,
+                params={
+                    "Fcodes": "000001",
+                    "pageIndex": "1",
+                    "pageSize": "1",
+                    "Sort": "",
+                    "SortColumn": "",
+                    "IsShowSE": "false",
+                    "P": "F",
+                    "deviceid": "3EA024C2-7F22-408B-95E4-383D38160FB3",
+                    "plat": "Iphone",
+                    "product": "EFund",
+                    "version": "6.2.8",
+                },
+                headers=self.MOBILE_HEADERS,
+                timeout=5,
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data and data.get("Datas"):
+                return True
+            return False
+        except Exception:
+            return False
+
     def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
         """
         从天天基金获取估值

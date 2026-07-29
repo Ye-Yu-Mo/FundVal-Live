@@ -47,6 +47,12 @@ class DanjuanSource(BaseEstimateSource):
     def get_login_type(self) -> str:
         return "none"
 
+    def is_available(self) -> bool:
+        """
+        M1 (2026-07-29): danjuanfunds.com 返回 403 IP 封禁，暂不可用。
+        """
+        return False
+
     # ─────────────────────────────────────────────
     # 估值（不支持）
     # ─────────────────────────────────────────────

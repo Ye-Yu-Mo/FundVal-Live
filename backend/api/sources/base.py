@@ -188,3 +188,18 @@ class BaseEstimateSource(ABC):
             ]
         """
         return []
+
+    def is_available(self) -> bool:
+        """
+        检查数据源当前是否可用
+
+        非抽象方法 — 子类不需要强制实现。默认返回 True，保证向后兼容。
+        不可用的数据源 override 返回 False。
+
+        M1 (2026-07-29): 新增健康检查机制，配合 SourceRegistry.list_available_sources()
+        过滤不可用源。
+
+        Returns:
+            bool: True 表示数据源可用，False 表示不可用
+        """
+        return True

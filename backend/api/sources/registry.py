@@ -32,6 +32,24 @@ class SourceRegistry:
         return list(cls._classes.keys())
 
     @classmethod
+    def list_available_sources(cls) -> List[str]:
+        """返回当前可用的数据源名称列表
+
+        M1 (2026-07-29): 遍历所有注册的源，调用 is_available() 过滤不可用源。
+        每个源的 is_available() 只在此时被调用一次。
+        """
+        available = []
+        for name, klass in cls._classes.items():
+            try:
+                instance = klass()
+                if instance.is_available():
+                    available.append(name)
+            except Exception:
+                # 如果实例化或检查失败，跳过该源
+                continue
+        return available
+
+    @classmethod
     def get_default_source(cls) -> Optional[BaseEstimateSource]:
         if cls._classes:
             return list(cls._classes.values())[0]()
