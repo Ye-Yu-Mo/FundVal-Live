@@ -23,6 +23,7 @@ import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
 import { watchlistsAPI, fundsAPI, accountsAPI } from '../api';
 import { useAuth } from '../contexts/AuthContext';
+import EstimateSourceTag from '../components/EstimateSourceTag';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -137,10 +138,13 @@ const WatchlistContent = ({
                       最新净值:{' '}
                       {item.latest_nav ? `¥${parseFloat(item.latest_nav).toFixed(4)}` : '-'}
                     </span>
-                    <span style={{ color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a' }}>
-                      {item.estimate_growth !== null && item.estimate_growth !== undefined
-                        ? `${item.estimate_growth >= 0 ? '+' : ''}${parseFloat(item.estimate_growth).toFixed(2)}%`
-                        : '-'}
+                    <span>
+                      <span style={{ color: item.estimate_growth >= 0 ? '#ff4d4f' : '#52c41a' }}>
+                        {item.estimate_growth !== null && item.estimate_growth !== undefined
+                          ? `${item.estimate_growth >= 0 ? '+' : ''}${parseFloat(item.estimate_growth).toFixed(2)}%`
+                          : '-'}
+                      </span>
+                      <EstimateSourceTag source={item.estimate_source} style={{ marginLeft: 4 }} />
                     </span>
                   </div>
                   {item.estimate_nav && (
@@ -329,6 +333,7 @@ const WatchlistsPage = () => {
               nav.latest_nav_date || estimate.latest_nav_date || item.latest_nav_date,
             estimate_nav: estimate.estimate_nav || item.estimate_nav,
             estimate_growth: estimate.estimate_growth || item.estimate_growth,
+            estimate_source: estimate.estimate_source || item.estimate_source,
             fund_name: estimate.fund_name || item.fund_name,
           };
         });
@@ -511,13 +516,16 @@ const WatchlistsPage = () => {
         width: column.width,
         onResize: handleResize('estimate_growth'),
       }),
-      render: (value) => {
+      render: (value, record) => {
         if (value === null || value === undefined) return '-';
         const num = parseFloat(value);
         return (
-          <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
-            {num >= 0 ? '+' : ''}
-            {num.toFixed(2)}%
+          <span>
+            <span style={{ color: num >= 0 ? '#ff4d4f' : '#52c41a' }}>
+              {num >= 0 ? '+' : ''}
+              {num.toFixed(2)}%
+            </span>
+            <EstimateSourceTag source={record.estimate_source} style={{ marginLeft: 4 }} />
           </span>
         );
       },
