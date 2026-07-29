@@ -1,19 +1,33 @@
 """
-测试当日净值获取功能
+测试当日净值获取功能 (M1 更新)
 
-测试点：
-1. BaseEstimateSource.fetch_today_nav 抽象方法
-2. EastMoneySource.fetch_today_nav 实现
-3. update_nav --today 命令
-4. update_fund_today_nav Celery 任务
+M1 后 fetch_nav_history() 直接调用 Mobile API (FundMNHisNetList JSON)，
+fetch_realtime_nav() 直接调用 Mobile API (FundMNFInfo JSON)。
+所有 mock 使用 Mobile API 响应格式。
 """
 
 import pytest
 from decimal import Decimal
 from datetime import date, datetime
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch, call, MagicMock
 from io import StringIO
 from django.core.management import call_command
+
+
+def _make_mobile_nav_response(items):
+    """构造 FundMNHisNetList 的 mock 响应"""
+    mock = MagicMock()
+    mock.json.return_value = {"Datas": items}
+    mock.raise_for_status = MagicMock()
+    return mock
+
+
+def _make_mobile_realtime_response(items):
+    """构造 FundMNFInfo 的 mock 响应"""
+    mock = MagicMock()
+    mock.json.return_value = {"Datas": items}
+    mock.raise_for_status = MagicMock()
+    return mock
 
 
 class TestBaseEstimateSourceTodayNav:
@@ -32,39 +46,29 @@ class TestBaseEstimateSourceTodayNav:
 
 
 class TestEastMoneySourceTodayNav:
-    """EastMoneySource.fetch_today_nav 实现测试"""
+    """EastMoneySource.fetch_today_nav 实现测试 (M1: Mobile API)"""
 
     @patch("requests.get")
     def test_fetch_today_nav_success(self, mock_get):
-        """测试获取当日净值成功"""
+        """测试获取当日净值成功（通过 Mobile API）"""
         from api.sources.eastmoney import EastMoneySource
 
-        # Mock pingzhongdata API 响应
-        mock_response = Mock()
-        mock_response.text = """
-        var Data_netWorthTrend = [
-            {"x":1707580800000,"y":1.1234,"equityReturn":0.5},
-            {"x":1707667200000,"y":1.1345,"equityReturn":1.0},
-            {"x":1707753600000,"y":1.1456,"equityReturn":0.98}
-        ];
-        var Data_ACWorthTrend = [
-            {"x":1707580800000,"y":1.5234},
-            {"x":1707667200000,"y":1.5345},
-            {"x":1707753600000,"y":1.5456}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock_get.return_value = _make_mobile_nav_response(
+            [
+                {"FSRQ": "2024-02-11", "DWJZ": "1.1234", "LJJZ": "1.5234", "JZZZL": "0.50"},
+                {"FSRQ": "2024-02-12", "DWJZ": "1.1345", "LJJZ": "1.5345", "JZZZL": "1.00"},
+                {"FSRQ": "2024-02-13", "DWJZ": "1.1456", "LJJZ": "1.5456", "JZZZL": "0.98"},
+            ]
+        )
 
         source = EastMoneySource()
         result = source.fetch_today_nav("000001")
 
-        # 验证返回最后一条记录
+        # 验证返回最后一条记录（最新日期）
         assert result is not None
         assert result["fund_code"] == "000001"
         assert result["nav"] == Decimal("1.1456")
         assert isinstance(result["nav_date"], date)
-        # 1707753600000 在 UTC+8 时区对应 2024-02-13
         assert result["nav_date"] == date(2024, 2, 13)
 
     @patch("requests.get")
@@ -72,13 +76,7 @@ class TestEastMoneySourceTodayNav:
         """测试历史净值数据为空"""
         from api.sources.eastmoney import EastMoneySource
 
-        mock_response = Mock()
-        mock_response.text = """
-        var Data_netWorthTrend = [];
-        var Data_ACWorthTrend = [];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock_get.return_value = _make_mobile_nav_response([])
 
         source = EastMoneySource()
         result = source.fetch_today_nav("000001")
@@ -102,12 +100,14 @@ class TestEastMoneySourceTodayNav:
 
 @pytest.mark.django_db
 class TestUpdateNavCommandWithToday:
-    """update_nav --today 命令测试"""
+    """update_nav --today 命令测试 (M1: 使用 Mobile API)"""
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_update_nav_today_success(self, mock_get):
+    @patch("api.management.commands.update_nav._fetch_batch_nav")
+    def test_update_nav_today_success(self, mock_fetch_batch):
         """测试 --today 参数成功更新当日净值"""
         from api.models import Fund
+
+        today = date.today()
 
         # 创建测试基金
         fund = Fund.objects.create(
@@ -117,35 +117,20 @@ class TestUpdateNavCommandWithToday:
             latest_nav_date=date(2024, 2, 12),
         )
 
-        # Mock pingzhongdata API 响应（当日净值）
-        today = date.today()
-        today_timestamp = int(
-            datetime.combine(today, datetime.min.time()).timestamp() * 1000
-        )
+        # Mock 批量获取返回今日净值
+        mock_fetch_batch.return_value = {
+            "000001": {"nav": Decimal("1.1500"), "nav_date": today},
+        }
 
-        mock_response = Mock()
-        mock_response.text = f"""
-        var Data_netWorthTrend = [
-            {{"x":{today_timestamp},"y":1.1500,"equityReturn":4.55}}
-        ];
-        var Data_ACWorthTrend = [
-            {{"x":{today_timestamp},"y":1.5500}}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # 执行命令
         out = StringIO()
         call_command("update_nav", "--today", stdout=out)
 
-        # 验证净值已更新
         fund.refresh_from_db()
         assert fund.latest_nav == Decimal("1.1500")
         assert fund.latest_nav_date == today
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_update_nav_today_skip_old_date(self, mock_get):
+    @patch("api.management.commands.update_nav._fetch_batch_nav")
+    def test_update_nav_today_skip_old_date(self, mock_fetch_batch):
         """测试 --today 参数跳过非当日净值"""
         from api.models import Fund
 
@@ -157,25 +142,12 @@ class TestUpdateNavCommandWithToday:
             latest_nav_date=date(2024, 2, 12),
         )
 
-        # Mock pingzhongdata API 响应（昨天的净值）
-        yesterday = date.today().replace(day=date.today().day - 1)
-        yesterday_timestamp = int(
-            datetime.combine(yesterday, datetime.min.time()).timestamp() * 1000
-        )
+        # Mock 批量获取返回昨天的净值（不是今天）
+        yesterday = date.today().replace(day=max(1, date.today().day - 1))
+        mock_fetch_batch.return_value = {
+            "000001": {"nav": Decimal("1.1500"), "nav_date": yesterday},
+        }
 
-        mock_response = Mock()
-        mock_response.text = f"""
-        var Data_netWorthTrend = [
-            {{"x":{yesterday_timestamp},"y":1.1500,"equityReturn":4.55}}
-        ];
-        var Data_ACWorthTrend = [
-            {{"x":{yesterday_timestamp},"y":1.5500}}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # 执行命令
         out = StringIO()
         call_command("update_nav", "--today", stdout=out)
 
@@ -184,10 +156,12 @@ class TestUpdateNavCommandWithToday:
         assert fund.latest_nav == Decimal("1.1000")
         assert fund.latest_nav_date == date(2024, 2, 12)
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_update_nav_today_specific_fund(self, mock_get):
-        """测试 --today 参数指定基金代码"""
+    @patch("api.management.commands.update_nav._fetch_batch_nav")
+    def test_update_nav_today_specific_fund(self, mock_fetch_batch):
+        """测试 --today 参数指定基金代码（单基金模式走多源 fallback）"""
         from api.models import Fund
+
+        today = date.today()
 
         # 创建两个基金
         fund1 = Fund.objects.create(
@@ -203,27 +177,17 @@ class TestUpdateNavCommandWithToday:
             latest_nav_date=date(2024, 2, 12),
         )
 
-        # Mock pingzhongdata API 响应
-        today = date.today()
-        today_timestamp = int(
-            datetime.combine(today, datetime.min.time()).timestamp() * 1000
-        )
+        # 单基金模式 (_fetch_batch_nav 被 --fund_code 分支跳过，走多源 fallback)
+        # mock fetch_today_nav 的底层 Mobile API
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": today.isoformat(), "DWJZ": "1.1500", "LJJZ": "1.5500", "JZZZL": "4.55"},
+                ]
+            )
 
-        mock_response = Mock()
-        mock_response.text = f"""
-        var Data_netWorthTrend = [
-            {{"x":{today_timestamp},"y":1.1500,"equityReturn":4.55}}
-        ];
-        var Data_ACWorthTrend = [
-            {{"x":{today_timestamp},"y":1.5500}}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # 执行命令（只更新 fund1）
-        out = StringIO()
-        call_command("update_nav", "--today", "--fund_code", "000001", stdout=out)
+            out = StringIO()
+            call_command("update_nav", "--today", "--fund_code", "000001", stdout=out)
 
         # 验证只有 fund1 被更新
         fund1.refresh_from_db()

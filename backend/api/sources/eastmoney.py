@@ -18,8 +18,14 @@ logger = logging.getLogger(__name__)
 class EastMoneySource(BaseEstimateSource):
     """天天基金数据源"""
 
+    # DEPRECATED: 2026-07-29 起 fundgz.1234567.com.cn 返回 HTML 而非 JSONP，
+    # 估值接口已不可用。保留常量以备后续恢复。
     ESTIMATE_URL = "http://fundgz.1234567.com.cn/js/{code}.js"
+    # DEPRECATED: 2026-07-29 起 fund.eastmoney.com/js/fundcode_search.js 返回空响应，
+    # 基金列表同步接口已不可用。保留常量以备后续恢复。
     FUND_LIST_URL = "http://fund.eastmoney.com/js/fundcode_search.js"
+    # DEPRECATED: 2026-07-29 起 fund.eastmoney.com/pingzhongdata 返回空响应，
+    # 历史净值 Web API 已不可用。保留常量以备后续恢复。
     HISTORY_URL = "http://fund.eastmoney.com/pingzhongdata/{code}.js"
     FUND_HOLDINGS_URL = (
         "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition"
@@ -123,49 +129,35 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取实际净值
 
-        先尝试 Web API（fundgz JSONP），失败时 fallback 到移动端 API。
+        M1 (2026-07-29): Web API (fundgz JSONP) 已失效，直接使用移动端 API。
+        原 Web API 的 dwjz/jzrq 解析逻辑保留在下方注释中，以备恢复。
         """
-        result = None
-
-        # 1. 尝试 Web API
-        try:
-            url = self.ESTIMATE_URL.format(code=fund_code)
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-
-            text = response.text
-            match = re.search(r"jsonpgz\((.*)\);?", text)
-            if not match:
-                logger.warning(f"无法解析净值数据：{fund_code}，响应格式不正确")
-            else:
-                json_str = match.group(1)
-                data = json.loads(json_str)
-
-                required_fields = ["fundcode", "dwjz", "jzrq"]
-                missing = [f for f in required_fields if f not in data]
-                if missing:
-                    logger.warning(
-                        f"净值数据缺少字段 {missing}：{fund_code}"
-                    )
-                else:
-                    result = {
-                        "fund_code": data["fundcode"],
-                        "nav": Decimal(data["dwjz"]),
-                        "nav_date": datetime.strptime(
-                            data["jzrq"], "%Y-%m-%d"
-                        ).date(),
-                    }
-                    return result  # Web API 成功，不调 mobile
-
-        except Exception as e:
-            logger.warning(f"Web API 获取净值失败：{fund_code}, 错误：{e}")
-
-        # 2. Fallback: 移动端 API
-        if result is None:
-            logger.info(f"Web API 净值失败，尝试移动端 fallback：{fund_code}")
-            result = self._fetch_realtime_nav_mobile(fund_code)
-
-        return result
+        # Web API (fundgz.1234567.com.cn) 于 2026-07-29 起返回 HTML 而非 JSONP，
+        # dwjz/jzrq 字段不可解析。直接使用 Mobile API。
+        # 如需恢复 Web API 主路径:
+        #   取消下方注释代码，将 self._fetch_realtime_nav_mobile() 移至 fallback 位置。
+        #
+        # try:
+        #     url = self.ESTIMATE_URL.format(code=fund_code)
+        #     response = requests.get(url, timeout=10)
+        #     response.raise_for_status()
+        #     text = response.text
+        #     match = re.search(r"jsonpgz\((.*)\);?", text)
+        #     if match:
+        #         json_str = match.group(1)
+        #         data = json.loads(json_str)
+        #         if all(k in data for k in ["fundcode", "dwjz", "jzrq"]):
+        #             return {
+        #                 "fund_code": data["fundcode"],
+        #                 "nav": Decimal(data["dwjz"]),
+        #                 "nav_date": datetime.strptime(
+        #                     data["jzrq"], "%Y-%m-%d"
+        #                 ).date(),
+        #             }
+        # except Exception:
+        #     pass
+        # return self._fetch_realtime_nav_mobile(fund_code)
+        return self._fetch_realtime_nav_mobile(fund_code)
 
     def _fetch_realtime_nav_mobile(self, fund_code: str) -> Optional[Dict]:
         """
@@ -321,15 +313,7 @@ class EastMoneySource(BaseEstimateSource):
         """
         获取基金历史净值
 
-        先尝试 Web API（pingzhongdata JSONP），
-        返回空或失败时 fallback 到移动端 API（FundMNHisNetList JSON）。
-
-        字段说明：
-        - x: 时间戳（毫秒）
-        - y: 净值
-        - equityReturn: 日增长率（%）
-        - Data_netWorthTrend: 单位净值走势
-        - Data_ACWorthTrend: 累计净值走势
+        M1 (2026-07-29): Web API (pingzhongdata JSONP) 已失效，直接使用移动端 API。
 
         Args:
             fund_code: 基金代码
@@ -339,19 +323,13 @@ class EastMoneySource(BaseEstimateSource):
         Returns:
             历史净值列表
         """
-        # 1. 尝试 Web API
-        result = self._try_web_nav_history(fund_code, start_date, end_date)
-
-        # 2. Web API 返回空 → fallback 到移动端 API
-        if not result:
-            logger.info(
-                f"Web API 历史净值为空，尝试移动端 fallback：{fund_code}"
-            )
-            result = self._fetch_nav_history_mobile(
-                fund_code, start_date, end_date
-            )
-
-        return result
+        # Web API (pingzhongdata/{code}.js) 于 2026-07-29 起返回空响应，已不可用。
+        # 直接使用 Mobile API，不再尝试 Web API fallback 链。
+        # 如需恢复 Web API: 取消下面两行注释，将 Mobile 调用移至 fallback 位置。
+        # result = self._try_web_nav_history(fund_code, start_date, end_date)
+        # if not result:
+        #     result = self._fetch_nav_history_mobile(fund_code, start_date, end_date)
+        return self._fetch_nav_history_mobile(fund_code, start_date, end_date)
 
     def _try_web_nav_history(
         self,

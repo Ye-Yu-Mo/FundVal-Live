@@ -301,31 +301,33 @@ class TestFetchRealtimeNavMobile:
 
 @pytest.mark.django_db
 class TestFetchNavHistoryFallback:
-    """fetch_nav_history 的 Web → Mobile fallback 逻辑"""
+    """fetch_nav_history 的 M1 行为 — 直接调 Mobile API"""
 
-    def test_web_success_no_mobile_call(self):
-        """Web API 成功时，不调用 mobile API"""
+    def test_direct_mobile_call(self):
+        """M1: fetch_nav_history 直接调 Mobile API，不调 Web API"""
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            # Web API 返回数据
-            mock_get.return_value = _make_web_nav_response("""
-            var Data_netWorthTrend = [
-                {"x":1748659200000,"y":1.2345,"equityReturn":0.9,"unitMoney":""}
-            ];
-            var Data_ACWorthTrend = [];
-            """)
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
+                ]
+            )
 
             result = source.fetch_nav_history("000001")
 
             # 结果正确
             assert len(result) == 1
-            assert result[0]["unit_nav"] == Decimal("1.2345")
+            assert result[0]["unit_nav"] == Decimal("1.4070")
 
-            # 验证只调了 pingzhongdata URL，没调 mobile URL
-            called_urls = [c[0][0] for c in mock_get.call_args_list]
-            assert any("pingzhongdata" in url for url in called_urls)
-            assert not any("FundMNHisNetList" in url for url in called_urls)
+            # 验证调了 Mobile API，没调 Web pingzhongdata API
+            called_urls = [str(c) for c in mock_get.call_args_list]
+            assert any("FundMNHisNetList" in u for u in called_urls), (
+                f"应该调 Mobile API, 实际调用: {called_urls}"
+            )
+            assert not any("pingzhongdata" in u for u in called_urls), (
+                f"不应该调 Web pingzhongdata, 实际调用: {called_urls}"
+            )
 
     def test_web_empty_fallback_to_mobile(self):
         """Web API 返回空数据时，fallback 到 mobile API"""
@@ -404,15 +406,22 @@ class TestFetchNavHistoryFallback:
 
 @pytest.mark.django_db
 class TestFetchRealtimeNavFallback:
-    """fetch_realtime_nav 的 Web → Mobile fallback 逻辑"""
+    """fetch_realtime_nav 的 M1 行为 — 直接调 Mobile API"""
 
-    def test_web_success_no_mobile_call(self):
-        """Web API 成功时，不调用 mobile API"""
+    def test_direct_mobile_call(self):
+        """M1: fetch_realtime_nav 直接调 Mobile API，不调 fundgz Web API"""
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_web_estimate_response(
-                'jsonpgz({"fundcode":"000001","name":"华夏成长","jzrq":"2026-06-17","dwjz":"1.4070","gsz":"1.4100","gszzl":"0.21","gztime":"2026-06-18 14:30:00"});'
+            mock_get.return_value = _make_mobile_realtime_response(
+                [
+                    {
+                        "FCODE": "000001",
+                        "SHORTNAME": "华夏成长",
+                        "ACCNAV": "1.4070",
+                        "PDATE": "2026-06-17",
+                    }
+                ]
             )
 
             result = source.fetch_realtime_nav("000001")
@@ -420,9 +429,14 @@ class TestFetchRealtimeNavFallback:
             assert result is not None
             assert result["nav"] == Decimal("1.4070")
 
-            # 验证没调 mobile URL
+            # 验证调了 Mobile API，没调 fundgz Web API
             called_urls = [str(c) for c in mock_get.call_args_list]
-            assert not any("FundMNFInfo" in u for u in called_urls)
+            assert any("FundMNFInfo" in u for u in called_urls), (
+                f"应该调 Mobile API, 实际调用: {called_urls}"
+            )
+            assert not any("fundgz" in u for u in called_urls), (
+                f"不应该调 fundgz Web API, 实际调用: {called_urls}"
+            )
 
     def test_web_none_fallback_to_mobile(self):
         """Web API 返回 None 时（缺少字段），fallback 到 mobile API"""

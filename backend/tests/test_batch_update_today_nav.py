@@ -41,26 +41,22 @@ class TestBatchUpdateTodayNavAPI:
             latest_nav_date=date(2024, 2, 12),
         )
 
-    @patch("api.sources.eastmoney.requests.get")
+    @patch("requests.get")
     def test_batch_update_today_nav_success(self, mock_get):
-        """测试批量更新当日净值成功"""
-        today = date.today()
-        today_timestamp = int(
-            datetime.combine(today, datetime.min.time()).timestamp() * 1000
-        )
+        """测试批量更新当日净值成功 (M1: Mobile API)"""
+        from unittest.mock import MagicMock
 
-        # Mock pingzhongdata API 响应（当日净值）
-        mock_response = Mock()
-        mock_response.text = f"""
-        var Data_netWorthTrend = [
-            {{"x":{today_timestamp},"y":1.1500,"equityReturn":4.55}}
-        ];
-        var Data_ACWorthTrend = [
-            {{"x":{today_timestamp},"y":1.5500}}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        today = date.today()
+
+        # Mock Mobile API (FundMNHisNetList) 响应
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FSRQ": today.isoformat(), "DWJZ": "1.1500", "LJJZ": "1.5500", "JZZZL": "4.55"},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
 
         # 调用 API
         response = self.client.post(
@@ -74,37 +70,33 @@ class TestBatchUpdateTodayNavAPI:
 
         # 验证两个基金都更新成功
         assert data["000001"]["updated"] is True
-        assert data["000001"]["latest_nav"] == "1.15"
+        assert data["000001"]["latest_nav"] == "1.1500"
         assert data["000001"]["latest_nav_date"] == today.isoformat()
 
         assert data["000002"]["updated"] is True
-        assert data["000002"]["latest_nav"] == "1.15"
+        assert data["000002"]["latest_nav"] == "1.1500"
 
         # 验证数据库已更新
         self.fund1.refresh_from_db()
         assert self.fund1.latest_nav == Decimal("1.1500")
         assert self.fund1.latest_nav_date == today
 
-    @patch("api.sources.eastmoney.requests.get")
+    @patch("requests.get")
     def test_batch_update_today_nav_skip_old_date(self, mock_get):
-        """测试跳过非当日净值"""
-        yesterday = date.today().replace(day=date.today().day - 1)
-        yesterday_timestamp = int(
-            datetime.combine(yesterday, datetime.min.time()).timestamp() * 1000
-        )
+        """测试跳过非当日净值 (M1: Mobile API)"""
+        from unittest.mock import MagicMock
 
-        # Mock pingzhongdata API 响应（昨天的净值）
-        mock_response = Mock()
-        mock_response.text = f"""
-        var Data_netWorthTrend = [
-            {{"x":{yesterday_timestamp},"y":1.1500,"equityReturn":4.55}}
-        ];
-        var Data_ACWorthTrend = [
-            {{"x":{yesterday_timestamp},"y":1.5500}}
-        ];
-        """
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        yesterday = date.today().replace(day=max(1, date.today().day - 1))
+
+        # Mock Mobile API (FundMNHisNetList) 返回昨天的净值
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FSRQ": yesterday.isoformat(), "DWJZ": "1.1500", "LJJZ": "1.5500", "JZZZL": "4.55"},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
 
         # 调用 API
         response = self.client.post(

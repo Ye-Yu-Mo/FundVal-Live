@@ -70,15 +70,18 @@ class TestEastMoneySource:
 
     @patch("requests.get")
     def test_fetch_realtime_nav_success(self, mock_get):
-        """测试获取实际净值成功"""
+        """测试获取实际净值成功 (M1: Mobile API)"""
         from api.sources.eastmoney import EastMoneySource
+        from unittest.mock import MagicMock
 
-        mock_response = Mock()
-        mock_response.text = (
-            'jsonpgz({"fundcode":"000001","jzrq":"2026-02-10","dwjz":"1.1490"});'
-        )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": "2026-02-10"},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
 
         source = EastMoneySource()
         result = source.fetch_realtime_nav("000001")
