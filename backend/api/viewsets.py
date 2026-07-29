@@ -632,6 +632,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 and fund.estimate_time
                 and (now - fund.estimate_time).total_seconds() < ttl_minutes * 60
             ):
+                # M2: 收盘后 (15:00+) 标记估值 stale
+                # 北京时间 15:00 后盘中估值不再更新，应提示用户这是收盘估值
+                is_stale = now.hour >= 15
+
                 # 缓存命中
                 results[code] = {
                     "fund_code": code,
@@ -648,7 +652,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                         else None
                     ),
                     "from_cache": True,
+                    "estimate_source": fund.estimate_source,  # M2: 来源追溯
                 }
+                if is_stale:
+                    results[code]["estimate_stale"] = True
             else:
                 # 缓存失效，需要重新获取
                 need_fetch.append(code)
@@ -695,11 +702,13 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                             fund.estimate_nav = data.get("estimate_nav")
                             fund.estimate_growth = data.get("estimate_growth")
                             fund.estimate_time = timezone.now()
+                            fund.estimate_source = "akshare"  # M2: 记录估值来源
                             fund.save(
                                 update_fields=[
                                     "estimate_nav",
                                     "estimate_growth",
                                     "estimate_time",
+                                    "estimate_source",
                                 ]
                             )
 
@@ -718,7 +727,11 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                                     else None
                                 ),
                                 "from_cache": False,
+                                "estimate_source": "akshare",  # M2: 响应中标记来源
                             }
+                            # M2: 新抓取估值在 15:00 后也标记 stale
+                            if now.hour >= 15:
+                                results[code]["estimate_stale"] = True
                         elif fund and data is None:
                             # M1: fetch_estimate 返回 None（估值源不可用）
                             # 返回 unavailable 标记而非 error

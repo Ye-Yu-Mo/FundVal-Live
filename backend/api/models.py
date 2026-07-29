@@ -34,6 +34,11 @@ class Fund(models.Model):
         null=True, blank=True, help_text="估值更新时间"
     )
 
+    # M2: 估值来源标识（akshare / penetration / yangjibao / xiaobeiyangji）
+    estimate_source = models.CharField(
+        max_length=50, null=True, blank=True, help_text="估值来源引擎"
+    )
+
     # 元数据
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
