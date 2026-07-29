@@ -16,6 +16,47 @@
 
 ---
 
+## [v2.7.0] - 2026-07-29
+
+### Added
+
+- **穿透估算引擎**：作为 akshare 估值失败时的自动 fallback
+  - `PenetrationEngine` — 通过基金持仓成分股权重 + 个股实时行情反向加权推算净值
+  - 优先覆盖 ETF/指数型基金（持仓透明，偏差 < 1%），主动型基金标记低精度
+  - ETF/指数基金不乘覆盖率系数（成分股涨跌高度相关），主动型基金乘覆盖率系数
+  - 内存缓存个股行情（30s TTL），避免重复请求新浪接口
+  - 精度门禁：超过 30% 成分股缺少行情时放弃穿透估算
+- **akshare 估值引擎**：替代已失效的 fundgz JSONP 接口
+  - `AkshareEstimateEngine` — 通过 `ak.fund_em_value_estimation()` 单次拉取全市场估值
+  - 内存缓存 5 分钟 TTL，兼容 akshare 新旧列名格式
+  - 基金列表同步通过 `ak.fund_name_em()` 恢复
+- **估值 fallback 链**：`akshare → 穿透估算 → unavailable`，每层独立超时和异常处理
+- **估值源标识**：`Fund.estimate_source` 字段记录估值来源（`akshare` / `penetration`），API 响应中返回
+- **收盘估值标记**：15:00 后 API 响应返回 `estimate_stale: true`，前端可区分盘中估值和收盘估值
+- **数据源健康检查**：`BaseEstimateSource.is_available()` + `SourceRegistry.list_available_sources()`
+  - EastMoneySource 通过 Mobile API 连通性检查
+  - DanjuanSource 标记为不可用（403 IP 封禁）
+- **穿透估算调研报告**：`backend/docs/penetration-estimation-research.md`，分析 smart-fund-tracker PRO 引擎、覆盖率评估、方案对比
+
+### Changed
+
+- **EastMoneySource 全量迁移 Mobile API**：`fetch_nav_history` / `fetch_realtime_nav` / `fetch_today_nav` 改为 Mobile API 为主路径（Web API 于 2026-07-29 起不可用）
+- **DanjuanSource 优雅降级**：所有方法返回空/None 而非抛异常，不影响净值同步 fallback 链
+- **依赖新增**：`akshare>=1.18.80`（引入 pandas/numpy 科学计算栈）
+- **项目文档重组**：开发规范移至子项目目录（`backend/python项目规范.md`、`frontend/前端项目规范.md`、`fundval-app/Android客户端项目规范.md`），根目录清理过时 PLAN/TODO 文档
+
+### Fixed
+
+- **基金估值不显示**：fundgz.1234567.com.cn 返回 HTML 而非 JSONP，实时估值全部失效 → 通过 akshare + 穿透估算双引擎恢复
+- **蛋卷基金 API 不可用**：danjuanfunds.com 返回 403 IP 封禁 → 标记为不可用，保留注册以备恢复
+- **基金列表同步失败**：fundcode_search.js 返回空响应 → 通过 `ak.fund_name_em()` 恢复
+
+### Removed
+
+- 过时开发文档：`开发计划.md`、`PLAN.md`、`TODO-M1~M4.md`、`TODO-OPTIMIZE-2.md`、`BUGFIX-PLAN.md`（bug 已修复）
+
+---
+
 ## [v2.6.0] - 2026-06-18
 
 ### Added
