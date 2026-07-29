@@ -55,13 +55,22 @@ class EastMoneySource(BaseEstimateSource):
         super().__init__()
         # M2: 估值引擎（lazy init，避免循环导入）
         self._estimate_engine = None
+        # M3: 穿透估算引擎（lazy init）
+        self._penetration_engine = None
 
     def _get_estimate_engine(self):
-        """懒加载估值引擎"""
+        """懒加载 akshare 估值引擎"""
         if self._estimate_engine is None:
             from .akshare_estimate import AkshareEstimateEngine
             self._estimate_engine = AkshareEstimateEngine()
         return self._estimate_engine
+
+    def _get_penetration_engine(self):
+        """懒加载穿透估算引擎（M3）"""
+        if self._penetration_engine is None:
+            from .penetration_engine import PenetrationEngine
+            self._penetration_engine = PenetrationEngine()
+        return self._penetration_engine
 
     def is_available(self) -> bool:
         """
@@ -99,20 +108,52 @@ class EastMoneySource(BaseEstimateSource):
 
     def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
         """
-        从天天基金获取估值
+        获取基金实时估值
 
-        M2 (2026-07-29): 通过 AkshareEstimateEngine 获取全市场估值。
-        fundgz JSONP 已失效，M1 中返回 None，M2 恢复估值能力。
-        引擎失败时 fallback 返回 None（M1 的 unavailable 降级逻辑不变）。
+        M3 fallback 链: akshare → 穿透估算 → None (unavailable)
+        - akshare 是第一优先级（官方估值源）
+        - 穿透估算是第二优先级（akshare 失败时兜底）
+        - 都失败返回 None → API 返回 unavailable: true
 
         原 fundgz JSONP 解析代码保留在下方注释中，以备将来参考。
         """
+        fund_type = None  # 穿透估算需要类型判断
+
+        # 1. 尝试 akshare（主估值源）
         try:
             engine = self._get_estimate_engine()
-            return engine.get_estimate(fund_code)
+            result = engine.get_estimate(fund_code)
+            if result is not None:
+                result["estimate_source"] = "akshare"
+                return result
         except Exception as e:
-            logger.warning(f"akshare 估值获取失败（{fund_code}）: {e}")
-            return None
+            logger.debug(f"akshare 估值失败 ({fund_code}): {e}")
+
+        # 2. 尝试穿透估算（M3 新增）
+        try:
+            # 查询基金类型用于穿透估算的适用性判断
+            if fund_type is None:
+                try:
+                    from api.models import Fund
+                    fund = Fund.objects.filter(fund_code=fund_code).first()
+                    if fund:
+                        fund_type = fund.fund_type
+                except Exception:
+                    pass
+
+            pen_engine = self._get_penetration_engine()
+            result, reason = pen_engine.estimate(fund_code, fund_type)
+            if result is not None:
+                result["estimate_source"] = "penetration"
+                return result
+            if reason == "not_applicable":
+                logger.debug(f"穿透估算法不适用于 {fund_code}")
+            elif reason == "no_holdings":
+                logger.debug(f"{fund_code} 无持仓数据")
+        except Exception as e:
+            logger.warning(f"穿透估算失败 ({fund_code}): {e}")
+
+        return None  # → API 返回 unavailable
 
         # ── 以下为原 fundgz JSONP 估值解析逻辑，保留以备 API 恢复 ──
         # try:

@@ -702,7 +702,9 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                             fund.estimate_nav = data.get("estimate_nav")
                             fund.estimate_growth = data.get("estimate_growth")
                             fund.estimate_time = timezone.now()
-                            fund.estimate_source = "akshare"  # M2: 记录估值来源
+                            fund.estimate_source = (
+                                data.get("estimate_source") or "akshare"
+                            )  # M3: 穿透估算标记 "penetration"
                             fund.save(
                                 update_fields=[
                                     "estimate_nav",
@@ -727,7 +729,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                                     else None
                                 ),
                                 "from_cache": False,
-                                "estimate_source": "akshare",  # M2: 响应中标记来源
+                                "estimate_source": data.get("estimate_source", "akshare"),  # M3: 穿透估算标记
                             }
                             # M2: 新抓取估值在 15:00 后也标记 stale
                             if now.hour >= 15:
