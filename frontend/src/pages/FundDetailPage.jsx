@@ -348,9 +348,15 @@ const FundDetailPage = () => {
               value={estimate?.estimate_nav || '-'}
               precision={estimate?.estimate_nav ? 4 : 0}
               prefix={estimate?.estimate_nav ? '¥' : ''}
-              valueStyle={{ fontSize: '18px' }}
+              valueStyle={{
+                fontSize: '18px',
+                opacity: estimate?.estimate_stale ? 0.7 : 1,
+              }}
             />
             <EstimateSourceTag source={estimate?.estimate_source} />
+            {estimate?.estimate_stale && (
+              <span style={{ fontSize: 10, color: '#999' }}>收盘估值 15:00</span>
+            )}
           </Col>
           <Col xs={12} sm={6} md={4}>
             <Statistic
@@ -361,6 +367,7 @@ const FundDetailPage = () => {
               valueStyle={{
                 color: estimate?.estimate_growth >= 0 ? '#cf1322' : '#3f8600',
                 fontSize: '18px',
+                opacity: estimate?.estimate_stale ? 0.7 : 1,
               }}
               prefix={estimate?.estimate_growth >= 0 ? '+' : ''}
             />
