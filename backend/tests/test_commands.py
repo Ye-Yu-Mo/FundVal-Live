@@ -19,61 +19,28 @@ from django.core.management import call_command
 class TestSyncFundsCommand:
     """测试同步基金列表命令"""
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_sync_funds_success(self, mock_get):
-        """测试同步基金列表成功"""
-        from api.models import Fund
-
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = 'var r = [["000001","HXCZHH","华夏成长混合","混合型-灵活","HUAXIACHENGZHANGHUNHE"],["000002","HXCZHH","华夏成长混合(后端)","混合型-灵活","HUAXIACHENGZHANGHUNHE"]];'
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # 执行命令
+    def test_sync_funds_raises_not_implemented(self):
+        """M1: sync_funds 调用 fetch_fund_list 抛 NotImplementedError"""
         out = StringIO()
-        call_command("sync_funds", stdout=out)
+        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
+            call_command("sync_funds", stdout=out)
 
-        # 验证基金已创建
-        assert Fund.objects.count() == 2
-        fund1 = Fund.objects.get(fund_code="000001")
-        assert fund1.fund_name == "华夏成长混合"
-        assert fund1.fund_type == "混合型-灵活"
-
-    @patch("api.sources.eastmoney.requests.get")
-    def test_sync_funds_update_existing(self, mock_get):
-        """测试更新已存在的基金"""
+    def test_sync_funds_update_existing_raises_not_implemented(self):
+        """M1: 已存在基金的同步同样抛 NotImplementedError"""
         from api.models import Fund
 
-        # 先创建一个基金
         Fund.objects.create(
-            fund_code="000001",
-            fund_name="旧名称",
-            fund_type="旧类型",
+            fund_code="000001", fund_name="旧名称", fund_type="旧类型",
         )
 
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = 'var r = [["000001","HXCZHH","华夏成长混合","混合型-灵活","HUAXIACHENGZHANGHUNHE"]];'
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # 执行命令
-        call_command("sync_funds", stdout=StringIO())
-
-        # 验证基金已更新
-        fund = Fund.objects.get(fund_code="000001")
-        assert fund.fund_name == "华夏成长混合"
-        assert fund.fund_type == "混合型-灵活"
-
-    @patch("api.sources.eastmoney.requests.get")
-    def test_sync_funds_api_error(self, mock_get):
-        """测试 API 错误处理"""
-        mock_get.side_effect = Exception("Network error")
-
-        # 执行命令应该不报错，只是记录日志
         out = StringIO()
-        with pytest.raises(Exception):
+        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
+            call_command("sync_funds", stdout=out)
+
+    def test_sync_funds_api_error(self):
+        """M1: sync_funds 因为 fetch_fund_list 不可用而抛 NotImplementedError"""
+        out = StringIO()
+        with pytest.raises(NotImplementedError):
             call_command("sync_funds", stdout=out)
 
 
@@ -90,55 +57,49 @@ class TestUpdateNavCommand:
             fund_name="华夏成长混合",
         )
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_update_nav_success(self, mock_get, fund):
-        """测试更新净值成功"""
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = (
-            'jsonpgz({"fundcode":"000001","jzrq":"2026-02-10","dwjz":"1.1490"});'
-        )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+    @patch("api.management.commands.update_nav._fetch_batch_nav")
+    def test_update_nav_success(self, mock_fetch_batch, fund):
+        """M1: 批量更新净值成功（通过 Mobile API 批量接口）"""
+        mock_fetch_batch.return_value = {
+            "000001": {"nav": Decimal("1.1490"), "nav_date": date(2026, 2, 10)},
+        }
 
-        # 执行命令
         out = StringIO()
         call_command("update_nav", stdout=out)
 
-        # 验证净值已更新
         fund.refresh_from_db()
         assert fund.latest_nav == Decimal("1.1490")
         assert fund.latest_nav_date == date(2026, 2, 10)
 
-    @patch("api.sources.eastmoney.requests.get")
+    @patch("requests.get")
     def test_update_nav_single_fund(self, mock_get, fund):
-        """测试更新单个基金净值"""
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = (
-            'jsonpgz({"fundcode":"000001","jzrq":"2026-02-10","dwjz":"1.1490"});'
-        )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        """M1: 单基金更新净值（通过 Mobile API）"""
+        from unittest.mock import MagicMock
 
-        # 执行命令（指定基金代码）
+        # Mock Mobile API (FundMNFInfo) 响应
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": "2026-02-10"},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
+
         out = StringIO()
         call_command("update_nav", fund_code="000001", stdout=out)
 
-        # 验证净值已更新
         fund.refresh_from_db()
         assert fund.latest_nav == Decimal("1.1490")
 
-    @patch("api.sources.eastmoney.requests.get")
-    def test_update_nav_api_error(self, mock_get, fund):
-        """测试 API 错误时继续处理其他基金"""
-        mock_get.side_effect = Exception("Network error")
+    @patch("api.management.commands.update_nav._fetch_batch_nav")
+    def test_update_nav_api_error(self, mock_fetch_batch, fund):
+        """M1: 批量 API 返回空数据时净值不更新"""
+        mock_fetch_batch.return_value = {}
 
-        # 执行命令应该不报错，只是记录日志
         out = StringIO()
         call_command("update_nav", stdout=out)
 
-        # 净值应该没有更新
         fund.refresh_from_db()
         assert fund.latest_nav is None
 
@@ -168,30 +129,31 @@ class TestCalculateAccuracyCommand:
             estimate_nav=Decimal("1.1370"),
         )
 
-    @patch("api.sources.eastmoney.requests.get")
+    @patch("requests.get")
     def test_calculate_accuracy_success(self, mock_get, accuracy_record):
-        """测试计算准确率成功"""
-        # 获取 accuracy_record 的日期
+        """M1: 计算准确率成功（通过 Mobile API FundMNFInfo）"""
+        from unittest.mock import MagicMock
+
         estimate_date = accuracy_record.estimate_date
         date_str = estimate_date.strftime("%Y-%m-%d")
 
-        # Mock API 响应（日期与 estimate_date 匹配）
-        mock_response = Mock()
-        mock_response.text = (
-            f'jsonpgz({{"fundcode":"000001","jzrq":"{date_str}","dwjz":"1.1490"}});'
-        )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        # Mock Mobile API (FundMNFInfo) 响应 — fetch_realtime_nav 走这个
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": date_str},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
 
-        # 执行命令
         out = StringIO()
         call_command("calculate_accuracy", stdout=out)
 
-        # 验证准确率已计算
         accuracy_record.refresh_from_db()
         assert accuracy_record.actual_nav == Decimal("1.1490")
         assert accuracy_record.error_rate is not None
-        # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444（负数表示低估）
+        # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444
         assert abs(accuracy_record.error_rate - Decimal("-0.010444")) < Decimal(
             "0.000001"
         )
@@ -224,12 +186,12 @@ class TestCalculateAccuracyCommand:
         accuracy_record.refresh_from_db()
         assert accuracy_record.actual_nav is None
 
-    @patch("api.sources.eastmoney.requests.get")
+    @patch("requests.get")
     def test_calculate_accuracy_specific_date(self, mock_get, fund):
-        """测试计算指定日期的准确率"""
+        """M1: 计算指定日期的准确率（通过 Mobile API FundMNFInfo）"""
         from api.models import EstimateAccuracy
+        from unittest.mock import MagicMock
 
-        # 创建指定日期的记录
         target_date = date(2024, 2, 11)
         record = EstimateAccuracy.objects.create(
             source_name="eastmoney",
@@ -238,19 +200,18 @@ class TestCalculateAccuracyCommand:
             estimate_nav=Decimal("1.1370"),
         )
 
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = (
-            'jsonpgz({"fundcode":"000001","jzrq":"2024-02-11","dwjz":"1.1490"});'
-        )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock = MagicMock()
+        mock.json.return_value = {
+            "Datas": [
+                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": "2024-02-11"},
+            ]
+        }
+        mock.raise_for_status = MagicMock()
+        mock_get.return_value = mock
 
-        # 执行命令（指定日期）
         out = StringIO()
         call_command("calculate_accuracy", date="2024-02-11", stdout=out)
 
-        # 验证准确率已计算
         record.refresh_from_db()
         assert record.actual_nav == Decimal("1.1490")
 

@@ -437,29 +437,22 @@ class TestFetchEstimateDegradation:
         import inspect
         source_code, _ = inspect.getsourcelines(EastMoneySource)
 
-        # 找到 fetch_estimate 方法
         in_method = False
         method_lines = []
-        indent = None
         for line in source_code:
             if "def fetch_estimate" in line:
                 in_method = True
-                indent = len(line) - len(line.lstrip())
                 continue
             if in_method:
-                if line.strip().startswith("def ") or (
-                    line.strip() and len(line) - len(line.lstrip()) <= indent
-                ):
+                if line.strip().startswith("def "):
                     break
                 method_lines.append(line)
-
-        method_text = "".join(method_lines)
 
         # 原 fundgz 相关关键字应在注释中出现
         assert any("gsz" in line and "#" in line for line in method_lines) or \
             any("gszzl" in line and "#" in line for line in method_lines) or \
             any("fundgz" in line.lower() and "#" in line for line in method_lines), (
-            "原 fundgz 估值解析代码应在注释中保留"
+            f"原 fundgz 估值解析代码应在注释中保留, 方法体行数: {len(method_lines)}"
         )
 
     def test_fund_list_code_not_called_on_import(self):
