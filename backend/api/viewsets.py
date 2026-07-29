@@ -133,9 +133,16 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             data = source.fetch_estimate(fund_code)
             if data is None:
+                # M1: fundgz 不可用，返回 unavailable 标记而非 400 error
+                # 前端可据此显示"暂无实时估值"而非报错页面
                 return Response(
-                    {"error": f"{source_name} 未返回数据，请检查是否已登录或 token 是否过期"},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {
+                        "fund_code": fund_code,
+                        "estimate_nav": None,
+                        "estimate_growth": None,
+                        "unavailable": True,
+                        "message": "实时估值暂不可用",
+                    }
                 )
             return Response(data)
         except Exception as e:
@@ -712,6 +719,17 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                                 ),
                                 "from_cache": False,
                             }
+                        elif fund and data is None:
+                            # M1: fetch_estimate 返回 None（估值源不可用）
+                            # 返回 unavailable 标记而非 error
+                            results[code] = {
+                                "fund_code": code,
+                                "fund_name": fund.fund_name,
+                                "estimate_nav": None,
+                                "estimate_growth": None,
+                                "unavailable": True,
+                                "message": "实时估值暂不可用",
+                            }
                     except Exception as e:
                         results[code] = {
                             "fund_code": code,
@@ -1021,7 +1039,14 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         try:
             funds = source.fetch_fund_list()
+        except NotImplementedError as e:
+            # M1: fetch_fund_list 已失效，返回明确提示而非 500
+            return Response(
+                {"error": f"基金列表同步功能暂不可用: {e}"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
+        try:
             created_count = 0
             updated_count = 0
 
