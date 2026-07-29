@@ -55,75 +55,85 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取估值
 
-        QDII 基金净值 T+2 延迟公布，fundgz 的基准净值可能过期。
-        此时从 Mobile API 取最新净值，重新计算涨跌幅。
+        M1 (2026-07-29): fundgz.1234567.com.cn 返回 HTML 而非 JSONP，
+        实时估值 API 已不可用。待 M2 通过 akshare 恢复估值能力。
+
+        原 fundgz JSONP 解析逻辑（gsz/gszzl/gztime）和 QDII 净值校正
+        代码保留在下方注释中，以备 API 恢复时使用。
         """
-        try:
-            url = self.ESTIMATE_URL.format(code=fund_code)
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
+        logger.warning(
+            "fundgz API 不可用（2026-07-29 起返回 HTML），"
+            "实时估值暂不可用，待 M2 通过 akshare 恢复。"
+            f" 当前请求基金: {fund_code}"
+        )
+        return None
 
-            text = response.text
-            match = re.search(r"jsonpgz\((.*)\);?", text)
-            if not match:
-                logger.warning(f"无法解析估值数据：{fund_code}，响应格式不正确")
-                return None
-
-            json_str = match.group(1)
-            data = json.loads(json_str)
-
-            required_fields = ["fundcode", "name", "gsz", "gszzl", "gztime"]
-            for field in required_fields:
-                if field not in data:
-                    logger.warning(f"估值数据缺少字段 {field}：{fund_code}")
-                    return None
-
-            estimate_nav = Decimal(data["gsz"])
-            estimate_growth = Decimal(data["gszzl"])
-            estimate_time = datetime.strptime(data["gztime"], "%Y-%m-%d %H:%M")
-
-            # QDII / 净值延迟: 如果 fundgz 的基准净值日期过期，
-            # 用 Mobile API 取最新净值重新计算涨跌幅
-            jzrq_str = data.get("jzrq")
-            if jzrq_str:
-                try:
-                    jzrq_date = datetime.strptime(jzrq_str, "%Y-%m-%d").date()
-                    latest = self._fetch_realtime_nav_mobile(fund_code)
-                    if latest and latest["nav_date"] > jzrq_date:
-                        # 用最新净值作为基准重新计算涨跌幅
-                        old_nav = latest["nav"]
-                        if old_nav and old_nav > 0:
-                            estimate_growth = (
-                                (estimate_nav - old_nav) / old_nav * 100
-                            )
-                            logger.info(
-                                f"QDII 净值校正: {fund_code} "
-                                f"jzrq={jzrq_date}→{latest['nav_date']} "
-                                f"growth={data['gszzl']}%→{estimate_growth:.2f}%"
-                            )
-                except (ValueError, TypeError):
-                    pass
-
-            return {
-                "fund_code": data["fundcode"],
-                "fund_name": data["name"],
-                "estimate_nav": estimate_nav,
-                "estimate_growth": estimate_growth,
-                "estimate_time": estimate_time,
-            }
-
-        except requests.RequestException as e:
-            logger.error(f"获取估值失败（网络错误）：{fund_code}, 错误：{e}")
-            return None
-        except json.JSONDecodeError as e:
-            logger.error(f"获取估值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
-            return None
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"获取估值失败（数据格式错误）：{fund_code}, 错误：{e}")
-            return None
-        except Exception as e:
-            logger.error(f"获取估值失败（未知错误）：{fund_code}, 错误：{e}")
-            return None
+        # ── 以下为原 fundgz JSONP 估值解析逻辑，保留以备 API 恢复 ──
+        # try:
+        #     url = self.ESTIMATE_URL.format(code=fund_code)
+        #     response = requests.get(url, timeout=10)
+        #     response.raise_for_status()
+        #
+        #     text = response.text
+        #     match = re.search(r"jsonpgz\((.*)\);?", text)
+        #     if not match:
+        #         logger.warning(f"无法解析估值数据：{fund_code}，响应格式不正确")
+        #         return None
+        #
+        #     json_str = match.group(1)
+        #     data = json.loads(json_str)
+        #
+        #     required_fields = ["fundcode", "name", "gsz", "gszzl", "gztime"]
+        #     for field in required_fields:
+        #         if field not in data:
+        #             logger.warning(f"估值数据缺少字段 {field}：{fund_code}")
+        #             return None
+        #
+        #     estimate_nav = Decimal(data["gsz"])
+        #     estimate_growth = Decimal(data["gszzl"])
+        #     estimate_time = datetime.strptime(data["gztime"], "%Y-%m-%d %H:%M")
+        #
+        #     # QDII / 净值延迟: 如果 fundgz 的基准净值日期过期，
+        #     # 用 Mobile API 取最新净值重新计算涨跌幅
+        #     jzrq_str = data.get("jzrq")
+        #     if jzrq_str:
+        #         try:
+        #             jzrq_date = datetime.strptime(jzrq_str, "%Y-%m-%d").date()
+        #             latest = self._fetch_realtime_nav_mobile(fund_code)
+        #             if latest and latest["nav_date"] > jzrq_date:
+        #                 old_nav = latest["nav"]
+        #                 if old_nav and old_nav > 0:
+        #                     estimate_growth = (
+        #                         (estimate_nav - old_nav) / old_nav * 100
+        #                     )
+        #                     logger.info(
+        #                         f"QDII 净值校正: {fund_code} "
+        #                         f"jzrq={jzrq_date}→{latest['nav_date']} "
+        #                         f"growth={data['gszzl']}%→{estimate_growth:.2f}%"
+        #                     )
+        #         except (ValueError, TypeError):
+        #             pass
+        #
+        #     return {
+        #         "fund_code": data["fundcode"],
+        #         "fund_name": data["name"],
+        #         "estimate_nav": estimate_nav,
+        #         "estimate_growth": estimate_growth,
+        #         "estimate_time": estimate_time,
+        #     }
+        #
+        # except requests.RequestException as e:
+        #     logger.error(f"获取估值失败（网络错误）：{fund_code}, 错误：{e}")
+        #     return None
+        # except json.JSONDecodeError as e:
+        #     logger.error(f"获取估值失败（JSON 解析错误）：{fund_code}, 错误：{e}")
+        #     return None
+        # except (KeyError, ValueError, TypeError) as e:
+        #     logger.error(f"获取估值失败（数据格式错误）：{fund_code}, 错误：{e}")
+        #     return None
+        # except Exception as e:
+        #     logger.error(f"获取估值失败（未知错误）：{fund_code}, 错误：{e}")
+        #     return None
 
     def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
         """
@@ -232,35 +242,34 @@ class EastMoneySource(BaseEstimateSource):
         """
         从天天基金获取基金列表
 
-        API 返回格式：
-        var r = [["000001","HXCZHH","华夏成长混合","混合型-灵活","HUAXIACHENGZHANGHUNHE"], ...];
+        M1 (2026-07-29): fund.eastmoney.com/js/fundcode_search.js 返回空响应，
+        基金列表同步接口已不可用。待 M2 通过 akshare 实现。
 
-        数组字段：
-        [0] 基金代码
-        [1] 拼音缩写
-        [2] 基金名称
-        [3] 基金类型
-        [4] 全拼
+        原 Web API 解析逻辑保留在下方注释中，以备 API 恢复时使用。
         """
-        response = requests.get(self.FUND_LIST_URL, timeout=30)
-        response.raise_for_status()
+        raise NotImplementedError(
+            "基金列表同步接口已失效（2026-07-29 起 fundcode_search.js 返回空响应），"
+            "待 M2 通过 akshare 实现。"
+        )
 
-        # 解析 JS 变量：var r = [[...], ...];
-        text = response.text
-        json_str = re.search(r"var r = (\[.*\]);?", text).group(1)
-        data = json.loads(json_str)
-
-        funds = []
-        for item in data:
-            funds.append(
-                {
-                    "fund_code": item[0],
-                    "fund_name": item[2],
-                    "fund_type": item[3],
-                }
-            )
-
-        return funds
+        # ── 以下为原 fundcode_search.js 解析逻辑，保留以备 API 恢复 ──
+        # response = requests.get(self.FUND_LIST_URL, timeout=30)
+        # response.raise_for_status()
+        #
+        # text = response.text
+        # json_str = re.search(r"var r = (\[.*\]);?", text).group(1)
+        # data = json.loads(json_str)
+        #
+        # funds = []
+        # for item in data:
+        #     funds.append(
+        #         {
+        #             "fund_code": item[0],
+        #             "fund_name": item[2],
+        #             "fund_type": item[3],
+        #         }
+        #     )
+        # return funds
 
     def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
         """

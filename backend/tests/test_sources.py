@@ -35,25 +35,15 @@ class TestEastMoneySource:
         source = EastMoneySource()
         assert source.get_source_name() == "eastmoney"
 
-    @patch("requests.get")
-    def test_fetch_estimate_success(self, mock_get):
-        """测试获取估值成功"""
+    def test_fetch_estimate_returns_none(self):
+        """M1: fetch_estimate 返回 None（fundgz 已失效）"""
         from api.sources.eastmoney import EastMoneySource
-
-        # Mock API 响应
-        mock_response = Mock()
-        mock_response.text = 'jsonpgz({"fundcode":"000001","name":"华夏成长混合","jzrq":"2026-02-10","dwjz":"1.1490","gsz":"1.1370","gszzl":"-1.05","gztime":"2026-02-11 15:00"});'
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
 
         source = EastMoneySource()
         result = source.fetch_estimate("000001")
 
-        assert result["fund_code"] == "000001"
-        assert result["fund_name"] == "华夏成长混合"
-        assert result["estimate_nav"] == Decimal("1.1370")
-        assert result["estimate_growth"] == Decimal("-1.05")
-        assert isinstance(result["estimate_time"], datetime)
+        # M1 后 fetch_estimate 直接返回 None，不抛异常
+        assert result is None
 
     @patch("requests.get")
     def test_fetch_estimate_api_error(self, mock_get):
@@ -142,23 +132,13 @@ class TestSourceRegistry:
 
 
 class TestFundListSync:
-    """基金列表同步测试"""
+    """基金列表同步测试 (M1: 接口已失效)"""
 
-    @patch("requests.get")
-    def test_parse_fund_list(self, mock_get):
-        """测试解析基金列表"""
+    def test_fetch_fund_list_raises_not_implemented(self):
+        """M1: fetch_fund_list 抛 NotImplementedError"""
         from api.sources.eastmoney import EastMoneySource
 
-        mock_response = Mock()
-        mock_response.text = 'var r = [["000001","HXCZHH","华夏成长混合","混合型-灵活","HUAXIACHENGZHANGHUNHE"],["000002","HXCZHH","华夏成长混合(后端)","混合型-灵活","HUAXIACHENGZHANGHUNHE"]];'
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
         source = EastMoneySource()
-        funds = source.fetch_fund_list()
 
-        assert len(funds) == 2
-        assert funds[0]["fund_code"] == "000001"
-        assert funds[0]["fund_name"] == "华夏成长混合"
-        assert funds[0]["fund_type"] == "混合型-灵活"
-        assert funds[1]["fund_code"] == "000002"
+        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
+            source.fetch_fund_list()

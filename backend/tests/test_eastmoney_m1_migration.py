@@ -351,3 +351,120 @@ class TestDeprecatedComments:
         assert "DEPRECATED" in surrounding.upper(), (
             f"HISTORY_URL 上方应有 DEPRECATED 注释，实际内容:\n{surrounding}"
         )
+
+
+# ================================================================
+# 功能2: fetch_estimate() 降级 → 返回 None
+# ================================================================
+
+@pytest.mark.django_db
+class TestFetchEstimateDegradation:
+    """M1 功能2: fetch_estimate() 应返回 None + 日志，不抛异常"""
+
+    def test_returns_none_not_exception(self):
+        """fetch_estimate 返回 None，即使 fundgz 返回有效数据也不解析"""
+        from unittest.mock import patch, MagicMock
+
+        source = EastMoneySource()
+
+        # Mock fundgz 返回有效 JSONP 数据 — 当前代码会成功解析并返回 dict
+        # M1 后应该忽略 fundgz，直接返回 None
+        with patch("requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.text = (
+                'jsonpgz({"fundcode":"000001","name":"华夏成长",'
+                '"jzrq":"2026-07-28","dwjz":"1.4070",'
+                '"gsz":"1.4100","gszzl":"0.21","gztime":"2026-07-29 14:30:00"});'
+            )
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            result = source.fetch_estimate("000001")
+
+        assert result is None, (
+            "M1: fundgz 已失效，fetch_estimate 应返回 None 而非解析 fundgz 数据"
+        )
+
+    def test_does_not_call_fundgz(self):
+        """fetch_estimate 不应再请求 fundgz URL"""
+        from unittest.mock import patch
+
+        source = EastMoneySource()
+
+        with patch("requests.get") as mock_get:
+            source.fetch_estimate("000001")
+
+            # 验证 NOT 调 fundgz
+            called_urls = [str(c) for c in mock_get.call_args_list] if mock_get.called else []
+            assert not any("fundgz" in u for u in called_urls), (
+                f"不应该请求 fundgz URL, 实际调用: {called_urls}"
+            )
+
+    def test_logs_warning_about_fundgz(self, caplog):
+        """fetch_estimate 应记录 fundgz 不可用的 warning 日志"""
+        import logging
+        caplog.set_level(logging.WARNING)
+
+        source = EastMoneySource()
+        source.fetch_estimate("000001")
+
+        warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("fundgz" in w.lower() for w in warnings), (
+            f"应该有关于 fundgz 不可用的 warning 日志, 实际: {warnings}"
+        )
+
+    def test_fetch_fund_list_raises_not_implemented(self):
+        """fetch_fund_list 应抛 NotImplementedError"""
+        source = EastMoneySource()
+
+        with pytest.raises(NotImplementedError, match="基金列表.*akshare"):
+            source.fetch_fund_list()
+
+    def test_fetch_fund_list_error_message_mentions_m2(self):
+        """fetch_fund_list 错误信息应提及 M2 修复计划"""
+        source = EastMoneySource()
+
+        with pytest.raises(NotImplementedError) as exc_info:
+            source.fetch_fund_list()
+
+        msg = str(exc_info.value)
+        assert "M2" in msg or "akshare" in msg, (
+            f"错误信息应提到 M2 或 akshare, 实际: {msg}"
+        )
+
+    def test_estimate_code_preserved_as_comment(self):
+        """fetch_estimate 原 fundgz 解析代码应在注释中保留"""
+        import inspect
+        source_code, _ = inspect.getsourcelines(EastMoneySource)
+
+        # 找到 fetch_estimate 方法
+        in_method = False
+        method_lines = []
+        indent = None
+        for line in source_code:
+            if "def fetch_estimate" in line:
+                in_method = True
+                indent = len(line) - len(line.lstrip())
+                continue
+            if in_method:
+                if line.strip().startswith("def ") or (
+                    line.strip() and len(line) - len(line.lstrip()) <= indent
+                ):
+                    break
+                method_lines.append(line)
+
+        method_text = "".join(method_lines)
+
+        # 原 fundgz 相关关键字应在注释中出现
+        assert any("gsz" in line and "#" in line for line in method_lines) or \
+            any("gszzl" in line and "#" in line for line in method_lines) or \
+            any("fundgz" in line.lower() and "#" in line for line in method_lines), (
+            "原 fundgz 估值解析代码应在注释中保留"
+        )
+
+    def test_fund_list_code_not_called_on_import(self):
+        """fetch_fund_list 不应在 import 时被意外调用"""
+        # 只测试实例化不触发网络请求
+        source = EastMoneySource()
+        # 不调用 fetch_fund_list, 只确认实例化无副作用
+        assert hasattr(source, "fetch_fund_list")
