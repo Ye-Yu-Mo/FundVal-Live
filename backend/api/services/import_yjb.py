@@ -107,8 +107,21 @@ def import_from_yangjibao(user, source, overwrite: bool = False) -> dict:
                 share = Decimal(str(holding["share"])).quantize(
                     Decimal("0.0001"), rounding=ROUND_DOWN
                 )
-                # amount = 买入总成本 = share × nav，不用外部 market value
-                amount = (share * nav).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+                source_market_value = None
+                if share > 0 and nav > 0:
+                    amount = (share * nav).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+                else:
+                    imported_market_value = Decimal(str(holding["amount"])).quantize(
+                        Decimal("0.01"), rounding=ROUND_DOWN
+                    )
+                    if imported_market_value > 0:
+                        source_market_value = imported_market_value
+                        earnings = Decimal(str(holding.get("earnings", 0)))
+                        amount = max(source_market_value - earnings, Decimal(0)).quantize(
+                            Decimal("0.01"), rounding=ROUND_DOWN
+                        )
+                    else:
+                        amount = Decimal(0)
 
                 PositionOperation.objects.create(
                     account=sub_account,
@@ -119,6 +132,7 @@ def import_from_yangjibao(user, source, overwrite: bool = False) -> dict:
                     share=share,
                     nav=nav,
                     amount=amount,
+                    source_market_value=source_market_value,
                 )
                 result["holdings_created"] += 1
 

@@ -28,8 +28,13 @@ const PositionCharts = ({ positions, accountId }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
 
-  // 计算账户总市值和总成本（使用 API 返回的 holding_value）
-  const totalValue = positions.reduce((sum, p) => sum + parseFloat(p.holding_value || 0), 0);
+  // 使用后端统一计算的持仓市值，兼容仅提供金额的持仓
+  const calculateMarketValue = (position) => {
+    return parseFloat(position.holding_value || 0);
+  };
+
+  // 计算账户总市值和总成本
+  const totalValue = positions.reduce((sum, p) => sum + calculateMarketValue(p), 0);
 
   // 获取历史数据
   const fetchHistory = async (accountId, days) => {
@@ -90,7 +95,7 @@ const PositionCharts = ({ positions, accountId }) => {
   const typeMap = {};
   positions.forEach((p) => {
     const type = mapFundType(p.fund_type);
-    const value = parseFloat(p.holding_value || 0);
+    const value = calculateMarketValue(p);
     if (!typeMap[type]) {
       typeMap[type] = 0;
     }

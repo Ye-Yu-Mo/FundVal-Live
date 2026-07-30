@@ -32,10 +32,11 @@ class Fund(models.Model):
         help_text="估值涨跌幅（%）",
     )
     estimate_time = models.DateTimeField(null=True, blank=True, help_text="估值更新时间")
-
-    # M2: 估值来源标识（akshare / penetration / yangjibao / xiaobeiyangji）
     estimate_source = models.CharField(
-        max_length=50, null=True, blank=True, help_text="估值来源引擎"
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="估值来源（akshare / penetration / yangjibao / xiaobeiyangji）",
     )
 
     # 元数据
@@ -124,10 +125,10 @@ class Account(models.Model):
 
         if self.parent is None:
             # 父账户：汇总所有子账户
-            return sum((child.holding_cost for child in self.children.all()), Decimal("0"))
+            return sum((child.holding_cost for child in self.children.all()), Decimal(0))
         else:
             # 子账户：汇总所有持仓
-            return sum((pos.holding_cost for pos in self.positions.all()), Decimal("0"))
+            return sum((pos.holding_cost for pos in self.positions.all()), Decimal(0))
 
     @property
     def holding_value(self):
@@ -136,17 +137,10 @@ class Account(models.Model):
 
         if self.parent is None:
             # 父账户：汇总所有子账户
-            return sum((child.holding_value for child in self.children.all()), Decimal("0"))
+            return sum((child.holding_value for child in self.children.all()), Decimal(0))
         else:
             # 子账户：汇总所有持仓
-            return sum(
-                (
-                    pos.fund.latest_nav * pos.holding_share
-                    for pos in self.positions.all()
-                    if pos.fund.latest_nav
-                ),
-                Decimal("0"),
-            )
+            return sum((pos.holding_value for pos in self.positions.all()), Decimal(0))
 
     @property
     def pnl(self):
@@ -173,22 +167,21 @@ class Account(models.Model):
             values = [child.estimate_value for child in self.children.all()]
             non_null = [v for v in values if v is not None]
             if not non_null:
-                return Decimal("0")
-            return sum(non_null, Decimal("0"))
+                return Decimal(0)
+            return sum(non_null, Decimal(0))
         else:
             # 子账户：汇总所有持仓，跳过缺失估值的持仓
-            total = Decimal("0")
+            total = Decimal(0)
             has_any = False
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None:
+                    if pos.source_market_value is not None:
+                        total += pos.source_market_value
+                        has_any = True
                     continue
                 total += pos.fund.estimate_nav * pos.holding_share
                 has_any = True
-            return (
-                total
-                if has_any
-                else (Decimal("0") if not self.positions.exists() else Decimal("0"))
-            )
+            return total if has_any else (Decimal(0) if not self.positions.exists() else Decimal(0))
 
     @property
     def estimate_pnl(self):
@@ -217,18 +210,18 @@ class Account(models.Model):
             values = [child.today_pnl for child in self.children.all()]
             non_null = [v for v in values if v is not None]
             if not non_null:
-                return Decimal("0")
-            return sum(non_null, Decimal("0"))
+                return Decimal(0)
+            return sum(non_null, Decimal(0))
         else:
             # 子账户：汇总所有持仓，跳过缺失估值的持仓
-            total = Decimal("0")
+            total = Decimal(0)
             has_any = False
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None or pos.fund.latest_nav is None:
                     continue  # 跳过缺失估值的持仓，不影响其他持仓的计算
                 total += pos.holding_share * (pos.fund.estimate_nav - pos.fund.latest_nav)
                 has_any = True
-            return total if has_any else (Decimal("0") if self.positions.exists() else Decimal("0"))
+            return total if has_any else (Decimal(0) if self.positions.exists() else Decimal(0))
 
     @property
     def today_pnl_rate(self):
@@ -251,6 +244,13 @@ class Position(models.Model):
     holding_share = models.DecimalField(max_digits=20, decimal_places=4, default=0)
     holding_cost = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     holding_nav = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    source_market_value = models.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="数据源仅提供金额时的持仓市值快照",
+    )
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -277,11 +277,25 @@ class Position(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def holding_value(self):
+        """持仓市值"""
+        from decimal import Decimal
+
+        if self.source_market_value is not None:
+            return self.source_market_value
+        if not self.fund.latest_nav or self.holding_share == 0:
+            return Decimal(0)
+        return self.fund.latest_nav * self.holding_share
+
+    @property
     def pnl(self):
         """盈亏（实时计算）"""
-        if not self.fund.latest_nav or self.holding_share == 0:
-            return 0
-        return (self.fund.latest_nav - self.holding_nav) * self.holding_share
+        from decimal import Decimal
+
+        # 既无来源市值又无最新净值 → 无法计算盈亏
+        if self.source_market_value is None and not self.fund.latest_nav:
+            return Decimal(0)
+        return self.holding_value - self.holding_cost
 
 
 class PositionOperation(models.Model):
@@ -303,6 +317,13 @@ class PositionOperation(models.Model):
     amount = models.DecimalField(max_digits=20, decimal_places=2)
     share = models.DecimalField(max_digits=20, decimal_places=4)
     nav = models.DecimalField(max_digits=10, decimal_places=4, help_text="操作时的净值")
+    source_market_value = models.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="数据源仅提供金额时的当前市值快照",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 

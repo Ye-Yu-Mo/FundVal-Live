@@ -51,27 +51,28 @@ class TestPositionModel:
         position = Position.objects.create(
             account=account,
             fund=fund,
-            holding_share=Decimal("100"),
-            holding_cost=Decimal("1000"),
-            holding_nav=Decimal("10"),
+            holding_share=Decimal(100),
+            holding_cost=Decimal(1000),
+            holding_nav=Decimal(10),
         )
 
         assert position.account == account
         assert position.fund == fund
-        assert position.holding_share == Decimal("100")
-        assert position.holding_cost == Decimal("1000")
-        assert position.holding_nav == Decimal("10")
+        assert position.holding_share == Decimal(100)
+        assert position.holding_cost == Decimal(1000)
+        assert position.holding_nav == Decimal(10)
 
     def test_position_unique_per_account_fund(self, account, fund):
         """测试同一账户同一基金只能有一个持仓"""
-        from api.models import Position
         from django.core.exceptions import ValidationError
         from django.db import IntegrityError
+
+        from api.models import Position
 
         Position.objects.create(
             account=account,
             fund=fund,
-            holding_share=Decimal("100"),
+            holding_share=Decimal(100),
         )
 
         # 重复创建应该报错
@@ -79,7 +80,7 @@ class TestPositionModel:
             Position.objects.create(
                 account=account,
                 fund=fund,
-                holding_share=Decimal("200"),
+                holding_share=Decimal(200),
             )
 
 
@@ -119,15 +120,15 @@ class TestPositionOperationModel:
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
             before_15=True,
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         assert operation.operation_type == "BUY"
-        assert operation.amount == Decimal("1000")
-        assert operation.share == Decimal("100")
-        assert operation.nav == Decimal("10")
+        assert operation.amount == Decimal(1000)
+        assert operation.share == Decimal(100)
+        assert operation.nav == Decimal(10)
         assert operation.before_15 is True
 
     def test_create_sell_operation(self, account, fund):
@@ -140,9 +141,9 @@ class TestPositionOperationModel:
             operation_type="SELL",
             operation_date=date(2024, 2, 11),
             before_15=False,
-            amount=Decimal("500"),
-            share=Decimal("50"),
-            nav=Decimal("10"),
+            amount=Decimal(500),
+            share=Decimal(50),
+            nav=Decimal(10),
         )
 
         assert operation.operation_type == "SELL"
@@ -157,9 +158,9 @@ class TestPositionOperationModel:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 12),
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         op2 = PositionOperation.objects.create(
@@ -167,9 +168,9 @@ class TestPositionOperationModel:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal("500"),
-            share=Decimal("50"),
-            nav=Decimal("10"),
+            amount=Decimal(500),
+            share=Decimal(50),
+            nav=Decimal(10),
         )
 
         operations = list(PositionOperation.objects.all())
@@ -216,16 +217,41 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         position = recalculate_position(account.id, fund.id)
 
-        assert position.holding_share == Decimal("100")
-        assert position.holding_cost == Decimal("1000")
-        assert position.holding_nav == Decimal("10")
+        assert position.holding_share == Decimal(100)
+        assert position.holding_cost == Decimal(1000)
+        assert position.holding_nav == Decimal(10)
+
+    def test_amount_only_buy_calculation(self, account, fund):
+        """测试缺少份额和净值时使用来源市值快照"""
+        from api.models import PositionOperation
+        from api.services import recalculate_position
+
+        PositionOperation.objects.create(
+            account=account,
+            fund=fund,
+            operation_type="BUY",
+            operation_date=date(2024, 3, 1),
+            amount=Decimal("1000.00"),
+            share=Decimal(0),
+            nav=Decimal(0),
+            source_market_value=Decimal("1200.00"),
+        )
+
+        position = recalculate_position(account.id, fund.id)
+
+        assert position is not None
+        assert position.holding_share == Decimal(0)
+        assert position.holding_cost == Decimal("1000.00")
+        assert position.source_market_value == Decimal("1200.00")
+        assert position.holding_value == Decimal("1200.00")
+        assert position.pnl == Decimal("200.00")
 
     def test_multiple_buy_calculation(self, account, fund):
         """测试多次加仓计算"""
@@ -238,9 +264,9 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         # 第二次：1200元买入100份，净值12元
@@ -249,17 +275,17 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 12),
-            amount=Decimal("1200"),
-            share=Decimal("100"),
-            nav=Decimal("12"),
+            amount=Decimal(1200),
+            share=Decimal(100),
+            nav=Decimal(12),
         )
 
         position = recalculate_position(account.id, fund.id)
 
-        assert position.holding_share == Decimal("200")
-        assert position.holding_cost == Decimal("2200")
+        assert position.holding_share == Decimal(200)
+        assert position.holding_cost == Decimal(2200)
         # 加权平均净值：(1000 + 1200) / 200 = 11
-        assert position.holding_nav == Decimal("11")
+        assert position.holding_nav == Decimal(11)
 
     def test_buy_and_sell_calculation(self, account, fund):
         """测试买入后卖出计算"""
@@ -272,9 +298,9 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         # 卖出：600元卖出50份
@@ -283,17 +309,17 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="SELL",
             operation_date=date(2024, 2, 12),
-            amount=Decimal("600"),
-            share=Decimal("50"),
-            nav=Decimal("12"),
+            amount=Decimal(600),
+            share=Decimal(50),
+            nav=Decimal(12),
         )
 
         position = recalculate_position(account.id, fund.id)
 
-        assert position.holding_share == Decimal("50")
+        assert position.holding_share == Decimal(50)
         # 成本按比例减少：1000 - (1000/100 * 50) = 500
-        assert position.holding_cost == Decimal("500")
-        assert position.holding_nav == Decimal("10")
+        assert position.holding_cost == Decimal(500)
+        assert position.holding_nav == Decimal(10)
 
     def test_sell_all_calculation(self, account, fund):
         """测试全部卖出计算"""
@@ -306,9 +332,9 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="BUY",
             operation_date=date(2024, 2, 11),
-            amount=Decimal("1000"),
-            share=Decimal("100"),
-            nav=Decimal("10"),
+            amount=Decimal(1000),
+            share=Decimal(100),
+            nav=Decimal(10),
         )
 
         # 全部卖出
@@ -317,9 +343,9 @@ class TestPositionCalculation:
             fund=fund,
             operation_type="SELL",
             operation_date=date(2024, 2, 12),
-            amount=Decimal("1200"),
-            share=Decimal("100"),
-            nav=Decimal("12"),
+            amount=Decimal(1200),
+            share=Decimal(100),
+            nav=Decimal(12),
         )
 
         position = recalculate_position(account.id, fund.id)

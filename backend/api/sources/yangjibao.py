@@ -452,6 +452,7 @@ class YangJiBaoSource(BaseEstimateSource):
             hold_share = h.get("hold_share")
             hold_cost = h.get("hold_cost")
             money = h.get("money")
+            hold_earn = h.get("hold_earn")
             hold_day = h.get("hold_day")
 
             if not fund_code or hold_share is None or hold_cost is None:
@@ -472,6 +473,7 @@ class YangJiBaoSource(BaseEstimateSource):
                             if money
                             else Decimal(str(hold_share)) * Decimal(str(hold_cost))
                         ),
+                        "earnings": Decimal(str(hold_earn or 0)),
                         "operation_date": operation_date,
                     }
                 )

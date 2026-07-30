@@ -38,7 +38,6 @@ import { useAccounts } from '../contexts/AccountContext';
 import { usePreference } from '../contexts/PreferenceContext';
 import PositionCharts from '../components/PositionCharts';
 import AIAnalysisModal from '../components/AIAnalysisModal';
-import EstimateSourceTag from '../components/EstimateSourceTag';
 
 const { useBreakpoint } = Grid;
 
@@ -166,8 +165,6 @@ const PositionsPage = () => {
                 latest_nav_date: navData?.latest_nav_date || position.fund?.latest_nav_date,
                 estimate_nav: estimateData?.estimate_nav || position.fund?.estimate_nav,
                 estimate_growth: estimateData?.estimate_growth || position.fund?.estimate_growth,
-                estimate_source: estimateData?.estimate_source || position.fund?.estimate_source,
-                estimate_stale: estimateData?.estimate_stale ?? position.fund?.estimate_stale,
                 estimate_time: estimateData?.estimate_time || position.fund?.estimate_time,
               },
             };
@@ -536,8 +533,6 @@ const PositionsPage = () => {
         latest_nav_date: navData?.latest_nav_date,
         estimate_nav: estimateData?.estimate_nav,
         estimate_growth: estimateData?.estimate_growth,
-        estimate_source: estimateData?.estimate_source,
-        estimate_stale: estimateData?.estimate_stale,
         estimate_time: estimateData?.estimate_time,
       });
 
@@ -866,7 +861,11 @@ const PositionsPage = () => {
       title: '持仓市值',
       key: 'holding_value',
       width: 120,
-      sorter: (a, b) => parseFloat(a.holding_value || 0) - parseFloat(b.holding_value || 0),
+      sorter: (a, b) => {
+        const va = parseFloat(a.holding_value || 0);
+        const vb = parseFloat(b.holding_value || 0);
+        return va - vb;
+      },
       render: (_, record) => formatMoney(record.holding_value),
     },
     {
@@ -916,18 +915,7 @@ const PositionsPage = () => {
         const estimateNav = record.fund?.estimate_nav;
         if (!estimateNav) return '-';
         const value = parseFloat(record.holding_share || 0) * parseFloat(estimateNav);
-        const stale = record.fund?.estimate_stale;
-        return (
-          <span style={{ opacity: stale ? 0.7 : 1 }}>
-            {formatMoney(value)}
-            <EstimateSourceTag source={record.fund?.estimate_source} style={{ marginLeft: 4 }} />
-            {stale && (
-              <span style={{ fontSize: 10, color: '#999', marginLeft: 4 }}>
-                收盘估值 15:00
-              </span>
-            )}
-          </span>
-        );
+        return formatMoney(value);
       },
       responsive: ['lg'],
     },
@@ -1170,12 +1158,6 @@ const PositionsPage = () => {
                     </div>
                     <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
                       {position.fund?.fund_code} <Tag color="blue">{position.fund?.fund_type}</Tag>
-                      <EstimateSourceTag source={position.fund?.estimate_source} />
-                      {position.fund?.estimate_stale && (
-                        <span style={{ fontSize: 10, color: '#999', marginLeft: 4 }}>
-                          收盘估值 15:00
-                        </span>
-                      )}
                     </div>
                     <div
                       style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
@@ -1377,15 +1359,7 @@ const PositionsPage = () => {
                 {selectedFundInfo.estimate_nav && (
                   <div style={{ marginTop: 4 }}>
                     <span>估算净值: </span>
-                    <span style={{ fontWeight: 'bold', opacity: selectedFundInfo.estimate_stale ? 0.7 : 1 }}>
-                      {selectedFundInfo.estimate_nav}
-                    </span>
-                    <EstimateSourceTag source={selectedFundInfo.estimate_source} style={{ marginLeft: 4 }} />
-                    {selectedFundInfo.estimate_stale && (
-                      <span style={{ fontSize: 10, color: '#999', marginLeft: 4 }}>
-                        收盘估值 15:00
-                      </span>
-                    )}
+                    <span style={{ fontWeight: 'bold' }}>{selectedFundInfo.estimate_nav}</span>
                     {selectedFundInfo.estimate_growth && (
                       <span
                         style={{
