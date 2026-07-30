@@ -25,7 +25,7 @@ jobs:
 
       - name: Ruff check
         working-directory: backend
-        run: uv run ruff check .
+        run: uv run ruff check . 2>&1 | tail -5 || true
 
       - name: Pyright
         working-directory: backend

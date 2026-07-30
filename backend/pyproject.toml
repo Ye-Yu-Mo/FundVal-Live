@@ -57,6 +57,16 @@ ignore = [
 ]
 fixable = ["ALL"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "F841",   # 测试中允许未使用变量（pytest fixtures）
+    "B017",   # 测试中 assert-raises-exception 可接受
+    "RUF059", # 测试中允许未使用的解包变量
+]
+"api/viewsets.py" = [
+    "E402",   # Django ViewSet 中模块级导入可以不在顶部
+]
+
 [tool.ruff.format]
 docstring-code-format = true
 
