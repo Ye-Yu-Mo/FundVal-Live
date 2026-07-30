@@ -61,8 +61,10 @@ fixable = ["ALL"]
 docstring-code-format = true
 
 [tool.pyright]
-include = ["api", "fundval", "tests"]
-exclude = ["yjb.py"]
+include = ["api", "fundval"]
+exclude = ["**/tests/**", "**/migrations/**", "yjb.py"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
 reportMissingTypeStubs = false
+reportPrivateUsage = false
+reportAttributeAccessIssue = false  # Django ORM: Model.objects 是动态属性

@@ -68,9 +68,12 @@ class TestLoadAllEstimates:
         """正常调 akshare 返回 DataFrame"""
         engine = AkshareEstimateEngine()
 
-        with patch.object(
-            engine, "_load_all_estimates", wraps=engine._load_all_estimates
-        ) as wrapped, patch("akshare.fund_value_estimation_em") as mock_ak:
+        with (
+            patch.object(
+                engine, "_load_all_estimates", wraps=engine._load_all_estimates
+            ) as wrapped,
+            patch("akshare.fund_value_estimation_em") as mock_ak,
+        ):
             mock_ak.return_value = _sample_df()
 
             df = engine._load_all_estimates()
