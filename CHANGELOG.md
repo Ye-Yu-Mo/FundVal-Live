@@ -16,6 +16,23 @@
 
 ---
 
+## [v2.7.1] - 2026-07-29
+
+### Added
+
+- **估值来源标识**：前端新增 `EstimateSourceTag` 组件
+  - 穿透估算（`estimate_source: "penetration"`）的基金显示 `持仓推算` 灰色标签 + Tooltip 说明
+  - akshare 源不显示标签（默认源，减少视觉噪音）
+  - 覆盖自选列表、基金详情页、持仓列表三个页面
+- **收盘估值标记**：15:00 后估值数字变淡（opacity 0.7）+ 显示 `收盘估值 15:00`
+  - 利用后端 v2.7.0 的 `estimate_stale` 字段，交易时段内不显示
+
+### Changed
+
+- **持仓市值使用 API 字段**：`PositionCharts` 和 `PositionsPage` 切换为使用 API 返回的 `holding_value`，删除前端手动计算 `share × nav`
+
+---
+
 ## [v2.7.0] - 2026-07-29
 
 ### Added
