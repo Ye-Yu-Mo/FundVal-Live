@@ -16,6 +16,23 @@
 
 ---
 
+## [v2.7.2] - 2026-07-30
+
+### Added
+
+- **仅含金额的持仓导入支持**：数据源隐私模式下份额为 0 但提供市值和收益时，不再丢弃该持仓
+  - Position / PositionOperation 新增 `source_market_value` 字段，保存导入时的市值快照
+  - 持仓成本通过「市值 - 累计收益」还原
+  - Position 新增 `holding_value` @property 统一市值计算逻辑
+  - 前端切换为使用 API `holding_value` 字段（感谢 @ljh740 的 PR #51）
+
+### Fixed
+
+- **Position.pnl 边界问题**：无净值且无来源市值时返回 -holding_cost → 修正为返回 0
+- **migration 冲突**：0016 依赖 0014 导致 leaf node 冲突 → 修正为依赖 0015
+
+---
+
 ## [v2.7.1] - 2026-07-29
 
 ### Added

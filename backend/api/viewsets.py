@@ -2459,7 +2459,7 @@ class AdminViewSet(viewsets.ViewSet):
                 "position_count": Position.objects.count(),
                 "nav_history_count": FundNavHistory.objects.count(),
                 "latest_estimate_time": latest_estimate_time,
-                "version": "2.7.1",
+                "version": "2.7.2",
             }
         )
 
