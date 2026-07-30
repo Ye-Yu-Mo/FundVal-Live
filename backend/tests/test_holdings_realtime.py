@@ -7,11 +7,12 @@
 3. contribution 计算正确
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
-from django.test import Client
+from unittest.mock import MagicMock, patch
+
+import pytest
 from api.models import Fund
+from django.test import Client
 
 
 @pytest.mark.django_db

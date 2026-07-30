@@ -4,10 +4,10 @@
 
 import logging
 import math
-import requests
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime, date
-from typing import Dict, Optional, List
+
+import requests
 
 from .base import BaseEstimateSource
 
@@ -30,7 +30,8 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
 
     def set_token(self, token: str):
         """设置 token 并自动从 JWT payload 提取 union_id"""
-        import json, base64
+        import base64
+        import json
 
         self._token = token
         try:
@@ -57,18 +58,18 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
     # 内部工具
     # ─────────────────────────────────────────────
 
-    def _common_body(self) -> Dict:
+    def _common_body(self) -> dict:
         return {
             "unionId": self._union_id,
             "version": self.VERSION,
             "clientType": "APP",
         }
 
-    def _request(self, method: str, path: str, **kwargs) -> Dict:
+    def _request(self, method: str, path: str, **kwargs) -> dict:
         url = self.BASE_URL + path
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f'Bearer {self._token or ""}',
+            "Authorization": f"Bearer {self._token or ''}",
         }
         response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
         response.raise_for_status()
@@ -136,7 +137,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
     # 估值
     # ─────────────────────────────────────────────
 
-    def _get_optional_change_nav(self, fund_codes: List[str]) -> List[Dict]:
+    def _get_optional_change_nav(self, fund_codes: list[str]) -> list[dict]:
         """批量获取估值数据"""
         today = date.today()
         yesterday = today.replace(day=today.day - 1)  # 简单减一天，实际用 timedelta
@@ -153,11 +154,9 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
             "codeArr": fund_codes,
             **self._common_body(),
         }
-        return self._request(
-            "POST", "/yangji-api/api/get-optional-change-nav", json=body
-        )
+        return self._request("POST", "/yangji-api/api/get-optional-change-nav", json=body)
 
-    def _get_fund_detail(self, fund_code: str) -> Dict:
+    def _get_fund_detail(self, fund_code: str) -> dict:
         """获取基金详情"""
         body = {
             "code": fund_code,
@@ -170,7 +169,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
         }
         return self._request("POST", "/yangji-api/api/get-fund-detail-v310", json=body)
 
-    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
+    def fetch_estimate(self, fund_code: str) -> dict | None:
         self._require_login()
         try:
             nav_list = self._get_optional_change_nav([fund_code])
@@ -209,7 +208,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
             logger.error(f"获取基金 {fund_code} 估值失败: {e}")
             return None
 
-    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_realtime_nav(self, fund_code: str) -> dict | None:
         self._require_login()
         try:
             detail = self._get_fund_detail(fund_code)
@@ -230,7 +229,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
             logger.error(f"获取基金 {fund_code} 净值失败: {e}")
             return None
 
-    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_today_nav(self, fund_code: str) -> dict | None:
         self._require_login()
         result = self.fetch_realtime_nav(fund_code)
         if result and result["nav_date"] == date.today():
@@ -246,7 +245,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
         fund_code: str,
         start_date: date = None,
         end_date: date = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         self._require_login()
         try:
             # 计算 range（月数）
@@ -262,9 +261,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
                 "range": range_months,
                 **self._common_body(),
             }
-            data = self._request(
-                "POST", "/yangji-api/api/get-trajectory-v310", json=body
-            )
+            data = self._request("POST", "/yangji-api/api/get-trajectory-v310", json=body)
             if not data:
                 return []
 
@@ -297,20 +294,16 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
     # 持仓导入
     # ─────────────────────────────────────────────
 
-    def fetch_accounts(self) -> List[Dict]:
+    def fetch_accounts(self) -> list[dict]:
         """获取账户列表"""
         self._require_login()
-        data = self._request(
-            "POST", "/yangji-api/api/get-account-list", json=self._common_body()
-        )
+        data = self._request("POST", "/yangji-api/api/get-account-list", json=self._common_body())
         return data.get("accountList", []) if data else []
 
-    def fetch_holdings(self) -> List[Dict]:
+    def fetch_holdings(self) -> list[dict]:
         self._require_login()
         try:
-            data = self._request(
-                "POST", "/yangji-api/api/get-hold-list", json=self._common_body()
-            )
+            data = self._request("POST", "/yangji-api/api/get-hold-list", json=self._common_body())
             items = data.get("list", []) if data else []
 
             # 过滤 money=0
@@ -321,11 +314,7 @@ class XiaoBeiYangJiSource(BaseEstimateSource):
             # 批量获取净值用于推算份额
             codes = [x["code"] for x in valid_items]
             nav_list = self._get_optional_change_nav(codes)
-            nav_map = {
-                x["code"]: Decimal(str(x["nav"]))
-                for x in (nav_list or [])
-                if x.get("nav")
-            }
+            nav_map = {x["code"]: Decimal(str(x["nav"])) for x in (nav_list or []) if x.get("nav")}
 
             result = []
             for item in valid_items:

@@ -2,13 +2,12 @@
 测试基金历史净值模型
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, timedelta
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 
+import pytest
 from api.models import Fund, FundNavHistory
+from django.db import IntegrityError
 
 
 @pytest.mark.django_db

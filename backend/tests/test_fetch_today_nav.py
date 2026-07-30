@@ -6,11 +6,12 @@ fetch_realtime_nav() 直接调用 Mobile API (FundMNFInfo JSON)。
 所有 mock 使用 Mobile API 响应格式。
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import Mock, patch, call, MagicMock
 from io import StringIO
+from unittest.mock import MagicMock, patch
+
+import pytest
 from django.core.management import call_command
 
 
@@ -182,7 +183,12 @@ class TestUpdateNavCommandWithToday:
         with patch("requests.get") as mock_get:
             mock_get.return_value = _make_mobile_nav_response(
                 [
-                    {"FSRQ": today.isoformat(), "DWJZ": "1.1500", "LJJZ": "1.5500", "JZZZL": "4.55"},
+                    {
+                        "FSRQ": today.isoformat(),
+                        "DWJZ": "1.1500",
+                        "LJJZ": "1.5500",
+                        "JZZZL": "4.55",
+                    },
                 ]
             )
 

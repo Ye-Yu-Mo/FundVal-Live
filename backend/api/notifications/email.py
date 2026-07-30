@@ -16,8 +16,8 @@ config 字段格式：
 import logging
 import smtplib
 import ssl
-from email.mime.text import MIMEText
 from email.header import Header
+from email.mime.text import MIMEText
 
 from .base import BaseNotificationChannel
 
@@ -51,9 +51,7 @@ class EmailChannel(BaseNotificationChannel):
         try:
             if smtp_ssl:
                 context = ssl.create_default_context()
-                with smtplib.SMTP_SSL(
-                    smtp_host, smtp_port, context=context, timeout=10
-                ) as server:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=10) as server:
                     server.login(username, password)
                     server.sendmail(from_email, [to_email], msg.as_string())
             else:

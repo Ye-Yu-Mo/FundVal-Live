@@ -69,8 +69,8 @@ class TestBootstrap:
 
     def test_initialize_system_with_valid_key(self):
         """测试使用有效 key 初始化系统"""
-        from fundval.bootstrap import get_bootstrap_key
         from django.contrib.auth import get_user_model
+        from fundval.bootstrap import get_bootstrap_key
 
         User = get_user_model()
         key = get_bootstrap_key()

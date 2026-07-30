@@ -10,9 +10,8 @@ M3: 作为 akshare 估值失败时的 fallback 引擎。
 """
 
 import logging
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +29,11 @@ class PenetrationEngine:
     """
 
     def __init__(self) -> None:
-        self._quote_cache: Dict[str, Dict] = {}  # stock_code → {price, change_percent, ts}
+        self._quote_cache: dict[str, dict] = {}  # stock_code → {price, change_percent, ts}
 
     # ── 公开方法 ──────────────────────────────────────────
 
-    def estimate(
-        self, fund_code: str, fund_type: str = None
-    ) -> Tuple[Optional[Dict], str]:
+    def estimate(self, fund_code: str, fund_type: str = None) -> tuple[dict | None, str]:
         """
         穿透估算单只基金
 
@@ -96,7 +93,7 @@ class PenetrationEngine:
                 return False
         return True
 
-    def _get_holdings(self, fund_code: str) -> List[Dict]:
+    def _get_holdings(self, fund_code: str) -> list[dict]:
         """
         获取持仓权重列表
 
@@ -119,7 +116,7 @@ class PenetrationEngine:
             logger.warning(f"获取持仓失败 ({fund_code}): {e}")
             return []
 
-    def _get_latest_nav(self, fund_code: str) -> Optional[Decimal]:
+    def _get_latest_nav(self, fund_code: str) -> Decimal | None:
         """获取基金最新净值"""
         try:
             from api.models import Fund
@@ -131,7 +128,7 @@ class PenetrationEngine:
             logger.warning(f"获取最新净值失败 ({fund_code}): {e}")
         return None
 
-    def _get_quotes(self, stock_codes: List[str]) -> Dict[str, Dict]:
+    def _get_quotes(self, stock_codes: list[str]) -> dict[str, dict]:
         """
         批量获取个股实时行情
 
@@ -189,11 +186,11 @@ class PenetrationEngine:
 
     def _calculate(
         self,
-        holdings: List[Dict],
-        quotes: Dict[str, Dict],
-        fund_type: Optional[str],
+        holdings: list[dict],
+        quotes: dict[str, dict],
+        fund_type: str | None,
         latest_nav: Decimal,
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         加权推算基金估值
 
@@ -204,8 +201,7 @@ class PenetrationEngine:
             return None
 
         # 过滤有效持仓：有权重且权重 > 0
-        valid_holdings = [h for h in holdings
-                          if h.get("weight") and h["weight"] > Decimal("0")]
+        valid_holdings = [h for h in holdings if h.get("weight") and h["weight"] > Decimal("0")]
 
         if not valid_holdings:
             return None
@@ -247,5 +243,5 @@ class PenetrationEngine:
         return {
             "estimate_nav": estimate_nav,
             "estimate_growth": fund_growth,
-            "estimate_time": datetime.now(timezone.utc),
+            "estimate_time": datetime.now(UTC),
         }

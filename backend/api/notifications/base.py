@@ -11,7 +11,6 @@ class BaseNotificationChannel(ABC):
     @abstractmethod
     def get_channel_type(self) -> str:
         """返回渠道类型标识（webhook/email）"""
-        pass
 
     @abstractmethod
     def send(self, title: str, content: str, config: dict) -> bool:
@@ -26,4 +25,3 @@ class BaseNotificationChannel(ABC):
         Returns:
             bool: 发送成功返回 True，失败返回 False
         """
-        pass

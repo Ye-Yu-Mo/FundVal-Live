@@ -2,11 +2,12 @@
 测试持仓按基金过滤功能
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
+from api.models import Fund, Position
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from api.models import Fund, Position
 
 User = get_user_model()
 
@@ -139,9 +140,7 @@ def test_filter_by_fund_code_requires_auth(api_client):
 
 
 @pytest.mark.django_db
-def test_filter_by_fund_code_and_account(
-    api_client, user1, fund1, create_child_account
-):
+def test_filter_by_fund_code_and_account(api_client, user1, fund1, create_child_account):
     """测试同时按基金和账户过滤"""
     # 创建子账户
     account1 = create_child_account(user1, "账户1")
@@ -165,9 +164,7 @@ def test_filter_by_fund_code_and_account(
     api_client.force_authenticate(user=user1)
 
     # 同时按基金和账户过滤
-    response = api_client.get(
-        "/api/positions/", {"fund_code": "000001", "account": account1.id}
-    )
+    response = api_client.get("/api/positions/", {"fund_code": "000001", "account": account1.id})
 
     assert response.status_code == 200
     assert len(response.data) == 1

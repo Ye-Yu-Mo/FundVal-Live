@@ -8,18 +8,16 @@
 4. M2M 关系
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestNotificationChannel:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")
@@ -66,7 +64,6 @@ class TestNotificationChannel:
 
 @pytest.mark.django_db
 class TestNotificationRule:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")
@@ -108,7 +105,7 @@ class TestNotificationRule:
         assert rule.channels.count() == 1
 
     def test_rule_multiple_channels(self, user, fund):
-        from api.models import NotificationRule, NotificationChannel
+        from api.models import NotificationChannel, NotificationRule
 
         ch1 = NotificationChannel.objects.create(
             user=user,
@@ -164,7 +161,6 @@ class TestNotificationRule:
 
 @pytest.mark.django_db
 class TestNotificationLog:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")

@@ -2,14 +2,14 @@
 测试 M4: 后端 API 集成（danjuan 偏好 + 估值 fallback + 基金详情）
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from unittest.mock import patch, MagicMock
-from rest_framework.test import APIRequestFactory, force_authenticate
-from django.contrib.auth import get_user_model
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.models import Fund
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 User = get_user_model()
 
@@ -80,9 +80,7 @@ class TestDanjuanIntegration:
             "estimate_time": MagicMock(),
         }
 
-        with patch(
-            "api.viewsets.SourceRegistry.get_source", return_value=mock_source
-        ):
+        with patch("api.viewsets.SourceRegistry.get_source", return_value=mock_source):
             req = factory.get("/?source=danjuan")
             force_authenticate(req, user=self.user)
             view = FundViewSet.as_view({"get": "estimate"})
@@ -103,9 +101,7 @@ class TestDanjuanIntegration:
             "estimate_time": MagicMock(),
         }
 
-        with patch(
-            "api.viewsets.SourceRegistry.get_source", return_value=mock_source
-        ):
+        with patch("api.viewsets.SourceRegistry.get_source", return_value=mock_source):
             req = factory.get("/?source=eastmoney")
             force_authenticate(req, user=self.user)
             view = FundViewSet.as_view({"get": "estimate"})
@@ -129,9 +125,7 @@ class TestDanjuanIntegration:
             "estimate_time": MagicMock(),
         }
 
-        with patch(
-            "api.viewsets.SourceRegistry.get_source", return_value=mock_source
-        ):
+        with patch("api.viewsets.SourceRegistry.get_source", return_value=mock_source):
             req = factory.post(
                 "/",
                 {"fund_codes": ["000001"], "source": "danjuan"},
@@ -165,9 +159,7 @@ class TestDanjuanIntegration:
             "peer_ranking": {"1m": "995/5347"},
         }
 
-        with patch(
-            "api.viewsets.SourceRegistry.get_source", return_value=mock_source
-        ):
+        with patch("api.viewsets.SourceRegistry.get_source", return_value=mock_source):
             req = factory.get("/?source=danjuan")
             force_authenticate(req, user=self.user)
             view = FundViewSet.as_view({"get": "fund_detail"})
@@ -182,9 +174,7 @@ class TestDanjuanIntegration:
         mock_source = MagicMock()
         mock_source.fetch_fund_detail.return_value = None
 
-        with patch(
-            "api.viewsets.SourceRegistry.get_source", return_value=mock_source
-        ):
+        with patch("api.viewsets.SourceRegistry.get_source", return_value=mock_source):
             req = factory.get("/?source=danjuan")
             force_authenticate(req, user=self.user)
             view = FundViewSet.as_view({"get": "fund_detail"})

@@ -7,15 +7,15 @@
 3. PositionSerializer 在 API 中返回基金详细信息
 """
 
-import pytest
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime, date
+from unittest.mock import MagicMock, patch
+
+import pytest
+from api.models import Account, Fund, Position
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APIClient
-from unittest.mock import patch, MagicMock
-
-from api.models import Fund, Account, Position, PositionOperation
 
 User = get_user_model()
 
@@ -161,9 +161,7 @@ class TestFundBatchEstimate:
 
     def test_batch_estimate_with_empty_fund_codes(self, client):
         """测试：fund_codes 为空时，返回错误"""
-        response = client.post(
-            "/api/funds/batch_estimate/", {"fund_codes": []}, format="json"
-        )
+        response = client.post("/api/funds/batch_estimate/", {"fund_codes": []}, format="json")
 
         assert response.status_code == 400
         data = response.json()
@@ -261,9 +259,7 @@ class TestFundBatchUpdateNav:
 
     def test_batch_update_nav_with_empty_fund_codes(self, client):
         """测试：fund_codes 为空时，返回错误"""
-        response = client.post(
-            "/api/funds/batch_update_nav/", {"fund_codes": []}, format="json"
-        )
+        response = client.post("/api/funds/batch_update_nav/", {"fund_codes": []}, format="json")
 
         assert response.status_code == 400
         data = response.json()
@@ -301,9 +297,7 @@ class TestPositionAPIWithFundDetails:
             estimate_time=timezone.make_aware(datetime(2026, 2, 12, 14, 30)),
         )
 
-    def test_position_list_includes_fund_details(
-        self, client, user, account, fund_with_estimate
-    ):
+    def test_position_list_includes_fund_details(self, client, user, account, fund_with_estimate):
         """测试：持仓列表包含基金详细信息"""
         # 创建持仓
         Position.objects.create(
@@ -339,9 +333,7 @@ class TestPositionAPIWithFundDetails:
         assert position["fund_name"] == "测试基金"
         assert position["fund_type"] == "股票型"
 
-    def test_position_detail_includes_fund_details(
-        self, client, user, account, fund_with_estimate
-    ):
+    def test_position_detail_includes_fund_details(self, client, user, account, fund_with_estimate):
         """测试：持仓详情包含基金详细信息"""
         # 创建持仓
         position = Position.objects.create(
@@ -414,9 +406,7 @@ class TestPositionOperationAPIWithRecalculation:
         assert position.holding_share == Decimal("100")
         assert position.holding_cost == Decimal("1000")
 
-    def test_create_multiple_operations_recalculates_correctly(
-        self, client, user, account, fund
-    ):
+    def test_create_multiple_operations_recalculates_correctly(self, client, user, account, fund):
         """测试：多次操作后持仓计算正确"""
         client.force_authenticate(user=user)
 

@@ -8,10 +8,6 @@
 4. 配置保存
 """
 
-import json
-import os
-import tempfile
-from pathlib import Path
 import pytest
 
 
@@ -41,7 +37,6 @@ class TestConfig:
         """测试 JSON 配置文件加载"""
         # 这个测试在实际使用中已经覆盖（config.json 存在时会加载）
         # 跳过，不影响功能
-        pass
 
     def test_env_override(self, monkeypatch):
         """测试环境变量覆盖配置"""

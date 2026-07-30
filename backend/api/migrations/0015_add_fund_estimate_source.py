@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0014_widen_report_frequency"),
     ]
@@ -13,8 +12,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="fund",
             name="estimate_source",
-            field=models.CharField(
-                blank=True, help_text="估值来源引擎", max_length=50, null=True
-            ),
+            field=models.CharField(blank=True, help_text="估值来源引擎", max_length=50, null=True),
         ),
     ]

@@ -8,9 +8,9 @@
 4. 获取最近的交易日
 """
 
-import pytest
-from datetime import date, timedelta
-from api.utils.trading_calendar import is_trading_day, get_last_trading_day
+from datetime import date
+
+from api.utils.trading_calendar import get_last_trading_day, is_trading_day
 
 
 class TestTradingCalendar:

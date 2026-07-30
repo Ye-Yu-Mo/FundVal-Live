@@ -5,11 +5,11 @@ M1 后 fetch_nav_history() 直接调用 Mobile API (FundMNHisNetList)，
 不再走 Web API (pingzhongdata)。所有测试 mock 使用 Mobile API 响应格式。
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.sources.eastmoney import EastMoneySource
 
 
@@ -176,7 +176,12 @@ class TestEastMoneySourceNavHistory:
         with patch("requests.get") as mock_get:
             mock_get.return_value = _make_nav_response(
                 [
-                    {"FSRQ": "2024-01-01", "DWJZ": "1.23456789", "LJJZ": "2.34567890", "JZZZL": "1.23456789"},
+                    {
+                        "FSRQ": "2024-01-01",
+                        "DWJZ": "1.23456789",
+                        "LJJZ": "2.34567890",
+                        "JZZZL": "1.23456789",
+                    },
                 ]
             )
 

@@ -2,10 +2,10 @@
 基金历史净值同步服务
 """
 
-from datetime import date, timedelta
-from typing import List, Optional
-from django.db import transaction
 import logging
+from datetime import date, timedelta
+
+from django.db import transaction
 
 from ..models import Fund, FundNavHistory
 from ..sources import SourceRegistry
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 def sync_nav_history(
     fund_code: str,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     force: bool = False,
 ) -> int:
     """
@@ -55,13 +55,9 @@ def sync_nav_history(
         danjuan = SourceRegistry.get_source("danjuan")
         if danjuan:
             try:
-                nav_data = danjuan.fetch_nav_history(
-                    fund_code, start_date, end_date
-                )
+                nav_data = danjuan.fetch_nav_history(fund_code, start_date, end_date)
             except Exception as e:
-                logger.warning(
-                    f"danjuan fallback 失败：{fund_code}, 错误：{e}"
-                )
+                logger.warning(f"danjuan fallback 失败：{fund_code}, 错误：{e}")
                 nav_data = []
 
     count = 0
@@ -88,9 +84,7 @@ def sync_nav_history(
 
     # 无论是否有新数据，都回写最新净值到 Fund 表
     latest = FundNavHistory.objects.filter(fund=fund).order_by("-nav_date").first()
-    if latest and (
-        fund.latest_nav is None or latest.nav_date > (fund.latest_nav_date or date.min)
-    ):
+    if latest and (fund.latest_nav is None or latest.nav_date > (fund.latest_nav_date or date.min)):
         fund.latest_nav = latest.unit_nav
         fund.latest_nav_date = latest.nav_date
         fund.save(update_fields=["latest_nav", "latest_nav_date"])
@@ -99,9 +93,9 @@ def sync_nav_history(
 
 
 def batch_sync_nav_history(
-    fund_codes: List[str],
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    fund_codes: list[str],
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> dict:
     """
     批量同步历史净值

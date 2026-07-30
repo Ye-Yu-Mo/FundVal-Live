@@ -12,8 +12,8 @@
 """
 
 import pytest
-from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -293,9 +293,7 @@ class TestAccountDeleteAPI:
         """测试删除默认账户应被拒绝"""
         from api.models import Account
 
-        default_account = Account.objects.create(
-            user=user, name="默认账户", is_default=True
-        )
+        default_account = Account.objects.create(user=user, name="默认账户", is_default=True)
 
         client.force_authenticate(user=user)
         response = client.delete(f"/api/accounts/{default_account.id}/")
@@ -324,8 +322,9 @@ class TestAccountDeleteAPI:
 
     def test_delete_account_with_children_and_positions(self, client, user):
         """测试删除有子账户和持仓的父账户"""
-        from api.models import Account, Fund, Position
         from decimal import Decimal
+
+        from api.models import Account, Fund, Position
 
         parent = Account.objects.create(user=user, name="父账户")
         child = Account.objects.create(user=user, name="子账户", parent=parent)
@@ -349,8 +348,9 @@ class TestAccountDeleteAPI:
 
     def test_get_account_delete_info(self, client, user):
         """测试获取账户删除信息（子账户数、持仓数）"""
-        from api.models import Account, Fund, Position
         from decimal import Decimal
+
+        from api.models import Account, Fund, Position
 
         parent = Account.objects.create(user=user, name="父账户")
         child1 = Account.objects.create(user=user, name="子账户1", parent=parent)
@@ -384,9 +384,7 @@ class TestAccountDeleteAPI:
         """测试获取默认账户删除信息"""
         from api.models import Account
 
-        default_account = Account.objects.create(
-            user=user, name="默认账户", is_default=True
-        )
+        default_account = Account.objects.create(user=user, name="默认账户", is_default=True)
 
         client.force_authenticate(user=user)
         response = client.get(f"/api/accounts/{default_account.id}/delete_info/")
@@ -415,8 +413,9 @@ class TestAccountPositionsAPI:
 
     @pytest.fixture
     def positions(self, account):
-        from api.models import Fund, Position
         from decimal import Decimal
+
+        from api.models import Fund, Position
 
         fund1 = Fund.objects.create(fund_code="000001", fund_name="基金1")
         fund2 = Fund.objects.create(fund_code="000002", fund_name="基金2")

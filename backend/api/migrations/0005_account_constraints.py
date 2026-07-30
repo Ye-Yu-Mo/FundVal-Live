@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0004_remove_fund_yesterday_date_remove_fund_yesterday_nav_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

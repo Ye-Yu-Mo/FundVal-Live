@@ -12,10 +12,7 @@ API 域名: danjuanfunds.com（旧域名 danjuanapp.com 已 301 跳转）
 """
 
 import logging
-import requests
-from decimal import Decimal, InvalidOperation
-from datetime import datetime, date
-from typing import Dict, Optional, List
+from datetime import date
 
 from .base import BaseEstimateSource
 
@@ -57,7 +54,7 @@ class DanjuanSource(BaseEstimateSource):
     # 估值（不支持）
     # ─────────────────────────────────────────────
 
-    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
+    def fetch_estimate(self, fund_code: str) -> dict | None:
         """蛋卷基金没有公开的实时估值 API，始终返回 None"""
         return None
 
@@ -68,9 +65,9 @@ class DanjuanSource(BaseEstimateSource):
     def fetch_nav_history(
         self,
         fund_code: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> List[Dict]:
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict]:
         """
         从蛋卷获取基金历史净值
 
@@ -80,9 +77,7 @@ class DanjuanSource(BaseEstimateSource):
         原 API 调用代码保留在下方注释中，以备 API 恢复时使用。
         """
         logger.warning(
-            "danjuanfunds.com 返回 403 IP 封禁，"
-            "蛋卷历史净值 API 暂不可用。"
-            f" 基金: {fund_code}"
+            f"danjuanfunds.com 返回 403 IP 封禁，蛋卷历史净值 API 暂不可用。 基金: {fund_code}"
         )
         return []
 
@@ -173,7 +168,7 @@ class DanjuanSource(BaseEstimateSource):
     # 最新净值 + 当日净值
     # ─────────────────────────────────────────────
 
-    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_realtime_nav(self, fund_code: str) -> dict | None:
         """
         获取最新净值
 
@@ -198,7 +193,7 @@ class DanjuanSource(BaseEstimateSource):
         #     logger.warning(f"蛋卷获取最新净值失败：{fund_code}, 错误：{e}")
         #     return None
 
-    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_today_nav(self, fund_code: str) -> dict | None:
         """
         获取当日确认净值
 
@@ -230,7 +225,7 @@ class DanjuanSource(BaseEstimateSource):
     # 基金详情 + 评级排名（扩展方法）
     # ─────────────────────────────────────────────
 
-    def fetch_fund_detail(self, fund_code: str) -> Optional[Dict]:
+    def fetch_fund_detail(self, fund_code: str) -> dict | None:
         """
         获取基金详情，含评级排名数据
 
@@ -240,9 +235,7 @@ class DanjuanSource(BaseEstimateSource):
         原 API 调用代码保留在下方注释中，以备 API 恢复时使用。
         """
         logger.warning(
-            "danjuanfunds.com 返回 403 IP 封禁，"
-            "蛋卷基金详情 API 暂不可用。"
-            f" 基金: {fund_code}"
+            f"danjuanfunds.com 返回 403 IP 封禁，蛋卷基金详情 API 暂不可用。 基金: {fund_code}"
         )
         return None
 
@@ -333,9 +326,7 @@ class DanjuanSource(BaseEstimateSource):
 
     def fetch_fund_list(self) -> list:
         """蛋卷不提供全量基金列表 API"""
-        raise NotImplementedError(
-            "蛋卷基金不支持全量基金列表查询"
-        )
+        raise NotImplementedError("蛋卷基金不支持全量基金列表查询")
 
     def fetch_index_holdings(self, fund_code: str) -> list:
         """蛋卷没有成分股接口，委托给东方财富"""

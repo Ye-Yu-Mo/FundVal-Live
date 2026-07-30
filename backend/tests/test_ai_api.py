@@ -7,21 +7,15 @@
 3. POST /api/ai/analyze/ — AI分析（占位符替换 + OpenAI调用）
 """
 
-import pytest
-from decimal import Decimal
-from unittest.mock import patch, MagicMock
-from rest_framework.test import APIClient
-from django.contrib.auth import get_user_model
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.models import (
     AIConfig,
     AIPromptTemplate,
-    Fund,
-    Account,
-    Position,
-    PositionOperation,
-    FundNavHistory,
 )
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -33,7 +27,6 @@ User = get_user_model()
 
 @pytest.mark.django_db
 class TestAIConfigViewSet:
-
     def setup_method(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testuser", password="pass")
@@ -124,7 +117,6 @@ class TestAIConfigViewSet:
 
 @pytest.mark.django_db
 class TestAIPromptTemplateViewSet:
-
     def setup_method(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testuser", password="pass")
@@ -274,7 +266,6 @@ class TestAIPromptTemplateViewSet:
 
 @pytest.mark.django_db
 class TestAIAnalyze:
-
     def setup_method(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testuser", password="pass")
@@ -313,9 +304,7 @@ class TestAIAnalyze:
 
         with patch("api.views.requests.post") as mock_post:
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "choices": [{"message": {"content": "AI分析结果"}}]
-            }
+            mock_response.json.return_value = {"choices": [{"message": {"content": "AI分析结果"}}]}
             mock_response.status_code = 200
             mock_post.return_value = mock_response
 
@@ -335,9 +324,7 @@ class TestAIAnalyze:
         # 验证占位符被替换
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
-        user_msg = next(
-            m["content"] for m in payload["messages"] if m["role"] == "user"
-        )
+        user_msg = next(m["content"] for m in payload["messages"] if m["role"] == "user")
         assert "000001" in user_msg
         assert "华夏成长" in user_msg
         assert "1.5000" in user_msg
@@ -383,9 +370,7 @@ class TestAIAnalyze:
 
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
-        user_msg = next(
-            m["content"] for m in payload["messages"] if m["role"] == "user"
-        )
+        user_msg = next(m["content"] for m in payload["messages"] if m["role"] == "user")
         assert "我的账户" in user_msg
         assert "1000.00" in user_msg
 

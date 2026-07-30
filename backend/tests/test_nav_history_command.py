@@ -2,14 +2,14 @@
 测试历史净值同步管理命令
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
 from io import StringIO
-from django.core.management import call_command
 from unittest.mock import patch
 
+import pytest
 from api.models import Fund, FundNavHistory
+from django.core.management import call_command
 
 
 @pytest.mark.django_db
@@ -41,9 +41,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -72,9 +70,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -102,9 +98,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -154,16 +148,12 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
             out = StringIO()
-            call_command(
-                "sync_nav_history", "--fund-code", "000001", "--force", stdout=out
-            )
+            call_command("sync_nav_history", "--fund-code", "000001", "--force", stdout=out)
 
             output = out.getvalue()
             assert "同步完成" in output
@@ -179,15 +169,11 @@ class TestSyncNavHistoryCommand:
         err = StringIO()
 
         with pytest.raises(ValueError, match="基金不存在"):
-            call_command(
-                "sync_nav_history", "--fund-code", "999999", stdout=out, stderr=err
-            )
+            call_command("sync_nav_history", "--fund-code", "999999", stdout=out, stderr=err)
 
     def test_sync_no_new_data(self, fund):
         """测试没有新数据"""
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = []
 
@@ -212,9 +198,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -239,9 +223,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -274,9 +256,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -322,9 +302,7 @@ class TestSyncNavHistoryCommand:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 

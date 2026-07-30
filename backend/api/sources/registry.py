@@ -2,7 +2,6 @@
 数据源注册表
 """
 
-from typing import Optional, List, Type
 from .base import BaseEstimateSource
 
 
@@ -22,17 +21,17 @@ class SourceRegistry:
         cls._classes[name] = type(source)
 
     @classmethod
-    def get_source(cls, name: str) -> Optional[BaseEstimateSource]:
+    def get_source(cls, name: str) -> BaseEstimateSource | None:
         """返回新的数据源实例（每次调用都是新对象）"""
         klass = cls._classes.get(name)
         return klass() if klass else None
 
     @classmethod
-    def list_sources(cls) -> List[str]:
+    def list_sources(cls) -> list[str]:
         return list(cls._classes.keys())
 
     @classmethod
-    def list_available_sources(cls) -> List[str]:
+    def list_available_sources(cls) -> list[str]:
         """返回当前可用的数据源名称列表
 
         M1 (2026-07-29): 遍历所有注册的源，调用 is_available() 过滤不可用源。
@@ -50,7 +49,7 @@ class SourceRegistry:
         return available
 
     @classmethod
-    def get_default_source(cls) -> Optional[BaseEstimateSource]:
+    def get_default_source(cls) -> BaseEstimateSource | None:
         if cls._classes:
             return list(cls._classes.values())[0]()
         return None

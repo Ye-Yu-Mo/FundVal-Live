@@ -13,9 +13,8 @@ akshare.fund_em_value_estimation() 单次返回所有基金的估值数据（Dat
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -32,12 +31,12 @@ class AkshareEstimateEngine:
     _cache_ttl: int = 300  # 5 分钟（秒）
 
     def __init__(self) -> None:
-        self._cached_df: Optional[pd.DataFrame] = None
-        self._last_fetch_time: Optional[datetime] = None
+        self._cached_df: pd.DataFrame | None = None
+        self._last_fetch_time: datetime | None = None
 
     # ── 公开方法 ──────────────────────────────────────────
 
-    def get_estimate(self, fund_code: str) -> Optional[Dict]:
+    def get_estimate(self, fund_code: str) -> dict | None:
         """
         获取单只基金估值
 
@@ -59,7 +58,7 @@ class AkshareEstimateEngine:
             return None
         return self._extract_fund(df, fund_code)
 
-    def get_batch_estimate(self, fund_codes: List[str]) -> Dict[str, Optional[Dict]]:
+    def get_batch_estimate(self, fund_codes: list[str]) -> dict[str, dict | None]:
         """
         批量获取估值
 
@@ -70,7 +69,7 @@ class AkshareEstimateEngine:
             {fund_code: dict 或 None}
         """
         df = self._load_all_estimates()
-        results: Dict[str, Optional[Dict]] = {}
+        results: dict[str, dict | None] = {}
         for code in fund_codes:
             if df.empty:
                 results[code] = None
@@ -92,7 +91,7 @@ class AkshareEstimateEngine:
         如果缓存有效（5 分钟内）返回缓存；否则调 akshare 重新拉取。
         异常时返回空 DataFrame，不抛异常。
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # 缓存命中
         if (
@@ -123,9 +122,7 @@ class AkshareEstimateEngine:
 
         return self._cached_df
 
-    def _extract_fund(
-        self, df: pd.DataFrame, fund_code: str
-    ) -> Optional[Dict]:
+    def _extract_fund(self, df: pd.DataFrame, fund_code: str) -> dict | None:
         """
         从 DataFrame 中提取单只基金的估值数据
 
@@ -196,5 +193,5 @@ class AkshareEstimateEngine:
             "fund_name": fund_name,
             "estimate_nav": estimate_nav,
             "estimate_growth": estimate_growth,
-            "estimate_time": datetime.now(timezone.utc),
+            "estimate_time": datetime.now(UTC),
         }

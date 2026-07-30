@@ -10,12 +10,13 @@
 6. 未认证用户，返回 401
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -74,7 +75,7 @@ class TestPositionHistoryAPI:
 
     def test_position_history_success(self, auth_client, child_account, fund):
         """正常查询，返回历史数据"""
-        from api.models import PositionOperation, FundNavHistory
+        from api.models import FundNavHistory, PositionOperation
 
         # 创建操作：5 天前买入
         op_date = date.today() - timedelta(days=5)
@@ -186,9 +187,7 @@ class TestPositionHistoryAPI:
 
     def test_position_history_unauthenticated(self, client, child_account):
         """未认证用户，返回 401"""
-        response = client.get(
-            "/api/positions/history/", {"account_id": str(child_account.id)}
-        )
+        response = client.get("/api/positions/history/", {"account_id": str(child_account.id)})
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -210,9 +209,7 @@ class TestPositionHistoryAPI:
         )
 
         # 不传 days 参数
-        response = auth_client.get(
-            "/api/positions/history/", {"account_id": str(child_account.id)}
-        )
+        response = auth_client.get("/api/positions/history/", {"account_id": str(child_account.id)})
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.json()) == 31  # 默认 30 天 + 今天

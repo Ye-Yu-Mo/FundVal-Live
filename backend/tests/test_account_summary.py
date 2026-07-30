@@ -8,8 +8,9 @@
 4. 父账户汇总 = 所有子账户之和
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -56,9 +57,7 @@ class TestChildAccountSummary:
             latest_nav=Decimal("2.0000"),
         )
 
-    def test_child_account_with_single_position(
-        self, child_account, fund_with_estimate
-    ):
+    def test_child_account_with_single_position(self, child_account, fund_with_estimate):
         """测试子账户单个持仓的汇总"""
         from api.models import Position
 
@@ -128,9 +127,7 @@ class TestChildAccountSummary:
         assert child_account.today_pnl == Decimal("0")
         assert child_account.today_pnl_rate is None
 
-    def test_child_account_missing_estimate_nav(
-        self, child_account, fund_without_estimate
-    ):
+    def test_child_account_missing_estimate_nav(self, child_account, fund_without_estimate):
         """测试全部持仓缺失估值时，估值相关字段返回 0"""
         from api.models import Position
 

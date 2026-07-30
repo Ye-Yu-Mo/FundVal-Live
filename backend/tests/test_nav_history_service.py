@@ -2,13 +2,13 @@
 测试历史净值同步服务
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.models import Fund, FundNavHistory
-from api.services.nav_history import sync_nav_history, batch_sync_nav_history
+from api.services.nav_history import batch_sync_nav_history, sync_nav_history
 
 
 @pytest.mark.django_db
@@ -40,9 +40,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -87,9 +85,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -129,9 +125,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -162,9 +156,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -182,9 +174,7 @@ class TestNavHistoryService:
 
     def test_sync_nav_history_no_new_data(self, fund):
         """测试没有新数据"""
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = []
             mock_get_source.return_value = mock_source
@@ -208,9 +198,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -236,9 +224,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source
@@ -271,9 +257,7 @@ class TestNavHistoryService:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = MagicMock()
             mock_source.fetch_nav_history.return_value = mock_data
             mock_get_source.return_value = mock_source

@@ -2,7 +2,6 @@
 通知渠道注册表
 """
 
-from typing import Optional, List
 from .base import BaseNotificationChannel
 
 
@@ -16,9 +15,9 @@ class ChannelRegistry:
         cls._channels[channel.get_channel_type()] = channel
 
     @classmethod
-    def get_channel(cls, channel_type: str) -> Optional[BaseNotificationChannel]:
+    def get_channel(cls, channel_type: str) -> BaseNotificationChannel | None:
         return cls._channels.get(channel_type)
 
     @classmethod
-    def list_channels(cls) -> List[str]:
+    def list_channels(cls) -> list[str]:
         return list(cls._channels.keys())

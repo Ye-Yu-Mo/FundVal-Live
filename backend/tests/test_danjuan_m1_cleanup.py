@@ -5,18 +5,17 @@ M1 (2026-07-29): danjuanfunds.com 返回 403 IP 封禁，所有 API 端点不可
 所有对外方法改为立即返回空/None + 日志，保留原始代码在注释中。
 """
 
-import pytest
 import logging
-from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock
+from datetime import date
+from unittest.mock import patch
 
+import pytest
 from api.sources.danjuan import DanjuanSource
-
 
 # ================================================================
 # fetch_nav_history() → 返回 [] + warning 日志
 # ================================================================
+
 
 @pytest.mark.django_db
 class TestDanjuanM1NavHistory:
@@ -62,6 +61,7 @@ class TestDanjuanM1NavHistory:
     def test_code_preserved_as_comment(self):
         """原 API 调用代码应在注释中保留"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(DanjuanSource)
 
         in_method = False
@@ -77,22 +77,24 @@ class TestDanjuanM1NavHistory:
                 method_lines.append(line)
 
         # 原蛋卷 API 相关关键字应在注释中出现
-        preserved_keywords = ["danjuanfunds", "NAV_HISTORY", "nav/history",
-                              "result_code", "unit_nav", "items"]
+        preserved_keywords = [
+            "danjuanfunds",
+            "NAV_HISTORY",
+            "nav/history",
+            "result_code",
+            "unit_nav",
+            "items",
+        ]
         found = any(
-            kw in line and "#" in line
-            for line in method_lines
-            for kw in preserved_keywords
+            kw in line and "#" in line for line in method_lines for kw in preserved_keywords
         )
-        assert found, (
-            f"原蛋卷 API 调用代码应在注释中保留，"
-            f"方法体行数: {len(method_lines)}"
-        )
+        assert found, f"原蛋卷 API 调用代码应在注释中保留，方法体行数: {len(method_lines)}"
 
 
 # ================================================================
 # fetch_realtime_nav() → 返回 None
 # ================================================================
+
 
 @pytest.mark.django_db
 class TestDanjuanM1RealtimeNav:
@@ -116,6 +118,7 @@ class TestDanjuanM1RealtimeNav:
     def test_code_preserved_as_comment(self):
         """原代码应在注释中保留"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(DanjuanSource)
 
         in_method = False
@@ -138,6 +141,7 @@ class TestDanjuanM1RealtimeNav:
 # ================================================================
 # fetch_fund_detail() → 返回 None
 # ================================================================
+
 
 @pytest.mark.django_db
 class TestDanjuanM1FundDetail:
@@ -173,6 +177,7 @@ class TestDanjuanM1FundDetail:
     def test_code_preserved_as_comment(self):
         """原 API 调用代码应在注释中保留"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(DanjuanSource)
 
         in_method = False
@@ -186,22 +191,23 @@ class TestDanjuanM1FundDetail:
                     break
                 method_lines.append(line)
 
-        preserved_keywords = ["danjuanfunds", "FUND_DETAIL_URL", "result_code",
-                              "fund_derived", "period_returns"]
+        preserved_keywords = [
+            "danjuanfunds",
+            "FUND_DETAIL_URL",
+            "result_code",
+            "fund_derived",
+            "period_returns",
+        ]
         found = any(
-            kw in line and "#" in line
-            for line in method_lines
-            for kw in preserved_keywords
+            kw in line and "#" in line for line in method_lines for kw in preserved_keywords
         )
-        assert found, (
-            f"原蛋卷 API 调用代码应在注释中保留，"
-            f"方法体行数: {len(method_lines)}"
-        )
+        assert found, f"原蛋卷 API 调用代码应在注释中保留，方法体行数: {len(method_lines)}"
 
 
 # ================================================================
 # fetch_today_nav() → 返回 None
 # ================================================================
+
 
 @pytest.mark.django_db
 class TestDanjuanM1TodayNav:
@@ -227,6 +233,7 @@ class TestDanjuanM1TodayNav:
 # fetch_estimate() → 不变（本来就是 None）
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestDanjuanM1EstimateUnchanged:
     """M1: fetch_estimate 行为不变"""
@@ -241,6 +248,7 @@ class TestDanjuanM1EstimateUnchanged:
 # ================================================================
 # 非受影响方法 → 行为不变
 # ================================================================
+
 
 @pytest.mark.django_db
 class TestDanjuanM1Unaffected:

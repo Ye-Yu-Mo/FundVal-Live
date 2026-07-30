@@ -1,5 +1,6 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import views, viewsets
 
 # 创建主路由器
@@ -16,9 +17,7 @@ router.register(
     viewsets.SourceCredentialViewSet,
     basename="source-credential",
 )
-router.register(
-    r"ai/templates", viewsets.AIPromptTemplateViewSet, basename="ai-template"
-)
+router.register(r"ai/templates", viewsets.AIPromptTemplateViewSet, basename="ai-template")
 router.register(
     r"notification-channels",
     viewsets.NotificationChannelViewSet,
@@ -29,9 +28,7 @@ router.register(
     viewsets.NotificationRuleViewSet,
     basename="notification-rule",
 )
-router.register(
-    r"notification-logs", viewsets.NotificationLogViewSet, basename="notification-log"
-)
+router.register(r"notification-logs", viewsets.NotificationLogViewSet, basename="notification-log")
 
 urlpatterns = [
     # 系统管理
@@ -59,9 +56,7 @@ urlpatterns = [
     ),
     path(
         "positions/operations/<uuid:pk>/",
-        viewsets.PositionOperationViewSet.as_view(
-            {"get": "retrieve", "delete": "destroy"}
-        ),
+        viewsets.PositionOperationViewSet.as_view({"get": "retrieve", "delete": "destroy"}),
     ),
     # 用户偏好
     path(

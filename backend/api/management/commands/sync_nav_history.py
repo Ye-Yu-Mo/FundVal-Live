@@ -2,23 +2,20 @@
 同步基金历史净值管理命令
 """
 
-from django.core.management.base import BaseCommand
 from datetime import datetime
 
-from api.services.nav_history import sync_nav_history, batch_sync_nav_history
+from django.core.management.base import BaseCommand
+
 from api.models import Fund
+from api.services.nav_history import batch_sync_nav_history, sync_nav_history
 
 
 class Command(BaseCommand):
     help = "同步基金历史净值"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--fund-code", type=str, help="基金代码（可选，不指定则同步所有基金）"
-        )
-        parser.add_argument(
-            "--start-date", type=str, help="开始日期（格式：YYYY-MM-DD）"
-        )
+        parser.add_argument("--fund-code", type=str, help="基金代码（可选，不指定则同步所有基金）")
+        parser.add_argument("--start-date", type=str, help="开始日期（格式：YYYY-MM-DD）")
         parser.add_argument("--end-date", type=str, help="结束日期（格式：YYYY-MM-DD）")
         parser.add_argument("--force", action="store_true", help="强制全量同步")
 
@@ -46,9 +43,7 @@ class Command(BaseCommand):
             results = batch_sync_nav_history(list(fund_codes), start_date, end_date)
 
             success_count = sum(1 for r in results.values() if r["success"])
-            total_records = sum(
-                r.get("count", 0) for r in results.values() if r["success"]
-            )
+            total_records = sum(r.get("count", 0) for r in results.values() if r["success"])
 
             self.stdout.write(
                 self.style.SUCCESS(

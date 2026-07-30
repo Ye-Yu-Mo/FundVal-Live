@@ -9,9 +9,10 @@
 5. 序列化器使用新字段
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

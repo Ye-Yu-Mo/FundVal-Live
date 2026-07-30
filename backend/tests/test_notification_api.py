@@ -8,18 +8,18 @@
 4. NotificationLog 只读 + 用户隔离
 """
 
-import pytest
 from decimal import Decimal
 from unittest.mock import patch
-from rest_framework.test import APIClient
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestNotificationChannelAPI:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="user1", password="pass")
@@ -127,7 +127,6 @@ class TestNotificationChannelAPI:
 
 @pytest.mark.django_db
 class TestNotificationRuleAPI:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="user1", password="pass")
@@ -201,7 +200,6 @@ class TestNotificationRuleAPI:
 
 @pytest.mark.django_db
 class TestNotificationLogAPI:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="user1", password="pass")
@@ -217,8 +215,8 @@ class TestNotificationLogAPI:
         from api.models import (
             Fund,
             NotificationChannel,
-            NotificationRule,
             NotificationLog,
+            NotificationRule,
         )
 
         fund = Fund.objects.create(fund_code="510300", fund_name="沪深300ETF")

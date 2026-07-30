@@ -8,10 +8,11 @@
 4. 数据解析
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import datetime, date
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+import pytest
 
 
 class TestBaseEstimateSource:
@@ -61,8 +62,9 @@ class TestEastMoneySource:
     @patch("requests.get")
     def test_fetch_realtime_nav_success(self, mock_get):
         """测试获取实际净值成功 (M1: Mobile API)"""
-        from api.sources.eastmoney import EastMoneySource
         from unittest.mock import MagicMock
+
+        from api.sources.eastmoney import EastMoneySource
 
         mock = MagicMock()
         mock.json.return_value = {
@@ -92,8 +94,8 @@ class TestSourceRegistry:
 
     def test_register_source(self):
         """测试注册数据源"""
-        from api.sources.registry import SourceRegistry
         from api.sources.eastmoney import EastMoneySource
+        from api.sources.registry import SourceRegistry
 
         source = EastMoneySource()
         SourceRegistry.register(source)
@@ -102,8 +104,8 @@ class TestSourceRegistry:
 
     def test_get_source(self):
         """测试获取数据源"""
-        from api.sources.registry import SourceRegistry
         from api.sources.eastmoney import EastMoneySource
+        from api.sources.registry import SourceRegistry
 
         source = EastMoneySource()
         SourceRegistry.register(source)
@@ -121,8 +123,8 @@ class TestSourceRegistry:
 
     def test_list_sources(self):
         """测试列出所有数据源"""
-        from api.sources.registry import SourceRegistry
         from api.sources.eastmoney import EastMoneySource
+        from api.sources.registry import SourceRegistry
 
         source1 = EastMoneySource()
         SourceRegistry.register(source1)
@@ -136,15 +138,18 @@ class TestFundListSync:
 
     def test_fetch_fund_list_returns_data(self):
         """M2: fetch_fund_list 通过 ak.fund_name_em() 返回列表"""
-        from api.sources.eastmoney import EastMoneySource
         from unittest.mock import patch
+
         import pandas as pd
+        from api.sources.eastmoney import EastMoneySource
 
         source = EastMoneySource()
         with patch("akshare.fund_name_em") as mock_ak:
-            mock_ak.return_value = pd.DataFrame([
-                {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
-            ])
+            mock_ak.return_value = pd.DataFrame(
+                [
+                    {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+                ]
+            )
 
             funds = source.fetch_fund_list()
 

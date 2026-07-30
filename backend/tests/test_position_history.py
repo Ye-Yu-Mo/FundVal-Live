@@ -10,9 +10,10 @@
 6. 成本计算正确性
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -60,7 +61,7 @@ class TestPositionHistory:
 
     def test_calculate_account_history_basic(self, account, fund1):
         """基本场景：有操作、有净值"""
-        from api.models import PositionOperation, FundNavHistory
+        from api.models import FundNavHistory, PositionOperation
 
         # 创建操作：10 天前买入 1000 元，净值 1.0，份额 1000
         op_date = date.today() - timedelta(days=10)
@@ -144,7 +145,7 @@ class TestPositionHistory:
 
     def test_calculate_account_history_multiple_funds(self, account, fund1, fund2):
         """多个基金，计算正确"""
-        from api.models import PositionOperation, FundNavHistory
+        from api.models import FundNavHistory, PositionOperation
 
         # 基金1：10 天前买入 1000 元
         op_date1 = date.today() - timedelta(days=10)
@@ -208,7 +209,7 @@ class TestPositionHistory:
 
     def test_calculate_account_history_buy_sell(self, account, fund1):
         """买入卖出，成本计算正确"""
-        from api.models import PositionOperation, FundNavHistory
+        from api.models import FundNavHistory, PositionOperation
 
         # 10 天前买入 1000 元，份额 1000
         op_date1 = date.today() - timedelta(days=10)

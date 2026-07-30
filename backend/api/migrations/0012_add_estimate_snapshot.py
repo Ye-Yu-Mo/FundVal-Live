@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0011_add_theme_mode"),
     ]
@@ -28,9 +27,7 @@ class Migration(migrations.Migration):
                 ("estimate_nav", models.DecimalField(decimal_places=4, max_digits=10)),
                 (
                     "estimate_growth",
-                    models.DecimalField(
-                        blank=True, decimal_places=4, max_digits=10, null=True
-                    ),
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=10, null=True),
                 ),
                 (
                     "fund",
@@ -51,9 +48,7 @@ class Migration(migrations.Migration):
                         fields=["fund", "timestamp"],
                         name="estimate_sn_fund_id_78848f_idx",
                     ),
-                    models.Index(
-                        fields=["timestamp"], name="estimate_sn_timesta_8149af_idx"
-                    ),
+                    models.Index(fields=["timestamp"], name="estimate_sn_timesta_8149af_idx"),
                 ],
             },
         ),

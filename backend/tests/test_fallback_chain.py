@@ -2,17 +2,17 @@
 测试 M3 功能2: 估值 fallback 链 akshare → penetration → unavailable
 """
 
-import pytest
 from decimal import Decimal
-from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
-
 
 # ================================================================
 # fetch_estimate fallback 链
 # ================================================================
+
 
 class TestFetchEstimateFallback:
     """EastMoneySource.fetch_estimate() fallback 链"""
@@ -133,6 +133,7 @@ class TestFetchEstimateFallback:
 # _get_penetration_engine 懒加载
 # ================================================================
 
+
 class TestGetPenetrationEngine:
     """_get_penetration_engine() 懒加载"""
 
@@ -160,6 +161,7 @@ class TestGetPenetrationEngine:
 # batch_estimate 穿透估算标注
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestBatchEstimatePenetrationSource:
     """batch_estimate 中穿透估算的 estimate_source 标注"""
@@ -169,12 +171,16 @@ class TestBatchEstimatePenetrationSource:
 
         self.client = APIClient()
         Fund.objects.create(
-            fund_code="510050", fund_name="上证50ETF",
-            fund_type="ETF-场内", latest_nav=Decimal("1.2000"),
+            fund_code="510050",
+            fund_name="上证50ETF",
+            fund_type="ETF-场内",
+            latest_nav=Decimal("1.2000"),
         )
         Fund.objects.create(
-            fund_code="000001", fund_name="华夏成长",
-            fund_type="混合型", latest_nav=Decimal("1.1000"),
+            fund_code="000001",
+            fund_name="华夏成长",
+            fund_type="混合型",
+            latest_nav=Decimal("1.1000"),
         )
 
     def test_penetration_source_in_batch(self):

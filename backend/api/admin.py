@@ -1,12 +1,13 @@
 from django.contrib import admin
+
 from .models import (
-    Fund,
     Account,
+    Fund,
+    FundNavHistory,
     Position,
     PositionOperation,
     Watchlist,
     WatchlistItem,
-    FundNavHistory,
 )
 
 

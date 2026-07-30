@@ -1,9 +1,8 @@
-import requests
-import re
 import logging
+import re
 from decimal import Decimal
-from datetime import datetime, date
-from typing import Optional, Dict, List
+
+import requests
 
 from .base import BaseEstimateSource
 
@@ -18,14 +17,14 @@ class SinaStockSource(BaseEstimateSource):
     def get_source_name(self) -> str:
         return "sina"
 
-    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
+    def fetch_estimate(self, fund_code: str) -> dict | None:
         """实现 BaseEstimateSource 接口，虽然它主要用于场外估值，但我们也可以统一返回"""
         return self.fetch_market_quote(fund_code)
 
-    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_realtime_nav(self, fund_code: str) -> dict | None:
         return None
 
-    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_today_nav(self, fund_code: str) -> dict | None:
         """sina 源不支持确权净值查询，仅支持实时行情"""
         return None
 
@@ -35,12 +34,10 @@ class SinaStockSource(BaseEstimateSource):
     def fetch_fund_list(self) -> list:
         return []
 
-    def fetch_nav_history(
-        self, fund_code: str, start_date=None, end_date=None
-    ) -> List[Dict]:
+    def fetch_nav_history(self, fund_code: str, start_date=None, end_date=None) -> list[dict]:
         return []
 
-    def fetch_market_quote(self, fund_code: str) -> Optional[Dict]:
+    def fetch_market_quote(self, fund_code: str) -> dict | None:
         """
         获取场内实时价格
 

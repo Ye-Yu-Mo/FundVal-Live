@@ -9,15 +9,15 @@ fetch_nav_history / fetch_realtime_nav / fetch_today_nav / fetch_fund_detail
 因为它们在 M1 下仍然通过（返回空/None）。
 """
 
-import pytest
-from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock
+from datetime import date
+from unittest.mock import patch
 
+import pytest
 
 # ================================================================
 # fetch_nav_history — M1: 返回 [] + log
 # ================================================================
+
 
 class TestDanjuanNavHistory:
     """DanjuanSource.fetch_nav_history — M1: 直接返回 []"""
@@ -45,7 +45,6 @@ class TestDanjuanNavHistory:
 
     def test_logs_warning(self):
         """M1: 记录 403 封禁的 warning 日志"""
-        import logging
         from api.sources.danjuan import DanjuanSource
 
         source = DanjuanSource()
@@ -59,6 +58,7 @@ class TestDanjuanNavHistory:
 # ================================================================
 # fetch_realtime_nav — M1: 返回 None
 # ================================================================
+
 
 class TestDanjuanRealtimeNav:
     """DanjuanSource.fetch_realtime_nav — M1: 直接返回 None"""
@@ -79,6 +79,7 @@ class TestDanjuanRealtimeNav:
 # fetch_today_nav — M1: 返回 None
 # ================================================================
 
+
 class TestDanjuanTodayNav:
     """DanjuanSource.fetch_today_nav — M1: 直接返回 None"""
 
@@ -98,6 +99,7 @@ class TestDanjuanTodayNav:
 # fetch_estimate — 不变（本来就是 None）
 # ================================================================
 
+
 class TestDanjuanEstimate:
     """DanjuanSource.fetch_estimate — 行为不变"""
 
@@ -113,6 +115,7 @@ class TestDanjuanEstimate:
 # ================================================================
 # fetch_fund_detail — M1: 返回 None
 # ================================================================
+
 
 class TestDanjuanFundDetail:
     """DanjuanSource.fetch_fund_detail — M1: 直接返回 None"""
@@ -130,7 +133,6 @@ class TestDanjuanFundDetail:
 
     def test_logs_warning(self):
         """M1: 记录 403 封禁的 warning 日志"""
-        import logging
         from api.sources.danjuan import DanjuanSource
 
         source = DanjuanSource()
@@ -143,21 +145,25 @@ class TestDanjuanFundDetail:
 # 非受影响方法 — 行为不变
 # ================================================================
 
+
 class TestDanjuanOtherMethods:
     """get_source_name / get_login_type / fetch_fund_list — 不受 M1 影响"""
 
     def test_get_source_name(self):
         from api.sources.danjuan import DanjuanSource
+
         source = DanjuanSource()
         assert source.get_source_name() == "danjuan"
 
     def test_get_login_type(self):
         from api.sources.danjuan import DanjuanSource
+
         source = DanjuanSource()
         assert source.get_login_type() == "none"
 
     def test_fetch_fund_list_raises(self):
         from api.sources.danjuan import DanjuanSource
+
         source = DanjuanSource()
         with pytest.raises(NotImplementedError):
             source.fetch_fund_list()
@@ -168,10 +174,12 @@ class TestDanjuanRegistry:
 
     def test_registry_has_danjuan(self):
         from api.sources.registry import SourceRegistry
+
         assert "danjuan" in SourceRegistry.list_sources()
 
     def test_registry_get_danjuan(self):
         from api.sources.registry import SourceRegistry
+
         source = SourceRegistry.get_source("danjuan")
         assert source is not None
         assert source.get_source_name() == "danjuan"

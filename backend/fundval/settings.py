@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+
 from .config import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,9 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-dev-only-change-in-production"
-)
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-only-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config.get("debug", True)
@@ -90,9 +89,7 @@ if db_type == "postgresql":
             "ENGINE": "django.db.backends.postgresql",
             "NAME": os.environ.get("POSTGRES_DB", db_config.get("name", "fundval")),
             "USER": os.environ.get("POSTGRES_USER", db_config.get("user", "fundval")),
-            "PASSWORD": os.environ.get(
-                "POSTGRES_PASSWORD", db_config.get("password", "fundval")
-            ),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", db_config.get("password", "fundval")),
             "HOST": os.environ.get("POSTGRES_HOST", db_config.get("host", "localhost")),
             "PORT": os.environ.get("POSTGRES_PORT", db_config.get("port", 5432)),
         }

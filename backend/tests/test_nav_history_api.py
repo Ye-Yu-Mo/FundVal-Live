@@ -2,14 +2,14 @@
 测试基金历史净值 API
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework.test import APIClient
-from django.contrib.auth import get_user_model
+from decimal import Decimal
 from unittest.mock import patch
 
+import pytest
 from api.models import Fund, FundNavHistory
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -234,9 +234,7 @@ class TestFundNavHistoryAPI:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -266,9 +264,7 @@ class TestFundNavHistoryAPI:
             },
         ]
 
-        with patch(
-            "api.services.nav_history.SourceRegistry.get_source"
-        ) as mock_get_source:
+        with patch("api.services.nav_history.SourceRegistry.get_source") as mock_get_source:
             mock_source = mock_get_source.return_value
             mock_source.fetch_nav_history.return_value = mock_data
 
@@ -396,6 +392,4 @@ class TestFundNavHistoryAPI:
 
         assert response.status_code == 200
         assert len(response.data) == 3
-        assert all(
-            len(response.data[code]) == 1 for code in ["000001", "000002", "000003"]
-        )
+        assert all(len(response.data[code]) == 1 for code in ["000001", "000002", "000003"])

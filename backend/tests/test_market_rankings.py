@@ -7,11 +7,11 @@
 3. rankings popular 返回人气排序
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from decimal import Decimal
+from api.models import Account, Fund, Position
 from django.test import Client
-from api.models import Fund, Position, Account
 
 
 @pytest.mark.django_db
@@ -53,9 +53,7 @@ class TestRankingsAPI:
         u = User.objects.create_user(username="testuser", password="pass1")
         f1 = Fund.objects.create(fund_code="F1", fund_name="热门基金")
         f2 = Fund.objects.create(fund_code="F2", fund_name="冷门基金")
-        parent = Account.objects.create(
-            user=u, name="账户", parent=None, is_default=False
-        )
+        parent = Account.objects.create(user=u, name="账户", parent=None, is_default=False)
         child = Account.objects.create(user=u, name="子账户", parent=parent)
         Position.objects.create(
             account=child,

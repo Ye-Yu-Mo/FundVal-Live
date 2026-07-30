@@ -8,11 +8,12 @@
 4. 用户资产汇总
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework.test import APIClient
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -42,7 +43,7 @@ class TestSourceAccuracyAPI:
 
     @pytest.fixture
     def accuracy_records(self):
-        from api.models import Fund, EstimateAccuracy
+        from api.models import EstimateAccuracy, Fund
 
         fund1 = Fund.objects.create(fund_code="000001", fund_name="基金1")
         fund2 = Fund.objects.create(fund_code="000002", fund_name="基金2")
@@ -171,7 +172,7 @@ class TestUserSummaryAPI:
 
     @pytest.fixture
     def user_data(self, user, create_child_account):
-        from api.models import Account, Fund, Position
+        from api.models import Fund, Position
 
         account1 = create_child_account(user, "账户1")
         account2 = create_child_account(user, "账户2")

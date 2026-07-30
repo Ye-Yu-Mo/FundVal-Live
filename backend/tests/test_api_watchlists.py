@@ -13,8 +13,8 @@
 """
 
 import pytest
-from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -255,9 +255,7 @@ class TestWatchlistItemsAPI:
         WatchlistItem.objects.create(watchlist=watchlist, fund=fund)
 
         client.force_authenticate(user=user)
-        response = client.delete(
-            f"/api/watchlists/{watchlist.id}/items/{fund.fund_code}/"
-        )
+        response = client.delete(f"/api/watchlists/{watchlist.id}/items/{fund.fund_code}/")
         assert response.status_code == 204
 
         assert not WatchlistItem.objects.filter(watchlist=watchlist, fund=fund).exists()
@@ -277,7 +275,7 @@ class TestWatchlistReorderAPI:
 
     @pytest.fixture
     def watchlist_with_items(self, user):
-        from api.models import Watchlist, Fund, WatchlistItem
+        from api.models import Fund, Watchlist, WatchlistItem
 
         watchlist = Watchlist.objects.create(user=user, name="我的自选")
 
@@ -304,11 +302,7 @@ class TestWatchlistReorderAPI:
 
         from api.models import WatchlistItem
 
-        items = list(
-            WatchlistItem.objects.filter(watchlist=watchlist_with_items).order_by(
-                "order"
-            )
-        )
+        items = list(WatchlistItem.objects.filter(watchlist=watchlist_with_items).order_by("order"))
 
         # 验证排序
         assert items[0].order == 0

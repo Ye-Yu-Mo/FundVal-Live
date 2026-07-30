@@ -7,12 +7,13 @@
 3. 并发处理
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import Mock, patch
-from rest_framework.test import APIClient
+from unittest.mock import patch
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -92,7 +93,12 @@ class TestBatchUpdateTodayNavAPI:
         mock = MagicMock()
         mock.json.return_value = {
             "Datas": [
-                {"FSRQ": yesterday.isoformat(), "DWJZ": "1.1500", "LJJZ": "1.5500", "JZZZL": "4.55"},
+                {
+                    "FSRQ": yesterday.isoformat(),
+                    "DWJZ": "1.1500",
+                    "LJJZ": "1.5500",
+                    "JZZZL": "4.55",
+                },
             ]
         }
         mock.raise_for_status = MagicMock()
@@ -119,9 +125,7 @@ class TestBatchUpdateTodayNavAPI:
 
     def test_batch_update_today_nav_missing_fund_codes(self):
         """测试缺少 fund_codes 参数"""
-        response = self.client.post(
-            "/api/funds/batch_update_today_nav/", {}, format="json"
-        )
+        response = self.client.post("/api/funds/batch_update_today_nav/", {}, format="json")
 
         assert response.status_code == 400
         assert "error" in response.json()

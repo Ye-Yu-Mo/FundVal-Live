@@ -8,8 +8,9 @@ M3 测试：手机号登录 API 端点
 4. GET /status/ — 登录后返回 login_type=phone
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 

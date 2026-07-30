@@ -7,7 +7,6 @@
 3. YangJiBaoSource fallback 到 EastMoneySource
 """
 
-import pytest
 from decimal import Decimal
 from unittest.mock import Mock, patch
 

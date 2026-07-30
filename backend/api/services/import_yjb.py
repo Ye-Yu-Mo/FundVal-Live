@@ -10,7 +10,8 @@
    - overwrite=True：清空该账户所有持仓流水后重新导入
 """
 
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
+
 from django.db import transaction
 
 from ..models import Account, Fund, PositionOperation
@@ -102,9 +103,7 @@ def import_from_yangjibao(user, source, overwrite: bool = False) -> dict:
                         continue
 
                 # 8. nav/share/amount 截断到合法精度
-                nav = Decimal(str(holding["nav"])).quantize(
-                    Decimal("0.0001"), rounding=ROUND_DOWN
-                )
+                nav = Decimal(str(holding["nav"])).quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
                 share = Decimal(str(holding["share"])).quantize(
                     Decimal("0.0001"), rounding=ROUND_DOWN
                 )

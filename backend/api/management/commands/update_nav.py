@@ -5,10 +5,12 @@
 """
 
 import logging
-import requests
 from datetime import date
 from decimal import Decimal, InvalidOperation
+
+import requests
 from django.core.management.base import BaseCommand
+
 from api.models import Fund
 
 logger = logging.getLogger(__name__)
@@ -74,9 +76,7 @@ class Command(BaseCommand):
     help = "更新基金净值（批量模式，200只/请求）"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--fund_code", type=str, help="指定基金代码（可选）"
-        )
+        parser.add_argument("--fund_code", type=str, help="指定基金代码（可选）")
         parser.add_argument(
             "--today",
             action="store_true",
@@ -131,15 +131,12 @@ class Command(BaseCommand):
 
                     fund.latest_nav = nav_info["nav"]
                     fund.latest_nav_date = new_date
-                    fund.save(
-                        update_fields=["latest_nav", "latest_nav_date", "updated_at"]
-                    )
+                    fund.save(update_fields=["latest_nav", "latest_nav_date", "updated_at"])
                     success_count += 1
 
                 skip_count += len(batch) - len(nav_data)
                 self.stdout.write(
-                    f"  批次 {i // BATCH_SIZE + 1}: "
-                    f"获取 {len(nav_data)}/{len(batch)} 净值"
+                    f"  批次 {i // BATCH_SIZE + 1}: 获取 {len(nav_data)}/{len(batch)} 净值"
                 )
 
             self.stdout.write(
@@ -184,8 +181,4 @@ class Command(BaseCommand):
         fund.latest_nav = data["nav"]
         fund.latest_nav_date = new_date
         fund.save(update_fields=["latest_nav", "latest_nav_date", "updated_at"])
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'{fund_code}: {data["nav"]} ({data["nav_date"]})'
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"{fund_code}: {data['nav']} ({data['nav_date']})"))

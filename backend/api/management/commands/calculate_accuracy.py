@@ -6,9 +6,11 @@
 
 import logging
 from datetime import date, timedelta
+
 from django.core.management.base import BaseCommand
-from api.sources import SourceRegistry
+
 from api.models import EstimateAccuracy
+from api.sources import SourceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +49,6 @@ class Command(BaseCommand):
         # 并发从所有数据源获取实际净值
         from api.models import UserSourceCredential
 
-        from api.models import UserSourceCredential
-
         source_names = SourceRegistry.list_sources()
         sources = []
         for name in source_names:
@@ -58,9 +58,7 @@ class Command(BaseCommand):
             if name == "yangjibao":
                 continue  # 需要持仓上下文
             if name == "xiaobeiyangji":
-                cred = UserSourceCredential.objects.filter(
-                    source_name=name, is_active=True
-                ).first()
+                cred = UserSourceCredential.objects.filter(source_name=name, is_active=True).first()
                 if not cred:
                     continue
                 s.set_token(cred.token)
@@ -81,9 +79,11 @@ class Command(BaseCommand):
                         d = s.fetch_realtime_nav(record.fund.fund_code)
                         if d and d.get("nav_date"):
                             # 优先精确匹配，否则取最新的
-                            if not data or d["nav_date"] == record.estimate_date:
-                                data = d
-                            elif d["nav_date"] > data["nav_date"]:
+                            if (
+                                not data
+                                or d["nav_date"] == record.estimate_date
+                                or d["nav_date"] > data["nav_date"]
+                            ):
                                 data = d
                     except Exception:
                         continue
@@ -102,7 +102,5 @@ class Command(BaseCommand):
                 logger.error(f"计算准确率失败 {record.fund.fund_code}: {e}")
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"计算完成：成功 {success_count} 个，失败 {error_count} 个"
-            )
+            self.style.SUCCESS(f"计算完成：成功 {success_count} 个，失败 {error_count} 个")
         )

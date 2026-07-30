@@ -4,24 +4,25 @@
 用于 API 数据的序列化和反序列化
 """
 
-from rest_framework import serializers
-from django.contrib.auth import get_user_model
 from datetime import date
+
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
 from .models import (
-    Fund,
     Account,
-    Position,
-    PositionOperation,
-    Watchlist,
-    WatchlistItem,
-    EstimateAccuracy,
-    FundNavHistory,
-    UserSourceCredential,
     AIConfig,
     AIPromptTemplate,
+    Fund,
+    FundNavHistory,
     NotificationChannel,
-    NotificationRule,
     NotificationLog,
+    NotificationRule,
+    Position,
+    PositionOperation,
+    UserSourceCredential,
+    Watchlist,
+    WatchlistItem,
 )
 
 User = get_user_model()
@@ -53,12 +54,8 @@ class AccountSerializer(serializers.ModelSerializer):
     )
 
     # 汇总字段
-    holding_cost = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True
-    )
-    holding_value = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True
-    )
+    holding_cost = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    holding_value = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     pnl = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     pnl_rate = serializers.DecimalField(
         max_digits=10, decimal_places=4, read_only=True, allow_null=True
@@ -130,11 +127,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
         # 更新时排除自己
         if self.instance:
-            if (
-                Account.objects.filter(user=user, name=name)
-                .exclude(id=self.instance.id)
-                .exists()
-            ):
+            if Account.objects.filter(user=user, name=name).exclude(id=self.instance.id).exists():
                 raise serializers.ValidationError({"name": "账户名已存在"})
         else:
             if Account.objects.filter(user=user, name=name).exists():
@@ -163,13 +156,9 @@ class PositionSerializer(serializers.ModelSerializer):
             "fund_type": obj.fund.fund_type,
             "latest_nav": str(obj.fund.latest_nav) if obj.fund.latest_nav else None,
             "latest_nav_date": (
-                obj.fund.latest_nav_date.isoformat()
-                if obj.fund.latest_nav_date
-                else None
+                obj.fund.latest_nav_date.isoformat() if obj.fund.latest_nav_date else None
             ),
-            "estimate_nav": (
-                str(obj.fund.estimate_nav) if obj.fund.estimate_nav else None
-            ),
+            "estimate_nav": (str(obj.fund.estimate_nav) if obj.fund.estimate_nav else None),
             "estimate_growth": (
                 str(obj.fund.estimate_growth) if obj.fund.estimate_growth else None
             ),
@@ -292,11 +281,7 @@ class WatchlistSerializer(serializers.ModelSerializer):
         name = data.get("name")
 
         if self.instance:
-            if (
-                Watchlist.objects.filter(user=user, name=name)
-                .exclude(id=self.instance.id)
-                .exists()
-            ):
+            if Watchlist.objects.filter(user=user, name=name).exclude(id=self.instance.id).exists():
                 raise serializers.ValidationError({"name": "自选列表名已存在"})
         else:
             if Watchlist.objects.filter(user=user, name=name).exists():
@@ -455,21 +440,17 @@ class NotificationChannelSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, data):
-        channel_type = data.get(
-            "channel_type", getattr(self.instance, "channel_type", None)
-        )
+        channel_type = data.get("channel_type", getattr(self.instance, "channel_type", None))
         config = data.get("config", getattr(self.instance, "config", {}))
 
         if channel_type == "webhook" and not config.get("webhook_url"):
-            raise serializers.ValidationError(
-                {"config": "Webhook 渠道需要提供 webhook_url"}
-            )
+            raise serializers.ValidationError({"config": "Webhook 渠道需要提供 webhook_url"})
         if channel_type == "email":
             required = ["smtp_host", "username", "password", "to_email"]
             missing = [f for f in required if not config.get(f)]
             if missing:
                 raise serializers.ValidationError(
-                    {"config": f'Email 渠道缺少必要字段：{", ".join(missing)}'}
+                    {"config": f"Email 渠道缺少必要字段：{', '.join(missing)}"}
                 )
         return data
 
@@ -506,9 +487,7 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
         channel_ids = validated_data.pop("channel_ids", [])
         rule = super().create(validated_data)
         if channel_ids:
-            channels = NotificationChannel.objects.filter(
-                id__in=channel_ids, user=rule.user
-            )
+            channels = NotificationChannel.objects.filter(id__in=channel_ids, user=rule.user)
             rule.channels.set(channels)
         return rule
 
@@ -516,9 +495,7 @@ class NotificationRuleSerializer(serializers.ModelSerializer):
         channel_ids = validated_data.pop("channel_ids", None)
         rule = super().update(instance, validated_data)
         if channel_ids is not None:
-            channels = NotificationChannel.objects.filter(
-                id__in=channel_ids, user=rule.user
-            )
+            channels = NotificationChannel.objects.filter(id__in=channel_ids, user=rule.user)
             rule.channels.set(channels)
         return rule
 

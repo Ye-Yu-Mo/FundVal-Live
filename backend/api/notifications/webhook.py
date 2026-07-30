@@ -3,8 +3,9 @@ Webhook 通知渠道
 """
 
 import logging
+from datetime import UTC, datetime
+
 import requests
-from datetime import datetime, timezone
 
 from .base import BaseNotificationChannel
 
@@ -53,7 +54,7 @@ class WebhookChannel(BaseNotificationChannel):
         return {
             "title": title,
             "content": content,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def send(self, title: str, content: str, config: dict) -> bool:
@@ -67,9 +68,7 @@ class WebhookChannel(BaseNotificationChannel):
         try:
             resp = requests.post(webhook_url, json=payload, timeout=5)
             if resp.status_code < 200 or resp.status_code >= 300:
-                logger.error(
-                    f"Webhook 发送失败，状态码：{resp.status_code}, URL: {webhook_url}"
-                )
+                logger.error(f"Webhook 发送失败，状态码：{resp.status_code}, URL: {webhook_url}")
                 return False
             # 飞书/钉钉返回 200 但 body 里有错误码
             try:

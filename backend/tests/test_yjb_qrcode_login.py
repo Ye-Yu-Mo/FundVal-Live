@@ -8,12 +8,11 @@
 4. SourceCredentialViewSet API
 """
 
-import pytest
-from decimal import Decimal
-from datetime import datetime
 from unittest.mock import Mock, patch
-from rest_framework.test import APIClient
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -210,8 +209,9 @@ class TestYangJiBaoSourceQRCodeLogin:
 
     def test_api_signature_generation(self):
         """测试 API 签名算法"""
-        from api.sources.yangjibao import YangJiBaoSource
         import hashlib
+
+        from api.sources.yangjibao import YangJiBaoSource
 
         source = YangJiBaoSource()
         source._token = "test-token"
@@ -569,9 +569,7 @@ class TestSourceCredentialStatusAPI:
             user=self.user, source_name="yangjibao", token="test-token", is_active=True
         )
 
-        response = self.client.get(
-            "/api/source-credentials/status/", {"source_name": "yangjibao"}
-        )
+        response = self.client.get("/api/source-credentials/status/", {"source_name": "yangjibao"})
 
         assert response.status_code == 200
         data = response.json()
@@ -582,9 +580,7 @@ class TestSourceCredentialStatusAPI:
         """测试查询状态：未登录"""
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.get(
-            "/api/source-credentials/status/", {"source_name": "yangjibao"}
-        )
+        response = self.client.get("/api/source-credentials/status/", {"source_name": "yangjibao"})
 
         assert response.status_code == 200
         data = response.json()
@@ -601,9 +597,7 @@ class TestSourceCredentialStatusAPI:
             user=self.user, source_name="yangjibao", token="test-token", is_active=False
         )
 
-        response = self.client.get(
-            "/api/source-credentials/status/", {"source_name": "yangjibao"}
-        )
+        response = self.client.get("/api/source-credentials/status/", {"source_name": "yangjibao"})
 
         assert response.status_code == 200
         data = response.json()
@@ -611,9 +605,7 @@ class TestSourceCredentialStatusAPI:
 
     def test_status_unauthenticated(self):
         """测试未认证用户不能查询状态"""
-        response = self.client.get(
-            "/api/source-credentials/status/", {"source_name": "yangjibao"}
-        )
+        response = self.client.get("/api/source-credentials/status/", {"source_name": "yangjibao"})
 
         assert response.status_code == 401
 
@@ -657,9 +649,7 @@ class TestSourceCredentialUpdateOnRelogin:
 
         # 验证凭证已更新（不是新建）
         assert (
-            UserSourceCredential.objects.filter(
-                user=self.user, source_name="yangjibao"
-            ).count()
+            UserSourceCredential.objects.filter(user=self.user, source_name="yangjibao").count()
             == 1
         )
 

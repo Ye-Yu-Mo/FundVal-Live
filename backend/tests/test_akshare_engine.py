@@ -9,16 +9,15 @@
 - 网络/akshare 异常 → 返回 None 不传播
 """
 
-import pytest
-from decimal import Decimal
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-import pandas as pd
+from decimal import Decimal
+from unittest.mock import patch
 
+import pandas as pd
 from api.sources.akshare_estimate import AkshareEstimateEngine
 
-
 # ── 辅助: 构造 akshare 估值 DataFrame ──
+
 
 def _make_estimate_df(rows):
     """构造 fund_value_estimation_em 返回的 DataFrame"""
@@ -27,28 +26,40 @@ def _make_estimate_df(rows):
 
 def _sample_df():
     """标准 3 只基金的估值 DataFrame（模拟 akshare 1.18 列名）"""
-    return _make_estimate_df([
-        {
-            "基金代码": "000001", "基金名称": "华夏成长混合",
-            "交易日-估算数据-估算值": 1.1370, "交易日-估算数据-估算增长率": "-1.05",
-            "交易日-公布数据-单位净值": 1.1490, "交易日-单位净值": "2026-07-28",
-        },
-        {
-            "基金代码": "000002", "基金名称": "华夏成长后端",
-            "交易日-估算数据-估算值": 2.3456, "交易日-估算数据-估算增长率": "0.50",
-            "交易日-公布数据-单位净值": 2.3300, "交易日-单位净值": "2026-07-28",
-        },
-        {
-            "基金代码": "161725", "基金名称": "招商中证白酒",
-            "交易日-估算数据-估算值": 1.8900, "交易日-估算数据-估算增长率": "2.10",
-            "交易日-公布数据-单位净值": 1.8500, "交易日-单位净值": "2026-07-28",
-        },
-    ])
+    return _make_estimate_df(
+        [
+            {
+                "基金代码": "000001",
+                "基金名称": "华夏成长混合",
+                "交易日-估算数据-估算值": 1.1370,
+                "交易日-估算数据-估算增长率": "-1.05",
+                "交易日-公布数据-单位净值": 1.1490,
+                "交易日-单位净值": "2026-07-28",
+            },
+            {
+                "基金代码": "000002",
+                "基金名称": "华夏成长后端",
+                "交易日-估算数据-估算值": 2.3456,
+                "交易日-估算数据-估算增长率": "0.50",
+                "交易日-公布数据-单位净值": 2.3300,
+                "交易日-单位净值": "2026-07-28",
+            },
+            {
+                "基金代码": "161725",
+                "基金名称": "招商中证白酒",
+                "交易日-估算数据-估算值": 1.8900,
+                "交易日-估算数据-估算增长率": "2.10",
+                "交易日-公布数据-单位净值": 1.8500,
+                "交易日-单位净值": "2026-07-28",
+            },
+        ]
+    )
 
 
 # ================================================================
 # _load_all_estimates — 缓存 + 异常处理
 # ================================================================
+
 
 class TestLoadAllEstimates:
     """_load_all_estimates 批量拉取 + 缓存"""
@@ -57,11 +68,12 @@ class TestLoadAllEstimates:
         """正常调 akshare 返回 DataFrame"""
         engine = AkshareEstimateEngine()
 
-        with patch.object(engine, "_load_all_estimates", wraps=engine._load_all_estimates) as wrapped:
-            with patch("akshare.fund_value_estimation_em") as mock_ak:
-                mock_ak.return_value = _sample_df()
+        with patch.object(
+            engine, "_load_all_estimates", wraps=engine._load_all_estimates
+        ) as wrapped, patch("akshare.fund_value_estimation_em") as mock_ak:
+            mock_ak.return_value = _sample_df()
 
-                df = engine._load_all_estimates()
+            df = engine._load_all_estimates()
 
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
@@ -140,6 +152,7 @@ class TestLoadAllEstimates:
 # get_estimate — 单只基金估值
 # ================================================================
 
+
 class TestGetEstimate:
     """get_estimate 单只估值"""
 
@@ -215,12 +228,16 @@ class TestGetEstimate:
         engine = AkshareEstimateEngine()
 
         with patch("akshare.fund_value_estimation_em") as mock_ak:
-            mock_ak.return_value = _make_estimate_df([
-                {
-                    "基金代码": "000001", "基金名称": "旧格式",
-                    "估算值": 1.2345, "估算增长率": "0.50",
-                },
-            ])
+            mock_ak.return_value = _make_estimate_df(
+                [
+                    {
+                        "基金代码": "000001",
+                        "基金名称": "旧格式",
+                        "估算值": 1.2345,
+                        "估算增长率": "0.50",
+                    },
+                ]
+            )
 
             result = engine.get_estimate("000001")
 
@@ -232,6 +249,7 @@ class TestGetEstimate:
 # ================================================================
 # get_batch_estimate — 批量估值
 # ================================================================
+
 
 class TestGetBatchEstimate:
     """get_batch_estimate 批量估值"""

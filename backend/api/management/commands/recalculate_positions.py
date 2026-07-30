@@ -5,7 +5,9 @@
 """
 
 import logging
+
 from django.core.management.base import BaseCommand
+
 from api.services import recalculate_all_positions
 
 logger = logging.getLogger(__name__)

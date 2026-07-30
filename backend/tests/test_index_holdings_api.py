@@ -8,11 +8,12 @@
 4. 数据源调用失败时返回空列表
 """
 
-import pytest
-from unittest.mock import patch
 from decimal import Decimal
-from rest_framework.test import APIClient
+from unittest.mock import patch
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -78,9 +79,7 @@ class TestIndexHoldingsAPI:
         assert response.data["holdings"][0]["stock_name"] == "宁德时代"
 
     @patch("api.sources.eastmoney.EastMoneySource.fetch_index_holdings")
-    def test_index_holdings_source_failure_returns_empty(
-        self, mock_fetch, client, etf_fund
-    ):
+    def test_index_holdings_source_failure_returns_empty(self, mock_fetch, client, etf_fund):
         """测试数据源失败时返回空列表，不报错"""
         mock_fetch.side_effect = Exception("Network error")
 
@@ -96,15 +95,11 @@ class TestIndexHoldingsAPI:
         assert response.data["holdings"] == []
 
     @patch("api.sources.eastmoney.EastMoneySource.fetch_index_holdings")
-    def test_index_holdings_with_source_param(
-        self, mock_fetch, client, etf_fund, mock_holdings
-    ):
+    def test_index_holdings_with_source_param(self, mock_fetch, client, etf_fund, mock_holdings):
         """测试指定数据源参数"""
         mock_fetch.return_value = mock_holdings
 
-        response = client.get(
-            f"/api/funds/{etf_fund.fund_code}/index_holdings/?source=eastmoney"
-        )
+        response = client.get(f"/api/funds/{etf_fund.fund_code}/index_holdings/?source=eastmoney")
 
         assert response.status_code == 200
         assert len(response.data["holdings"]) == 2

@@ -1,5 +1,6 @@
-from django.apps import AppConfig
 import logging
+
+from django.apps import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -10,8 +11,8 @@ class ApiConfig(AppConfig):
 
     def ready(self):
         """应用启动时执行"""
-        from fundval.config import config
         from fundval.bootstrap import get_bootstrap_key
+        from fundval.config import config
 
         # 如果系统未初始化，输出 bootstrap_key
         if not config.get("system_initialized"):

@@ -2,13 +2,13 @@
 天天基金数据源实现
 """
 
-import re
 import json
-import requests
 import logging
+import re
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime, date
-from typing import Dict, Optional, List
+
+import requests
 
 from .base import BaseEstimateSource
 
@@ -27,18 +27,12 @@ class EastMoneySource(BaseEstimateSource):
     # DEPRECATED: 2026-07-29 起 fund.eastmoney.com/pingzhongdata 返回空响应，
     # 历史净值 Web API 已不可用。保留常量以备后续恢复。
     HISTORY_URL = "http://fund.eastmoney.com/pingzhongdata/{code}.js"
-    FUND_HOLDINGS_URL = (
-        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition"
-    )
+    FUND_HOLDINGS_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition"
     STOCK_QUOTE_URL = "http://push2.eastmoney.com/api/qt/ulist.np/get"
 
     # 移动端 API（作为 Web API 的 fallback，提升净值覆盖率）
-    MOBILE_NAV_HISTORY_URL = (
-        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
-    )
-    MOBILE_REALTIME_NAV_URL = (
-        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
-    )
+    MOBILE_NAV_HISTORY_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
+    MOBILE_REALTIME_NAV_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
 
     MOBILE_HEADERS = {
         "User-Agent": (
@@ -62,6 +56,7 @@ class EastMoneySource(BaseEstimateSource):
         """懒加载 akshare 估值引擎"""
         if self._estimate_engine is None:
             from .akshare_estimate import AkshareEstimateEngine
+
             self._estimate_engine = AkshareEstimateEngine()
         return self._estimate_engine
 
@@ -69,6 +64,7 @@ class EastMoneySource(BaseEstimateSource):
         """懒加载穿透估算引擎（M3）"""
         if self._penetration_engine is None:
             from .penetration_engine import PenetrationEngine
+
             self._penetration_engine = PenetrationEngine()
         return self._penetration_engine
 
@@ -106,7 +102,7 @@ class EastMoneySource(BaseEstimateSource):
         except Exception:
             return False
 
-    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
+    def fetch_estimate(self, fund_code: str) -> dict | None:
         """
         获取基金实时估值
 
@@ -135,6 +131,7 @@ class EastMoneySource(BaseEstimateSource):
             if fund_type is None:
                 try:
                     from api.models import Fund
+
                     fund = Fund.objects.filter(fund_code=fund_code).first()
                     if fund:
                         fund_type = fund.fund_type
@@ -222,7 +219,7 @@ class EastMoneySource(BaseEstimateSource):
         #     logger.error(f"获取估值失败（未知错误）：{fund_code}, 错误：{e}")
         #     return None
 
-    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_realtime_nav(self, fund_code: str) -> dict | None:
         """
         从天天基金获取实际净值
 
@@ -256,7 +253,7 @@ class EastMoneySource(BaseEstimateSource):
         # return self._fetch_realtime_nav_mobile(fund_code)
         return self._fetch_realtime_nav_mobile(fund_code)
 
-    def _fetch_realtime_nav_mobile(self, fund_code: str) -> Optional[Dict]:
+    def _fetch_realtime_nav_mobile(self, fund_code: str) -> dict | None:
         """
         从东方财富移动端 API 获取最新净值（作为 Web API 的 fallback）
 
@@ -290,9 +287,7 @@ class EastMoneySource(BaseEstimateSource):
             data = response.json()
 
             if not data or not data.get("Datas"):
-                logger.warning(
-                    f"移动端净值查询无数据（FundMNFInfo）：{fund_code}"
-                )
+                logger.warning(f"移动端净值查询无数据（FundMNFInfo）：{fund_code}")
                 return None
 
             items = data["Datas"]
@@ -304,9 +299,7 @@ class EastMoneySource(BaseEstimateSource):
             date_str = item.get("PDATE")
 
             if not nav_str or not date_str:
-                logger.warning(
-                    f"移动端净值数据缺少字段（ACCNAV/PDATE）：{fund_code}"
-                )
+                logger.warning(f"移动端净值数据缺少字段（ACCNAV/PDATE）：{fund_code}")
                 return None
 
             return {
@@ -367,11 +360,13 @@ class EastMoneySource(BaseEstimateSource):
                     fund_code = str(row[code_col]).zfill(6)
                     fund_name = str(row[name_col]) if name_col and row.get(name_col) else ""
                     fund_type = str(row[type_col]) if type_col and row.get(type_col) else ""
-                    funds.append({
-                        "fund_code": fund_code,
-                        "fund_name": fund_name,
-                        "fund_type": fund_type,
-                    })
+                    funds.append(
+                        {
+                            "fund_code": fund_code,
+                            "fund_name": fund_name,
+                            "fund_type": fund_type,
+                        }
+                    )
                 except Exception:
                     continue
 
@@ -400,7 +395,7 @@ class EastMoneySource(BaseEstimateSource):
         #     )
         # return funds
 
-    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_today_nav(self, fund_code: str) -> dict | None:
         """
         获取当日确认净值（从历史净值接口取最新一条）
 
@@ -445,9 +440,9 @@ class EastMoneySource(BaseEstimateSource):
     def fetch_nav_history(
         self,
         fund_code: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> List[Dict]:
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict]:
         """
         获取基金历史净值
 
@@ -472,9 +467,9 @@ class EastMoneySource(BaseEstimateSource):
     def _try_web_nav_history(
         self,
         fund_code: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> List[Dict]:
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict]:
         """Web API 历史净值获取（内部方法）"""
         try:
             url = self.HISTORY_URL.format(code=fund_code)
@@ -484,9 +479,7 @@ class EastMoneySource(BaseEstimateSource):
             text = response.text
 
             # 解析单位净值数据
-            unit_nav_match = re.search(
-                r"var Data_netWorthTrend = (\[.*?\]);", text, re.DOTALL
-            )
+            unit_nav_match = re.search(r"var Data_netWorthTrend = (\[.*?\]);", text, re.DOTALL)
             if not unit_nav_match:
                 logger.warning(f"无法解析历史净值数据：{fund_code}")
                 return []
@@ -494,7 +487,7 @@ class EastMoneySource(BaseEstimateSource):
             try:
                 unit_nav_data = json.loads(unit_nav_match.group(1))
                 logger.info(
-                    f'解析单位净值数据成功：{fund_code}, 数据类型：{type(unit_nav_data)}, 长度：{len(unit_nav_data) if isinstance(unit_nav_data, list) else "N/A"}'
+                    f"解析单位净值数据成功：{fund_code}, 数据类型：{type(unit_nav_data)}, 长度：{len(unit_nav_data) if isinstance(unit_nav_data, list) else 'N/A'}"
                 )
                 if unit_nav_data and isinstance(unit_nav_data, list):
                     logger.info(
@@ -518,9 +511,7 @@ class EastMoneySource(BaseEstimateSource):
                 return []
 
             # 解析累计净值数据（可选）
-            acc_nav_match = re.search(
-                r"var Data_ACWorthTrend = (\[.*?\]);", text, re.DOTALL
-            )
+            acc_nav_match = re.search(r"var Data_ACWorthTrend = (\[.*?\]);", text, re.DOTALL)
             acc_nav_data = []
             if acc_nav_match:
                 try:
@@ -593,9 +584,9 @@ class EastMoneySource(BaseEstimateSource):
     def _fetch_nav_history_mobile(
         self,
         fund_code: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> List[Dict]:
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict]:
         """
         从东方财富移动端 API 获取历史净值（作为 Web API 的 fallback）
 
@@ -633,9 +624,7 @@ class EastMoneySource(BaseEstimateSource):
             data = response.json()
 
             if not data or not data.get("Datas"):
-                logger.warning(
-                    f"移动端历史净值无数据（FundMNHisNetList）：{fund_code}"
-                )
+                logger.warning(f"移动端历史净值无数据（FundMNHisNetList）：{fund_code}")
                 return []
 
             items = data["Datas"]
@@ -689,19 +678,13 @@ class EastMoneySource(BaseEstimateSource):
             return result
 
         except requests.RequestException as e:
-            logger.warning(
-                f"移动端历史净值获取失败（网络）：{fund_code}, 错误：{e}"
-            )
+            logger.warning(f"移动端历史净值获取失败（网络）：{fund_code}, 错误：{e}")
             return []
         except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
-            logger.warning(
-                f"移动端历史净值获取失败（解析）：{fund_code}, 错误：{e}"
-            )
+            logger.warning(f"移动端历史净值获取失败（解析）：{fund_code}, 错误：{e}")
             return []
         except Exception as e:
-            logger.warning(
-                f"移动端历史净值获取失败（未知）：{fund_code}, 错误：{e}"
-            )
+            logger.warning(f"移动端历史净值获取失败（未知）：{fund_code}, 错误：{e}")
             return []
 
     def fetch_index_holdings(self, fund_code: str) -> list:
@@ -770,14 +753,10 @@ class EastMoneySource(BaseEstimateSource):
                 for item in quote_data.get("data", {}).get("diff", []):
                     quotes[item["f12"]] = {
                         "price": (
-                            Decimal(str(item["f2"]))
-                            if item.get("f2") not in (None, "-")
-                            else None
+                            Decimal(str(item["f2"])) if item.get("f2") not in (None, "-") else None
                         ),
                         "change_percent": (
-                            Decimal(str(item["f3"]))
-                            if item.get("f3") not in (None, "-")
-                            else None
+                            Decimal(str(item["f3"])) if item.get("f3") not in (None, "-") else None
                         ),
                     }
             except Exception as e:

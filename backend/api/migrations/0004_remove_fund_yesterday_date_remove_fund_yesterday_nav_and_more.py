@@ -12,7 +12,6 @@ def migrate_nav_data(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0003_fund_estimate_growth_fund_estimate_nav_and_more"),
     ]

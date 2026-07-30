@@ -6,13 +6,13 @@
 - FundViewSet.sync → NotImplementedError 时返回明确错误提示
 """
 
-import pytest
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock
-from rest_framework.test import APIClient
+from unittest.mock import patch
+
+import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -26,7 +26,8 @@ class TestEstimateGracefulDegradation:
 
         self.client = APIClient()
         self.fund = Fund.objects.create(
-            fund_code="000001", fund_name="华夏成长混合",
+            fund_code="000001",
+            fund_name="华夏成长混合",
             latest_nav=Decimal("1.1000"),
         )
 
@@ -35,17 +36,13 @@ class TestEstimateGracefulDegradation:
         with patch("api.sources.eastmoney.EastMoneySource.fetch_estimate") as mock_fetch:
             mock_fetch.return_value = None
 
-            response = self.client.get(
-                "/api/funds/000001/estimate/?source=eastmoney"
-            )
+            response = self.client.get("/api/funds/000001/estimate/?source=eastmoney")
 
         assert response.status_code == 200, (
             f"应返回 200 而非 {response.status_code}: {response.data}"
         )
         data = response.json()
-        assert data.get("unavailable") is True, (
-            f"应有 unavailable: true, 实际: {data}"
-        )
+        assert data.get("unavailable") is True, f"应有 unavailable: true, 实际: {data}"
         assert "fund_code" in data
         assert "message" in data or data.get("estimate_nav") is None
 
@@ -60,15 +57,11 @@ class TestEstimateGracefulDegradation:
                 "estimate_time": timezone.now(),
             }
 
-            response = self.client.get(
-                "/api/funds/000001/estimate/?source=eastmoney"
-            )
+            response = self.client.get("/api/funds/000001/estimate/?source=eastmoney")
 
         assert response.status_code == 200
         data = response.json()
-        assert data.get("unavailable") is not True, (
-            "有效数据不应有 unavailable 标记"
-        )
+        assert data.get("unavailable") is not True, "有效数据不应有 unavailable 标记"
         assert data["fund_code"] == "000001"
 
     def test_danjuan_fallback_still_works(self):
@@ -76,9 +69,7 @@ class TestEstimateGracefulDegradation:
         with patch("api.sources.eastmoney.EastMoneySource.fetch_estimate") as mock_fetch:
             mock_fetch.return_value = None  # eastmoney 也返回 None（M1 行为）
 
-            response = self.client.get(
-                "/api/funds/000001/estimate/?source=danjuan"
-            )
+            response = self.client.get("/api/funds/000001/estimate/?source=danjuan")
 
         # danjuan fallback 到 eastmoney，然后 eastmoney 返回 unavailable
         assert response.status_code == 200
@@ -94,11 +85,13 @@ class TestBatchEstimateGracefulDegradation:
 
         self.client = APIClient()
         Fund.objects.create(
-            fund_code="000001", fund_name="基金1",
+            fund_code="000001",
+            fund_name="基金1",
             latest_nav=Decimal("1.1000"),
         )
         Fund.objects.create(
-            fund_code="000002", fund_name="基金2",
+            fund_code="000002",
+            fund_name="基金2",
             latest_nav=Decimal("2.2000"),
         )
 
@@ -123,13 +116,12 @@ class TestBatchEstimateGracefulDegradation:
             assert fund_result.get("unavailable") is True, (
                 f"{code} 应有 unavailable: true, 实际: {fund_result}"
             )
-            assert "error" not in fund_result, (
-                f"{code} 不应返回 error, 实际: {fund_result}"
-            )
+            assert "error" not in fund_result, f"{code} 不应返回 error, 实际: {fund_result}"
 
     def test_batch_mixed_available_and_unavailable(self):
         """部分估值可用，部分不可用"""
         with patch("api.sources.eastmoney.EastMoneySource.fetch_estimate") as mock_fetch:
+
             def side_effect(code):
                 if code == "000001":
                     return {
@@ -175,9 +167,12 @@ class TestSyncGracefulDegradation:
     def test_sync_returns_success(self, mock_ak):
         """M2: sync 通过 akshare 正常返回基金列表"""
         import pandas as pd
-        mock_ak.return_value = pd.DataFrame([
-            {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
-        ])
+
+        mock_ak.return_value = pd.DataFrame(
+            [
+                {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+            ]
+        )
 
         response = self.client.post("/api/funds/sync/")
 

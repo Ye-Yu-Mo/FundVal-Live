@@ -9,12 +9,10 @@
 5. ChannelRegistry 注册和获取
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
 
 class TestWebhookChannel:
-
     @patch("requests.post")
     def test_send_success_generic(self, mock_post):
         from api.notifications.webhook import WebhookChannel
@@ -37,9 +35,7 @@ class TestWebhookChannel:
     def test_send_feishu_format(self, mock_post):
         from api.notifications.webhook import WebhookChannel
 
-        mock_post.return_value = Mock(
-            status_code=200, json=Mock(return_value={"code": 0})
-        )
+        mock_post.return_value = Mock(status_code=200, json=Mock(return_value={"code": 0}))
 
         channel = WebhookChannel()
         result = channel.send(
@@ -57,9 +53,7 @@ class TestWebhookChannel:
     def test_send_feishu_error_code_returns_false(self, mock_post):
         from api.notifications.webhook import WebhookChannel
 
-        mock_post.return_value = Mock(
-            status_code=200, json=Mock(return_value={"code": 19001})
-        )
+        mock_post.return_value = Mock(status_code=200, json=Mock(return_value={"code": 19001}))
 
         channel = WebhookChannel()
         result = channel.send(
@@ -77,37 +71,31 @@ class TestWebhookChannel:
         mock_post.return_value = Mock(status_code=500)
 
         channel = WebhookChannel()
-        result = channel.send(
-            "title", "content", {"webhook_url": "https://example.com/hook"}
-        )
+        result = channel.send("title", "content", {"webhook_url": "https://example.com/hook"})
 
         assert result is False
 
     @patch("requests.post")
     def test_send_timeout_returns_false(self, mock_post):
-        from api.notifications.webhook import WebhookChannel
         import requests
+        from api.notifications.webhook import WebhookChannel
 
         mock_post.side_effect = requests.Timeout()
 
         channel = WebhookChannel()
-        result = channel.send(
-            "title", "content", {"webhook_url": "https://example.com/hook"}
-        )
+        result = channel.send("title", "content", {"webhook_url": "https://example.com/hook"})
 
         assert result is False
 
     @patch("requests.post")
     def test_send_network_error_returns_false(self, mock_post):
-        from api.notifications.webhook import WebhookChannel
         import requests
+        from api.notifications.webhook import WebhookChannel
 
         mock_post.side_effect = requests.RequestException("connection error")
 
         channel = WebhookChannel()
-        result = channel.send(
-            "title", "content", {"webhook_url": "https://example.com/hook"}
-        )
+        result = channel.send("title", "content", {"webhook_url": "https://example.com/hook"})
 
         assert result is False
 
@@ -126,7 +114,6 @@ class TestWebhookChannel:
 
 
 class TestEmailChannel:
-
     VALID_CONFIG = {
         "smtp_host": "smtp.qq.com",
         "smtp_port": 465,
@@ -145,9 +132,7 @@ class TestEmailChannel:
         mock_smtp_ssl.return_value.__exit__ = Mock(return_value=False)
 
         channel = EmailChannel()
-        result = channel.send(
-            title="测试通知", content="涨幅超过阈值", config=self.VALID_CONFIG
-        )
+        result = channel.send(title="测试通知", content="涨幅超过阈值", config=self.VALID_CONFIG)
 
         assert result is True
         mock_server.login.assert_called_once_with("sender@qq.com", "authcode")
@@ -155,12 +140,11 @@ class TestEmailChannel:
 
     @patch("smtplib.SMTP_SSL")
     def test_send_smtp_error_returns_false(self, mock_smtp_ssl):
-        from api.notifications.email import EmailChannel
         import smtplib
 
-        mock_smtp_ssl.return_value.__enter__ = Mock(
-            side_effect=smtplib.SMTPException("error")
-        )
+        from api.notifications.email import EmailChannel
+
+        mock_smtp_ssl.return_value.__enter__ = Mock(side_effect=smtplib.SMTPException("error"))
         mock_smtp_ssl.return_value.__exit__ = Mock(return_value=False)
 
         channel = EmailChannel()
@@ -199,7 +183,6 @@ class TestEmailChannel:
 
 
 class TestChannelRegistry:
-
     def setup_method(self):
         from api.notifications.registry import ChannelRegistry
 
@@ -220,9 +203,9 @@ class TestChannelRegistry:
         assert ChannelRegistry.get_channel("nonexistent") is None
 
     def test_list_channels(self):
+        from api.notifications.email import EmailChannel
         from api.notifications.registry import ChannelRegistry
         from api.notifications.webhook import WebhookChannel
-        from api.notifications.email import EmailChannel
 
         ChannelRegistry.register(WebhookChannel())
         ChannelRegistry.register(EmailChannel())
@@ -236,6 +219,7 @@ class TestChannelRegistry:
         """测试 __init__.py 自动注册"""
         # 重新导入触发自动注册
         import importlib
+
         import api.notifications
 
         importlib.reload(api.notifications)

@@ -3,17 +3,15 @@
 """
 
 import pytest
+from api.models import AIConfig, AIPromptTemplate
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory
-
-from api.models import AIConfig, AIPromptTemplate
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestAIConfigSerializer:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")
@@ -103,7 +101,6 @@ class TestAIConfigSerializer:
 
 @pytest.mark.django_db
 class TestAIPromptTemplateSerializer:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")

@@ -9,11 +9,11 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Dict, List, Set
-from ..models import PositionOperation, FundNavHistory, Fund
+
+from ..models import Fund, FundNavHistory, PositionOperation
 
 
-def calculate_account_history(account_id: str, days: int = 30) -> List[Dict]:
+def calculate_account_history(account_id: str, days: int = 30) -> list[dict]:
     """
     计算账户历史市值
 
@@ -33,9 +33,7 @@ def calculate_account_history(account_id: str, days: int = 30) -> List[Dict]:
 
     # 1. 获取所有操作流水（包括查询范围之前的操作）
     operations = (
-        PositionOperation.objects.filter(
-            account_id=account_id, operation_date__lte=end_date
-        )
+        PositionOperation.objects.filter(account_id=account_id, operation_date__lte=end_date)
         .select_related("fund")
         .order_by("operation_date")
     )
@@ -93,8 +91,7 @@ def _replay_operations(operations, start_date, end_date):
             if current_positions[fund_id]["share"] > 0:
                 # 计算每份成本
                 cost_per_share = (
-                    current_positions[fund_id]["cost"]
-                    / current_positions[fund_id]["share"]
+                    current_positions[fund_id]["cost"] / current_positions[fund_id]["share"]
                 )
                 # 减少份额
                 current_positions[fund_id]["share"] -= op.share
@@ -159,7 +156,7 @@ def _fill_dates(daily_positions, start_date, end_date):
     return filled_positions
 
 
-def _get_daily_nav(fund_ids: Set[str], start_date, end_date):
+def _get_daily_nav(fund_ids: set[str], start_date, end_date):
     """
     查询每日净值
 

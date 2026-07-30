@@ -41,7 +41,7 @@ class Config:
 
         # 读取 JSON 配置
         if config_path.exists():
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 file_config = json.load(f)
                 self._config.update(file_config)
 
@@ -51,9 +51,7 @@ class Config:
         if os.getenv("DB_TYPE"):
             self._config["db_type"] = os.getenv("DB_TYPE")
         if os.getenv("ALLOW_REGISTER"):
-            self._config["allow_register"] = (
-                os.getenv("ALLOW_REGISTER").lower() == "true"
-            )
+            self._config["allow_register"] = os.getenv("ALLOW_REGISTER").lower() == "true"
         if os.getenv("DEBUG"):
             self._config["debug"] = os.getenv("DEBUG").lower() == "true"
 

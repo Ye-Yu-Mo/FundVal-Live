@@ -7,11 +7,12 @@
 3. 按数据源过滤
 """
 
+from datetime import timedelta
+
 import pytest
-from datetime import datetime, timedelta
+from api.models import EstimateSnapshot, Fund
 from django.test import Client
 from django.utils import timezone
-from api.models import Fund, EstimateSnapshot
 
 
 @pytest.mark.django_db
@@ -48,9 +49,7 @@ class TestEstimateSnapshotModel:
             estimate_growth="-0.1",
         )
 
-        today_snaps = EstimateSnapshot.objects.filter(
-            fund=fund, timestamp__date=now.date()
-        )
+        today_snaps = EstimateSnapshot.objects.filter(fund=fund, timestamp__date=now.date())
         assert today_snaps.count() == 1
 
 

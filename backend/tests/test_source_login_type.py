@@ -9,7 +9,6 @@
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestGetLoginType:
@@ -98,14 +97,12 @@ class TestStatusApiLoginType:
         return client
 
     def test_status_returns_login_type_for_eastmoney(self, auth_client):
-        from api.sources.registry import SourceRegistry
         from api.sources.eastmoney import EastMoneySource
+        from api.sources.registry import SourceRegistry
 
         SourceRegistry.register(EastMoneySource())
 
-        res = auth_client.get(
-            "/api/source-credentials/status/", {"source_name": "eastmoney"}
-        )
+        res = auth_client.get("/api/source-credentials/status/", {"source_name": "eastmoney"})
         assert res.status_code == 200
         assert "login_type" in res.data
         assert res.data["login_type"] == "none"
@@ -116,8 +113,6 @@ class TestStatusApiLoginType:
 
         SourceRegistry.register(YangJiBaoSource())
 
-        res = auth_client.get(
-            "/api/source-credentials/status/", {"source_name": "yangjibao"}
-        )
+        res = auth_client.get("/api/source-credentials/status/", {"source_name": "yangjibao"})
         assert res.status_code == 200
         assert res.data["login_type"] == "qrcode"

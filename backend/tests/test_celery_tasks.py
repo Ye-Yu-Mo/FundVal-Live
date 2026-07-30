@@ -8,9 +8,9 @@
 4. Beat 调度配置
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from django.core.management import call_command
 
 
 @pytest.mark.django_db
@@ -50,11 +50,10 @@ class TestUpdateFundNavTask:
         """测试任务记录成功日志"""
         from api.tasks import update_fund_nav
 
-        with patch("api.tasks.call_command"):
-            with patch("api.tasks.logger") as mock_logger:
-                update_fund_nav()
+        with patch("api.tasks.call_command"), patch("api.tasks.logger") as mock_logger:
+            update_fund_nav()
 
-                mock_logger.info.assert_called_once_with("基金昨日/最新净值同步完成")
+            mock_logger.info.assert_called_once_with("基金昨日/最新净值同步完成")
 
     def test_task_logs_error(self):
         """测试任务记录错误日志"""
@@ -112,7 +111,6 @@ class TestCeleryConfiguration:
 
     def test_celery_timezone_configured(self):
         """测试时区配置"""
-        from fundval.celery import app
 
         # 注意：这个测试依赖于 settings.py 中的配置
         # 如果 settings.py 中配置了 CELERY_TIMEZONE，这里会生效
@@ -121,7 +119,6 @@ class TestCeleryConfiguration:
     def test_task_is_registered(self):
         """测试任务是否已注册"""
         from fundval.celery import app
-        from api.tasks import update_fund_nav
 
         # 获取所有已注册的任务
         registered_tasks = list(app.tasks.keys())

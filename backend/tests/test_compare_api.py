@@ -8,11 +8,12 @@
 4. 单只基金返回提示
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date, timedelta
-from django.test import Client
+from decimal import Decimal
+
+import pytest
 from api.models import Fund, FundNavHistory
+from django.test import Client
 
 
 def _create_nav_history(fund, days=365, start_nav=1.0):
@@ -38,12 +39,8 @@ def _create_nav_history(fund, days=365, start_nav=1.0):
 @pytest.mark.django_db
 class TestCompareAPI:
     def test_compare_two_funds(self):
-        f1 = Fund.objects.create(
-            fund_code="000001", fund_name="基金A", fund_type="混合型"
-        )
-        f2 = Fund.objects.create(
-            fund_code="161725", fund_name="基金B", fund_type="股票型"
-        )
+        f1 = Fund.objects.create(fund_code="000001", fund_name="基金A", fund_type="混合型")
+        f2 = Fund.objects.create(fund_code="161725", fund_name="基金B", fund_type="股票型")
         _create_nav_history(f1, days=365)
         _create_nav_history(f2, days=365)
 
@@ -62,12 +59,8 @@ class TestCompareAPI:
             assert "volatility" in f["metrics"]
 
     def test_no_nav_history_returns_empty_metrics(self):
-        f1 = Fund.objects.create(
-            fund_code="000001", fund_name="基金A", fund_type="混合型"
-        )
-        f2 = Fund.objects.create(
-            fund_code="161725", fund_name="基金B", fund_type="股票型"
-        )
+        f1 = Fund.objects.create(fund_code="000001", fund_name="基金A", fund_type="混合型")
+        f2 = Fund.objects.create(fund_code="161725", fund_name="基金B", fund_type="股票型")
         # 不给 f2 创建 nav history
         _create_nav_history(f1, days=365)
 

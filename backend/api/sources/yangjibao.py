@@ -4,10 +4,10 @@
 
 import hashlib
 import logging
-import requests
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime, date
-from typing import Dict, Optional, List
+
+import requests
 
 from .base import BaseEstimateSource
 
@@ -49,7 +49,7 @@ class YangJiBaoSource(BaseEstimateSource):
         sign_str = pathname + sign_path + token + str(timestamp) + self.SECRET
         return hashlib.md5(sign_str.encode()).hexdigest()
 
-    def _request(self, method: str, path: str, **kwargs) -> Dict:
+    def _request(self, method: str, path: str, **kwargs) -> dict:
         """
         发送 HTTP 请求（带签名）
 
@@ -88,7 +88,7 @@ class YangJiBaoSource(BaseEstimateSource):
     # 二维码登录
     # ─────────────────────────────────────────────
 
-    def get_qrcode(self) -> Dict:
+    def get_qrcode(self) -> dict:
         """
         获取登录二维码
 
@@ -116,7 +116,7 @@ class YangJiBaoSource(BaseEstimateSource):
             logger.error(f"获取二维码失败: {e}")
             raise
 
-    def check_qrcode_state(self, qr_id: str) -> Dict:
+    def check_qrcode_state(self, qr_id: str) -> dict:
         """
         检查二维码扫码状态
 
@@ -165,7 +165,7 @@ class YangJiBaoSource(BaseEstimateSource):
         """登出（清除 token）"""
         self._token = None
 
-    def _get_all_accounts(self) -> List[Dict]:
+    def _get_all_accounts(self) -> list[dict]:
         """
         获取所有账户列表
 
@@ -186,7 +186,7 @@ class YangJiBaoSource(BaseEstimateSource):
             logger.error(f"获取账户列表失败: {e}")
             raise
 
-    def _fetch_all_holdings(self) -> List[Dict]:
+    def _fetch_all_holdings(self) -> list[dict]:
         """
         获取所有账户的持仓列表（合并）
 
@@ -227,7 +227,7 @@ class YangJiBaoSource(BaseEstimateSource):
             logger.error(f"获取持仓列表失败: {e}")
             raise
 
-    def _find_fund_in_holdings(self, fund_code: str) -> Optional[Dict]:
+    def _find_fund_in_holdings(self, fund_code: str) -> dict | None:
         """
         从所有账户持仓中查找指定基金
 
@@ -249,7 +249,7 @@ class YangJiBaoSource(BaseEstimateSource):
     # 基金数据获取
     # ─────────────────────────────────────────────
 
-    def fetch_estimate(self, fund_code: str) -> Optional[Dict]:
+    def fetch_estimate(self, fund_code: str) -> dict | None:
         """
         获取基金估值（从持仓列表提取）
 
@@ -276,9 +276,7 @@ class YangJiBaoSource(BaseEstimateSource):
             nv_info = holding.get("nv_info", {})
 
             # 优先级：gsz（实时估算） > vgsz（预估） > zsgz（昨日估算）
-            estimate_nav_str = (
-                nv_info.get("gsz") or nv_info.get("vgsz") or nv_info.get("zsgz")
-            )
+            estimate_nav_str = nv_info.get("gsz") or nv_info.get("vgsz") or nv_info.get("zsgz")
             estimate_growth_str = (
                 nv_info.get("gszzl") or nv_info.get("vgszzl") or nv_info.get("zsgzzl")
             )
@@ -299,7 +297,7 @@ class YangJiBaoSource(BaseEstimateSource):
             logger.error(f"获取基金 {fund_code} 估值失败: {e}")
             return None
 
-    def fetch_realtime_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_realtime_nav(self, fund_code: str) -> dict | None:
         """
         获取实际净值（从持仓列表提取昨日净值）
 
@@ -340,7 +338,7 @@ class YangJiBaoSource(BaseEstimateSource):
             logger.error(f"获取基金 {fund_code} 净值失败: {e}")
             return None
 
-    def fetch_today_nav(self, fund_code: str) -> Optional[Dict]:
+    def fetch_today_nav(self, fund_code: str) -> dict | None:
         """
         获取当日确认净值（从持仓列表提取，带日期校验）
 
@@ -396,7 +394,7 @@ class YangJiBaoSource(BaseEstimateSource):
     # 账户与持仓导入
     # ─────────────────────────────────────────────
 
-    def fetch_accounts(self) -> List[Dict]:
+    def fetch_accounts(self) -> list[dict]:
         """
         获取账户列表（标准化格式）
 
@@ -421,7 +419,7 @@ class YangJiBaoSource(BaseEstimateSource):
             if acc.get("id") and acc.get("title")
         ]
 
-    def fetch_holdings(self, account_id: str) -> List[Dict]:
+    def fetch_holdings(self, account_id: str) -> list[dict]:
         """
         获取指定账户的持仓列表（标准化格式）
 
@@ -461,9 +459,7 @@ class YangJiBaoSource(BaseEstimateSource):
 
             try:
                 operation_date = (
-                    datetime.strptime(hold_day, "%Y-%m-%d").date()
-                    if hold_day
-                    else date.today()
+                    datetime.strptime(hold_day, "%Y-%m-%d").date() if hold_day else date.today()
                 )
                 result.append(
                     {

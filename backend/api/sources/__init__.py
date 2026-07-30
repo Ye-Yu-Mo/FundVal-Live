@@ -5,12 +5,12 @@
 """
 
 from .base import BaseEstimateSource
-from .eastmoney import EastMoneySource
-from .sina import SinaStockSource
-from .yangjibao import YangJiBaoSource
-from .xiaobeiyangji import XiaoBeiYangJiSource
 from .danjuan import DanjuanSource
+from .eastmoney import EastMoneySource
 from .registry import SourceRegistry
+from .sina import SinaStockSource
+from .xiaobeiyangji import XiaoBeiYangJiSource
+from .yangjibao import YangJiBaoSource
 
 # 自动注册数据源
 SourceRegistry.register(EastMoneySource())
@@ -21,10 +21,10 @@ SourceRegistry.register(DanjuanSource())
 
 __all__ = [
     "BaseEstimateSource",
+    "DanjuanSource",
     "EastMoneySource",
     "SinaStockSource",
-    "YangJiBaoSource",
-    "XiaoBeiYangJiSource",
-    "DanjuanSource",
     "SourceRegistry",
+    "XiaoBeiYangJiSource",
+    "YangJiBaoSource",
 ]

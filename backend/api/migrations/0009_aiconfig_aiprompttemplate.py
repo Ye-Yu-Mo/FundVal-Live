@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0008_add_user_preference"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -30,9 +29,7 @@ class Migration(migrations.Migration):
                 ("api_key", models.CharField(help_text="API Key", max_length=500)),
                 (
                     "model_name",
-                    models.CharField(
-                        default="gpt-4o-mini", help_text="模型名称", max_length=100
-                    ),
+                    models.CharField(default="gpt-4o-mini", help_text="模型名称", max_length=100),
                 ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
@@ -76,9 +73,7 @@ class Migration(migrations.Migration):
                 ("user_prompt", models.TextField(help_text="用户提示词（含占位符）")),
                 (
                     "is_default",
-                    models.BooleanField(
-                        default=False, help_text="是否为该类型的默认模板"
-                    ),
+                    models.BooleanField(default=False, help_text="是否为该类型的默认模板"),
                 ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),

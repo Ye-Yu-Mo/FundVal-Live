@@ -6,10 +6,11 @@
 - 收盘后 (15:00+) 返回 estimate_stale: true
 """
 
-import pytest
+from datetime import timedelta
 from decimal import Decimal
-from datetime import date, datetime, time, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -22,16 +23,15 @@ class TestEstimateSourceField:
         """Fund 模型应有 estimate_source 字段"""
         from api.models import Fund
 
-        assert hasattr(Fund, "estimate_source"), (
-            "Fund 模型应有 estimate_source 字段"
-        )
+        assert hasattr(Fund, "estimate_source"), "Fund 模型应有 estimate_source 字段"
 
     def test_field_nullable(self):
         """estimate_source 可为 None（默认值）"""
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试",
+            fund_code="000001",
+            fund_name="测试",
             latest_nav=Decimal("1.1000"),
         )
         assert fund.estimate_source is None
@@ -41,7 +41,8 @@ class TestEstimateSourceField:
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试",
+            fund_code="000001",
+            fund_name="测试",
             latest_nav=Decimal("1.1000"),
             estimate_source="akshare",
         )
@@ -53,7 +54,8 @@ class TestEstimateSourceField:
         from api.models import Fund
 
         fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试",
+            fund_code="000001",
+            fund_name="测试",
             latest_nav=Decimal("1.1000"),
         )
         fund.estimate_source = "yangjibao"
@@ -71,7 +73,8 @@ class TestBatchEstimateWritesSource:
 
         self.client = APIClient()
         self.fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试基金",
+            fund_code="000001",
+            fund_name="测试基金",
             latest_nav=Decimal("1.1000"),
         )
 
@@ -93,9 +96,7 @@ class TestBatchEstimateWritesSource:
             )
 
         self.fund.refresh_from_db()
-        assert self.fund.estimate_source is not None, (
-            "batch_estimate 应写入 estimate_source"
-        )
+        assert self.fund.estimate_source is not None, "batch_estimate 应写入 estimate_source"
 
 
 @pytest.mark.django_db
@@ -107,7 +108,8 @@ class TestEstimateStaleAfterMarketClose:
 
         self.client = APIClient()
         self.fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试基金",
+            fund_code="000001",
+            fund_name="测试基金",
             latest_nav=Decimal("1.1000"),
             estimate_nav=Decimal("1.1370"),
             estimate_growth=Decimal("1.0"),
@@ -190,6 +192,4 @@ class TestEstimateStaleAfterMarketClose:
         data = response.json()
         assert data["000001"].get("from_cache") is False, "缓存过期，应新获取"
         # 15:00 后即使新获取，估值也是收盘估值，不再更新
-        assert data["000001"].get("estimate_stale") is True, (
-            f"15:00 后新抓取估值也应标记 stale"
-        )
+        assert data["000001"].get("estimate_stale") is True, "15:00 后新抓取估值也应标记 stale"

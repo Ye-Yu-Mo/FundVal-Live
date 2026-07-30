@@ -9,11 +9,12 @@
 5. 同步基金列表（管理员）
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework.test import APIClient
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -39,15 +40,9 @@ class TestFundListAPI:
         from api.models import Fund
 
         return [
-            Fund.objects.create(
-                fund_code="000001", fund_name="华夏成长混合", fund_type="混合型"
-            ),
-            Fund.objects.create(
-                fund_code="000002", fund_name="华夏大盘精选", fund_type="混合型"
-            ),
-            Fund.objects.create(
-                fund_code="110022", fund_name="易方达消费行业", fund_type="股票型"
-            ),
+            Fund.objects.create(fund_code="000001", fund_name="华夏成长混合", fund_type="混合型"),
+            Fund.objects.create(fund_code="000002", fund_name="华夏大盘精选", fund_type="混合型"),
+            Fund.objects.create(fund_code="110022", fund_name="易方达消费行业", fund_type="股票型"),
         ]
 
     def test_list_funds_unauthenticated(self, client, funds):
@@ -220,9 +215,10 @@ class TestBatchEstimateAPI:
 
     @pytest.fixture
     def funds(self):
+        from datetime import timedelta
+
         from api.models import Fund
         from django.utils import timezone
-        from datetime import timedelta
 
         # 创建基金，一个有缓存，一个没有缓存
         fund1 = Fund.objects.create(
@@ -353,9 +349,7 @@ class TestBatchEstimateAPI:
 
     def test_batch_estimate_empty_codes(self, client):
         """测试批量估值 - 空基金代码列表"""
-        response = client.post(
-            "/api/funds/batch_estimate/", {"fund_codes": []}, format="json"
-        )
+        response = client.post("/api/funds/batch_estimate/", {"fund_codes": []}, format="json")
 
         assert response.status_code == 400
 

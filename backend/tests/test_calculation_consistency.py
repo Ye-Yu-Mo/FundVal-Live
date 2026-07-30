@@ -4,9 +4,10 @@
 确保两种计算方式得到相同的结果
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -36,7 +37,7 @@ class TestCalculationConsistency:
 
     def test_consistency_buy_sell(self, account, fund):
         """测试买入卖出后，Position 汇总和历史市值计算结果一致"""
-        from api.models import PositionOperation, Position
+        from api.models import Position, PositionOperation
         from api.services.position_history import calculate_account_history
 
         # 创建操作：买入 1000 元，卖出一半
@@ -75,13 +76,13 @@ class TestCalculationConsistency:
         history_cost = history[-1]["cost"]  # 最后一天（今天）的成本
 
         # 验证两者一致
-        assert (
-            position_cost == history_cost
-        ), f"Position 汇总成本 {position_cost} != 历史市值成本 {history_cost}"
+        assert position_cost == history_cost, (
+            f"Position 汇总成本 {position_cost} != 历史市值成本 {history_cost}"
+        )
 
     def test_consistency_multiple_operations(self, account, fund):
         """测试多次买卖后，计算结果一致"""
-        from api.models import PositionOperation, Position
+        from api.models import Position, PositionOperation
         from api.services.position_history import calculate_account_history
 
         today = date.today()
@@ -147,9 +148,9 @@ class TestCalculationConsistency:
         history_cost = history[-1]["cost"]
 
         # 验证成本一致
-        assert (
-            abs(position_cost - history_cost) < 0.01
-        ), f"Position 汇总成本 {position_cost} != 历史市值成本 {history_cost}"
+        assert abs(position_cost - history_cost) < 0.01, (
+            f"Position 汇总成本 {position_cost} != 历史市值成本 {history_cost}"
+        )
 
         print(f"✅ Position 汇总成本: {position_cost}")
         print(f"✅ 历史市值成本: {history_cost}")

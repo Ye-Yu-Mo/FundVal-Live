@@ -22,7 +22,47 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.411",
     "pytest>=9.0.2",
     "pytest-django>=4.11.1",
     "pytest-mock>=3.15.1",
+    "ruff>=0.16.0",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["api", "fundval", "tests"]
+exclude = ["yjb.py", "migrations"]
+
+[tool.ruff.lint]
+select = [
+    "E4",   # pycodestyle error
+    "E7",   # pycodestyle error
+    "E9",   # pycodestyle error
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "PIE",  # flake8-pie
+    "SIM",  # flake8-simplify
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "RUF001",  # 中文项目：允许全角标点符号
+    "RUF002",  # 中文项目：docstring 中的全角字符
+    "RUF003",  # 中文项目：注释中的全角字符
+    "RUF012",  # Django 项目：模型字段可变默认值是标准模式
+]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pyright]
+include = ["api", "fundval", "tests"]
+exclude = ["yjb.py"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false

@@ -7,15 +7,15 @@
 3. PositionSerializer.get_fund() - 返回基金详细信息（包含估值）
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIRequestFactory
-from rest_framework import serializers as drf_serializers
+from decimal import Decimal
 
-from api.models import Fund, Account, Position, PositionOperation
+import pytest
+from api.models import Account, Fund, Position
 from api.serializers import PositionOperationSerializer, PositionSerializer
+from django.contrib.auth import get_user_model
+from rest_framework import serializers as drf_serializers
+from rest_framework.test import APIRequestFactory
 
 User = get_user_model()
 
@@ -138,9 +138,7 @@ class TestPositionOperationSerializerCreate:
         request.user = user
         return {"request": request}
 
-    def test_create_operation_recalculates_position(
-        self, account, fund, request_context
-    ):
+    def test_create_operation_recalculates_position(self, account, fund, request_context):
         """测试：创建操作后自动重算持仓"""
         # 初始状态：无持仓
         assert Position.objects.filter(account=account, fund=fund).count() == 0
@@ -252,6 +250,7 @@ class TestPositionSerializerGetFund:
     def fund_with_estimate(self):
         """创建包含估值的基金"""
         from datetime import datetime
+
         from django.utils import timezone
 
         return Fund.objects.create(

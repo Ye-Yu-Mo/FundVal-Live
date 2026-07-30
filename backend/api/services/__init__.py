@@ -9,12 +9,13 @@
 
 from decimal import Decimal
 from typing import Optional
+
 from django.db import transaction
 
 from ..models import Position, PositionOperation
 
 
-def recalculate_position(account_id, fund_id) -> Optional[Position]:
+def recalculate_position(account_id, fund_id) -> Position | None:
     """
     重新计算持仓汇总
 
@@ -32,9 +33,9 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
     fund = Fund.objects.get(id=fund_id)
 
     # 获取所有流水（按时间排序）
-    operations = PositionOperation.objects.filter(
-        account_id=account_id, fund_id=fund_id
-    ).order_by("operation_date", "created_at")
+    operations = PositionOperation.objects.filter(account_id=account_id, fund_id=fund_id).order_by(
+        "operation_date", "created_at"
+    )
 
     total_share = Decimal("0")
     total_cost = Decimal("0")
@@ -95,7 +96,7 @@ def recalculate_position(account_id, fund_id) -> Optional[Position]:
             return None
 
 
-def recalculate_all_positions(account_id: Optional[str] = None):
+def recalculate_all_positions(account_id: str | None = None):
     """
     重算所有持仓
 

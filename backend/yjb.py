@@ -10,7 +10,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
 
 try:
     import requests
@@ -26,12 +26,12 @@ TOKEN_FILE = Path.home() / ".yjb_token.json"
 
 
 # Token 管理
-def load_token() -> Optional[str]:
+def load_token() -> str | None:
     """从文件加载 token"""
     if not TOKEN_FILE.exists():
         return None
     try:
-        with open(TOKEN_FILE, "r") as f:
+        with open(TOKEN_FILE) as f:
             data = json.load(f)
             return data.get("token")
     except Exception as e:
@@ -67,13 +67,13 @@ def generate_sign(path: str, token: str, timestamp: int) -> str:
 class YJBClient:
     """养基宝 API 客户端"""
 
-    def __init__(self, token: Optional[str] = None, debug: bool = False):
+    def __init__(self, token: str | None = None, debug: bool = False):
         self.token = token or ""
         self.debug = debug
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
 
-    def request(self, method: str, path: str, **kwargs) -> Dict[str, Any]:
+    def request(self, method: str, path: str, **kwargs) -> dict[str, Any]:
         """发送 API 请求"""
         url = API_BASE + path
         timestamp = int(time.time())
@@ -90,9 +90,7 @@ class YJBClient:
             print(f"[DEBUG] Headers: {headers}")
 
         try:
-            resp = self.session.request(
-                method, url, headers=headers, timeout=30, **kwargs
-            )
+            resp = self.session.request(method, url, headers=headers, timeout=30, **kwargs)
 
             if self.debug:
                 print(f"[DEBUG] Status: {resp.status_code}")
@@ -116,11 +114,11 @@ class YJBClient:
         except requests.exceptions.RequestException as e:
             raise Exception(f"网络错误: {e}")
 
-    def get(self, path: str, **kwargs) -> Dict[str, Any]:
+    def get(self, path: str, **kwargs) -> dict[str, Any]:
         """GET 请求"""
         return self.request("GET", path, **kwargs)
 
-    def post(self, path: str, **kwargs) -> Dict[str, Any]:
+    def post(self, path: str, **kwargs) -> dict[str, Any]:
         """POST 请求"""
         return self.request("POST", path, **kwargs)
 
@@ -153,8 +151,9 @@ def qrcode_login(debug: bool = False) -> str:
 
         has_qrcode = True
         try:
-            from PIL import Image
             import tkinter as tk
+
+            from PIL import Image
 
             has_gui = True
         except ImportError:
@@ -182,14 +181,12 @@ def qrcode_login(debug: bool = False) -> str:
             if debug:
                 print(f"[DEBUG] 终端显示失败: {e}")
             # 降级到链接
-            print(f"\n请访问以下链接查看二维码：")
-            print(
-                f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url}"
-            )
+            print("\n请访问以下链接查看二维码：")
+            print(f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url}")
             print(f"\n或直接扫描此链接：{qr_url}\n")
     else:
         # 没有 qrcode 库，打印链接
-        print(f"\n请访问以下链接查看二维码：")
+        print("\n请访问以下链接查看二维码：")
         print(f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url}")
         print(f"\n或直接扫描此链接：{qr_url}\n")
 
@@ -290,9 +287,7 @@ def show_dashboard(client: YJBClient):
         try:
             income_float = float(today_income)
             rate_float = float(today_rate)
-            income_icon = (
-                "🔴" if income_float > 0 else "🟢" if income_float < 0 else "⚪"
-            )
+            income_icon = "🔴" if income_float > 0 else "🟢" if income_float < 0 else "⚪"
 
             print(f"   {income_icon} 当日收益: ¥{income_float:.2f}")
             print(f"   {income_icon} 收益率:   {rate_float:+.2f}%")
@@ -368,9 +363,7 @@ def list_accounts(client: YJBClient):
                     f"ID: {acc_id:<10}  {title:20s}  持仓: {count:2d}  收益: ¥{income_float:>8.2f}  {rate_float:+.2f}%"
                 )
             except:
-                print(
-                    f"ID: {acc_id:<10}  {title:20s}  持仓: {count:2d}  收益: {income}  {rate}"
-                )
+                print(f"ID: {acc_id:<10}  {title:20s}  持仓: {count:2d}  收益: {income}  {rate}")
 
     except Exception as e:
         print(f"获取账户列表失败: {e}")
@@ -404,18 +397,8 @@ def show_holdings(client: YJBClient, account_id: str):
             nv_info = holding.get("nv_info", {})
 
             # 优先级：gsz（实时估算） > vgsz（预估） > zsgz（昨日估算）
-            vgsz = (
-                nv_info.get("gsz")
-                or nv_info.get("vgsz")
-                or nv_info.get("zsgz")
-                or "N/A"
-            )
-            vgszzl = (
-                nv_info.get("gszzl")
-                or nv_info.get("vgszzl")
-                or nv_info.get("zsgzzl")
-                or "N/A"
-            )
+            vgsz = nv_info.get("gsz") or nv_info.get("vgsz") or nv_info.get("zsgz") or "N/A"
+            vgszzl = nv_info.get("gszzl") or nv_info.get("vgszzl") or nv_info.get("zsgzzl") or "N/A"
 
             # 格式化预估涨跌幅
             if vgszzl != "N/A" and vgszzl != "":
@@ -489,7 +472,7 @@ def show_notice(client: YJBClient):
         print(f"获取公告失败: {e}")
 
 
-def show_income_data(client: YJBClient, account_id: Optional[str] = None):
+def show_income_data(client: YJBClient, account_id: str | None = None):
     """显示收益数据"""
     if account_id:
         print(f"\n💰 账户收益数据 (ID: {account_id})")

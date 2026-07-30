@@ -7,11 +7,12 @@
 3. 净值更新
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from django.db import IntegrityError
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 
 User = get_user_model()
 

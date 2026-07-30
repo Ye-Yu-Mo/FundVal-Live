@@ -7,11 +7,12 @@
 3. 无持仓用户返回空报告
 """
 
-import pytest
 from unittest.mock import patch
-from django.test import Client
+
+import pytest
+from api.models import Account, AIConfig, Fund, Position
 from django.contrib.auth import get_user_model
-from api.models import Fund, Account, Position, AIConfig, AIPromptTemplate
+from django.test import Client
 
 
 def _get_token(client, username, password):
@@ -49,13 +50,9 @@ class TestReportPreview:
             api_key="test-key",
             model_name="gpt-4",
         )
-        parent = Account.objects.create(
-            user=user, name="主账户", parent=None, is_default=True
-        )
+        parent = Account.objects.create(user=user, name="主账户", parent=None, is_default=True)
         child = Account.objects.create(user=user, name="子账户", parent=parent)
-        fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试基金", latest_nav="1.5"
-        )
+        fund = Fund.objects.create(fund_code="000001", fund_name="测试基金", latest_nav="1.5")
         Position.objects.create(
             account=child,
             fund=fund,
@@ -70,9 +67,7 @@ class TestReportPreview:
         with patch("api.views.requests.post") as mock_post:
             mock_resp = mock_post.return_value
             mock_resp.json.return_value = {
-                "choices": [
-                    {"message": {"content": "# 投资周报\n\n本周盈亏: +100.00 元"}}
-                ]
+                "choices": [{"message": {"content": "# 投资周报\n\n本周盈亏: +100.00 元"}}]
             }
             mock_resp.raise_for_status = lambda: None
 
@@ -102,9 +97,7 @@ class TestReportPreview:
 
         with patch("api.views.requests.post") as mock_post:
             mock_resp = mock_post.return_value
-            mock_resp.json.return_value = {
-                "choices": [{"message": {"content": "暂无持仓数据"}}]
-            }
+            mock_resp.json.return_value = {"choices": [{"message": {"content": "暂无持仓数据"}}]}
             mock_resp.raise_for_status = lambda: None
 
             resp = client.post(

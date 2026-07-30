@@ -12,9 +12,10 @@
 8. 批量重算
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -444,7 +445,7 @@ class TestBatchRecalculation:
 
     def test_recalculate_account_positions(self, user, fund1, create_child_account):
         """测试重算指定账户的持仓"""
-        from api.models import Account, PositionOperation, Position
+        from api.models import Position, PositionOperation
         from api.services import recalculate_all_positions
 
         account1 = create_child_account(user, "账户1")

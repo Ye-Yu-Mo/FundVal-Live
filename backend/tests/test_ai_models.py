@@ -1,12 +1,11 @@
-from django.test import TestCase
-from django.contrib.auth import get_user_model
 from api.models import AIConfig, AIPromptTemplate
+from django.contrib.auth import get_user_model
+from django.test import TestCase
 
 User = get_user_model()
 
 
 class AIConfigModelTest(TestCase):
-
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass")
 
@@ -48,7 +47,6 @@ class AIConfigModelTest(TestCase):
 
 
 class AIPromptTemplateModelTest(TestCase):
-
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass")
 

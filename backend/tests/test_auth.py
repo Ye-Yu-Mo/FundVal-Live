@@ -10,8 +10,8 @@
 """
 
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 
 @pytest.mark.django_db
@@ -94,9 +94,7 @@ class TestAuth:
         access_token = login_response.json()["access_token"]
 
         # 获取用户信息
-        response = client.get(
-            "/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access_token}"
-        )
+        response = client.get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access_token}")
 
         assert response.status_code == 200
         data = response.json()

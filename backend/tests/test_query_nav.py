@@ -10,13 +10,13 @@
 6. 历史净值和 latest_nav 都不存在应返回 404
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework.test import APIClient
-from django.contrib.auth import get_user_model
+from decimal import Decimal
 
+import pytest
 from api.models import Fund, FundNavHistory
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 

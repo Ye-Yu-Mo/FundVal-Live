@@ -8,11 +8,11 @@
 4. Position.account 必须是子账户
 """
 
-import pytest
 from decimal import Decimal
-from django.db import IntegrityError
-from django.core.exceptions import ValidationError
+
+import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -228,8 +228,9 @@ class TestParentAccountPositionConstraints:
 
     def test_position_operation_account_must_be_child(self, user, fund):
         """测试 PositionOperation.account 必须是子账户"""
-        from api.models import Account, PositionOperation
         from datetime import date
+
+        from api.models import Account, PositionOperation
 
         # 创建父账户
         parent = Account.objects.create(
@@ -253,8 +254,9 @@ class TestParentAccountPositionConstraints:
 
     def test_position_operation_with_child_account_succeeds(self, user, fund):
         """测试子账户可以创建操作流水"""
-        from api.models import Account, PositionOperation
         from datetime import date
+
+        from api.models import Account, PositionOperation
 
         # 创建父账户和子账户
         parent = Account.objects.create(

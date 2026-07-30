@@ -7,11 +7,12 @@
 3. 计算估值准确率
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date, timedelta
-from unittest.mock import Mock, patch
+from decimal import Decimal
 from io import StringIO
+from unittest.mock import patch
+
+import pytest
 from django.core.management import call_command
 
 
@@ -22,13 +23,15 @@ class TestSyncFundsCommand:
     @patch("akshare.fund_name_em")
     def test_sync_funds_success(self, mock_ak):
         """M2: 同步基金列表成功（通过 akshare）"""
-        from api.models import Fund
         import pandas as pd
+        from api.models import Fund
 
-        mock_ak.return_value = pd.DataFrame([
-            {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
-            {"基金代码": "000002", "基金简称": "华夏成长混合(后端)", "基金类型": "混合型-灵活"},
-        ])
+        mock_ak.return_value = pd.DataFrame(
+            [
+                {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
+                {"基金代码": "000002", "基金简称": "华夏成长混合(后端)", "基金类型": "混合型-灵活"},
+            ]
+        )
 
         out = StringIO()
         call_command("sync_funds", stdout=out)
@@ -41,16 +44,20 @@ class TestSyncFundsCommand:
     @patch("akshare.fund_name_em")
     def test_sync_funds_update_existing(self, mock_ak):
         """M2: 更新已存在的基金"""
-        from api.models import Fund
         import pandas as pd
+        from api.models import Fund
 
         Fund.objects.create(
-            fund_code="000001", fund_name="旧名称", fund_type="旧类型",
+            fund_code="000001",
+            fund_name="旧名称",
+            fund_type="旧类型",
         )
 
-        mock_ak.return_value = pd.DataFrame([
-            {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
-        ])
+        mock_ak.return_value = pd.DataFrame(
+            [
+                {"基金代码": "000001", "基金简称": "华夏成长混合", "基金类型": "混合型-灵活"},
+            ]
+        )
 
         call_command("sync_funds", stdout=StringIO())
 
@@ -178,9 +185,7 @@ class TestCalculateAccuracyCommand:
         assert accuracy_record.actual_nav == Decimal("1.1490")
         assert accuracy_record.error_rate is not None
         # 误差率 = (1.1370 - 1.1490) / 1.1490 ≈ -0.010444
-        assert abs(accuracy_record.error_rate - Decimal("-0.010444")) < Decimal(
-            "0.000001"
-        )
+        assert abs(accuracy_record.error_rate - Decimal("-0.010444")) < Decimal("0.000001")
 
     def test_calculate_accuracy_skip_completed(self, accuracy_record):
         """测试跳过已计算的记录"""
@@ -213,8 +218,9 @@ class TestCalculateAccuracyCommand:
     @patch("requests.get")
     def test_calculate_accuracy_specific_date(self, mock_get, fund):
         """M1: 计算指定日期的准确率（通过 Mobile API FundMNFInfo）"""
-        from api.models import EstimateAccuracy
         from unittest.mock import MagicMock
+
+        from api.models import EstimateAccuracy
 
         target_date = date(2024, 2, 11)
         record = EstimateAccuracy.objects.create(
@@ -266,7 +272,7 @@ class TestRecalculatePositionsCommand:
 
     def test_recalculate_all_positions(self, account, fund):
         """测试重算所有持仓"""
-        from api.models import PositionOperation, Position
+        from api.models import Position, PositionOperation
 
         # 创建操作
         PositionOperation.objects.create(
@@ -290,7 +296,7 @@ class TestRecalculatePositionsCommand:
 
     def test_recalculate_account_positions(self, user, fund, create_child_account):
         """测试重算指定账户的持仓"""
-        from api.models import Account, PositionOperation, Position
+        from api.models import Position, PositionOperation
 
         account1 = create_child_account(user, "账户1")
         account2 = create_child_account(user, "账户2")

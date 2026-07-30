@@ -7,8 +7,9 @@
 3. 父账户汇总字段正确
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
@@ -157,9 +158,7 @@ class TestAccountSerializerWithSummary:
         assert len(response.data) == 2  # 父账户 + 子账户
 
         # 找到父账户和子账户
-        parent_data = next(
-            a for a in response.data if a["id"] == str(parent_account.id)
-        )
+        parent_data = next(a for a in response.data if a["id"] == str(parent_account.id))
         child_data = next(a for a in response.data if a["id"] == str(child_account.id))
 
         # 验证都包含汇总字段

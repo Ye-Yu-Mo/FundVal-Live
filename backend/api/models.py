@@ -1,6 +1,7 @@
 import uuid
-from django.db import models
+
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -30,9 +31,7 @@ class Fund(models.Model):
         blank=True,
         help_text="估值涨跌幅（%）",
     )
-    estimate_time = models.DateTimeField(
-        null=True, blank=True, help_text="估值更新时间"
-    )
+    estimate_time = models.DateTimeField(null=True, blank=True, help_text="估值更新时间")
 
     # M2: 估值来源标识（akshare / penetration / yangjibao / xiaobeiyangji）
     estimate_source = models.CharField(
@@ -93,9 +92,7 @@ class Account(models.Model):
         # 验证：每个用户只能有一个默认账户
         if self.is_default:
             existing_default = (
-                Account.objects.filter(user=self.user, is_default=True)
-                .exclude(id=self.id)
-                .first()
+                Account.objects.filter(user=self.user, is_default=True).exclude(id=self.id).first()
             )
 
             if existing_default:
@@ -111,9 +108,9 @@ class Account(models.Model):
         """保存前自动处理默认账户切换"""
         # 如果设置为默认账户，自动取消同用户的其他默认账户
         if self.is_default:
-            Account.objects.filter(user=self.user, is_default=True).exclude(
-                id=self.id
-            ).update(is_default=False)
+            Account.objects.filter(user=self.user, is_default=True).exclude(id=self.id).update(
+                is_default=False
+            )
 
         # 调用 clean 进行验证
         self.full_clean()
@@ -127,9 +124,7 @@ class Account(models.Model):
 
         if self.parent is None:
             # 父账户：汇总所有子账户
-            return sum(
-                (child.holding_cost for child in self.children.all()), Decimal("0")
-            )
+            return sum((child.holding_cost for child in self.children.all()), Decimal("0"))
         else:
             # 子账户：汇总所有持仓
             return sum((pos.holding_cost for pos in self.positions.all()), Decimal("0"))
@@ -141,9 +136,7 @@ class Account(models.Model):
 
         if self.parent is None:
             # 父账户：汇总所有子账户
-            return sum(
-                (child.holding_value for child in self.children.all()), Decimal("0")
-            )
+            return sum((child.holding_value for child in self.children.all()), Decimal("0"))
         else:
             # 子账户：汇总所有持仓
             return sum(
@@ -158,7 +151,6 @@ class Account(models.Model):
     @property
     def pnl(self):
         """总盈亏"""
-        from decimal import Decimal
 
         return self.holding_value - self.holding_cost
 
@@ -201,7 +193,6 @@ class Account(models.Model):
     @property
     def estimate_pnl(self):
         """预估盈亏"""
-        from decimal import Decimal
 
         if self.estimate_value is None:
             return None
@@ -235,15 +226,9 @@ class Account(models.Model):
             for pos in self.positions.all():
                 if pos.fund.estimate_nav is None or pos.fund.latest_nav is None:
                     continue  # 跳过缺失估值的持仓，不影响其他持仓的计算
-                total += pos.holding_share * (
-                    pos.fund.estimate_nav - pos.fund.latest_nav
-                )
+                total += pos.holding_share * (pos.fund.estimate_nav - pos.fund.latest_nav)
                 has_any = True
-            return (
-                total
-                if has_any
-                else (Decimal("0") if self.positions.exists() else Decimal("0"))
-            )
+            return total if has_any else (Decimal("0") if self.positions.exists() else Decimal("0"))
 
     @property
     def today_pnl_rate(self):
@@ -259,9 +244,7 @@ class Position(models.Model):
     """持仓汇总模型（只读，由流水计算）"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, related_name="positions"
-    )
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="positions")
     fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="positions")
 
     # 汇总数据（只读，由流水计算）
@@ -310,9 +293,7 @@ class PositionOperation(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, related_name="operations"
-    )
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="operations")
     fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="operations")
 
     operation_type = models.CharField(max_length=10, choices=OPERATION_TYPE_CHOICES)
@@ -332,7 +313,9 @@ class PositionOperation(models.Model):
         ordering = ["operation_date", "created_at"]
 
     def __str__(self):
-        return f"{self.get_operation_type_display()} - {self.fund.fund_name} - {self.operation_date}"
+        return (
+            f"{self.get_operation_type_display()} - {self.fund.fund_name} - {self.operation_date}"
+        )
 
     def clean(self):
         """模型验证"""
@@ -378,12 +361,8 @@ class WatchlistItem(models.Model):
     """自选列表项"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    watchlist = models.ForeignKey(
-        Watchlist, on_delete=models.CASCADE, related_name="items"
-    )
-    fund = models.ForeignKey(
-        Fund, on_delete=models.CASCADE, related_name="watchlist_items"
-    )
+    watchlist = models.ForeignKey(Watchlist, on_delete=models.CASCADE, related_name="items")
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="watchlist_items")
     order = models.IntegerField(default=0, help_text="排序")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -404,15 +383,11 @@ class EstimateAccuracy(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     source_name = models.CharField(max_length=50, db_index=True)
-    fund = models.ForeignKey(
-        Fund, on_delete=models.CASCADE, related_name="accuracy_records"
-    )
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="accuracy_records")
 
     estimate_date = models.DateField()
     estimate_nav = models.DecimalField(max_digits=10, decimal_places=4)
-    actual_nav = models.DecimalField(
-        max_digits=10, decimal_places=4, null=True, blank=True
-    )
+    actual_nav = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     error_rate = models.DecimalField(
         max_digits=10, decimal_places=6, null=True, blank=True, help_text="误差率"
@@ -450,9 +425,7 @@ class FundNavHistory(models.Model):
 
     # 净值数据
     nav_date = models.DateField(help_text="净值日期")
-    unit_nav = models.DecimalField(
-        max_digits=10, decimal_places=4, help_text="单位净值"
-    )
+    unit_nav = models.DecimalField(max_digits=10, decimal_places=4, help_text="单位净值")
     accumulated_nav = models.DecimalField(
         max_digits=10, decimal_places=4, null=True, blank=True, help_text="累计净值"
     )
@@ -487,12 +460,8 @@ class UserSourceCredential(models.Model):
     """用户数据源凭证"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="source_credentials"
-    )
-    source_name = models.CharField(
-        max_length=50, help_text="数据源名称（如 yangjibao）"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="source_credentials")
+    source_name = models.CharField(max_length=50, help_text="数据源名称（如 yangjibao）")
     token = models.TextField(help_text="加密存储的 token")
     is_active = models.BooleanField(default=True, help_text="是否激活")
 
@@ -525,9 +494,7 @@ class UserPreference(models.Model):
         ("dark", "深色"),
     ]
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="preference"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference")
     preferred_source = models.CharField(
         max_length=50,
         choices=SOURCE_CHOICES,
@@ -557,14 +524,10 @@ class UserPreference(models.Model):
 class AIConfig(models.Model):
     """用户AI配置"""
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="ai_config"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="ai_config")
     api_endpoint = models.CharField(max_length=500, help_text="OpenAI协议接口地址")
     api_key = models.CharField(max_length=500, help_text="API Key")
-    model_name = models.CharField(
-        max_length=100, default="gpt-4o-mini", help_text="模型名称"
-    )
+    model_name = models.CharField(max_length=100, default="gpt-4o-mini", help_text="模型名称")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -586,13 +549,9 @@ class AIPromptTemplate(models.Model):
         ("position", "持仓分析"),
     ]
 
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="ai_templates"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ai_templates")
     name = models.CharField(max_length=100, help_text="模板名称")
-    context_type = models.CharField(
-        max_length=20, choices=CONTEXT_CHOICES, help_text="分析维度"
-    )
+    context_type = models.CharField(max_length=20, choices=CONTEXT_CHOICES, help_text="分析维度")
     system_prompt = models.TextField(help_text="系统提示词")
     user_prompt = models.TextField(help_text="用户提示词（含占位符）")
     is_default = models.BooleanField(default=False, help_text="是否为该类型的默认模板")
@@ -619,9 +578,7 @@ class NotificationChannel(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="notification_channels"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notification_channels")
     channel_type = models.CharField(max_length=20, choices=CHANNEL_TYPE_CHOICES)
     config = models.JSONField(help_text="渠道配置（webhook_url 或 email）")
     is_active = models.BooleanField(default=True)
@@ -646,12 +603,8 @@ class NotificationRule(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="notification_rules"
-    )
-    fund = models.ForeignKey(
-        Fund, on_delete=models.CASCADE, related_name="notification_rules"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notification_rules")
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="notification_rules")
     rule_type = models.CharField(max_length=20, choices=RULE_TYPE_CHOICES)
     threshold = models.DecimalField(
         max_digits=10, decimal_places=2, help_text="阈值（百分比，如 5.00 表示 5%）"
@@ -692,18 +645,12 @@ class NotificationLog(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    rule = models.ForeignKey(
-        NotificationRule, on_delete=models.CASCADE, related_name="logs"
-    )
-    channel = models.ForeignKey(
-        NotificationChannel, on_delete=models.CASCADE, related_name="logs"
-    )
+    rule = models.ForeignKey(NotificationRule, on_delete=models.CASCADE, related_name="logs")
+    channel = models.ForeignKey(NotificationChannel, on_delete=models.CASCADE, related_name="logs")
     trigger_time = models.DateTimeField(auto_now_add=True, db_index=True)
     fund_code = models.CharField(max_length=10)
     fund_name = models.CharField(max_length=100)
-    growth = models.DecimalField(
-        max_digits=10, decimal_places=2, help_text="触发时的涨跌幅（%）"
-    )
+    growth = models.DecimalField(max_digits=10, decimal_places=2, help_text="触发时的涨跌幅（%）")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     error_message = models.TextField(null=True, blank=True)
 
@@ -722,15 +669,11 @@ class NotificationLog(models.Model):
 class EstimateSnapshot(models.Model):
     """盘中估值快照（用于绘制当日估值曲线）"""
 
-    fund = models.ForeignKey(
-        Fund, on_delete=models.CASCADE, related_name="estimate_snapshots"
-    )
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="estimate_snapshots")
     source = models.CharField(max_length=50, default="eastmoney")
     timestamp = models.DateTimeField(db_index=True)
     estimate_nav = models.DecimalField(max_digits=10, decimal_places=4)
-    estimate_growth = models.DecimalField(
-        max_digits=10, decimal_places=4, null=True, blank=True
-    )
+    estimate_growth = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     class Meta:
         db_table = "estimate_snapshot"

@@ -1,18 +1,18 @@
+import json
+
+import requests
+from django.contrib.auth import authenticate, get_user_model
 from django.db import connection
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import get_user_model, authenticate
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
-import json
-import requests
-
+from django.views.decorators.csrf import csrf_exempt
+from fundval.bootstrap import verify_bootstrap_key
 from fundval.config import config
-from fundval.bootstrap import verify_bootstrap_key, get_bootstrap_key
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def health(request):
@@ -84,7 +84,7 @@ def bootstrap_initialize(request):
             email=f"{admin_username}@fundval.local",
         )
     except Exception as e:
-        return Response({"error": f"创建管理员失败: {str(e)}"}, status=400)
+        return Response({"error": f"创建管理员失败: {e!s}"}, status=400)
 
     # 更新配置
     config.set("system_initialized", True)
@@ -138,7 +138,7 @@ def refresh_token(request):
     try:
         refresh = RefreshToken(refresh_token_str)
         return Response({"access_token": str(refresh.access_token)})
-    except Exception as e:
+    except Exception:
         return Response({"error": "Invalid refresh token"}, status=400)
 
 
@@ -181,17 +181,16 @@ def change_password(request):
 def _replace_placeholders(template: str, context_data: dict) -> str:
     """将模板中的 {{key}} 占位符替换为 context_data 中的值"""
     for key, value in context_data.items():
-        template = template.replace(
-            f"{{{{{key}}}}}", str(value) if value is not None else ""
-        )
+        template = template.replace(f"{{{{{key}}}}}", str(value) if value is not None else "")
     return template
 
 
 def build_report_context(user, period="weekly"):
     """构建投资报告占位符上下文数据"""
-    from decimal import Decimal
     from datetime import timedelta
-    from .models import Account, Position, PositionOperation
+    from decimal import Decimal
+
+    from .models import Account, Position
 
     today = timezone.localdate()
 
@@ -232,16 +231,12 @@ def build_report_context(user, period="weekly"):
         total_value += val
         total_cost += cost
         total_pnl += pnl
-        account_summary.append(
-            f"- {acc.name}: 市值 ¥{val:.2f}, 成本 ¥{cost:.2f}, 盈亏 ¥{pnl:.2f}"
-        )
+        account_summary.append(f"- {acc.name}: 市值 ¥{val:.2f}, 成本 ¥{cost:.2f}, 盈亏 ¥{pnl:.2f}")
 
     pnl_rate = f"{(total_pnl / total_cost * 100):.2f}%" if total_cost > 0 else "0%"
 
     # 持仓明细
-    positions = Position.objects.filter(account__user=user).select_related(
-        "account", "fund"
-    )
+    positions = Position.objects.filter(account__user=user).select_related("account", "fund")
     if not positions.exists():
         return {
             "account_summary": "\n".join(account_summary),
@@ -258,11 +253,7 @@ def build_report_context(user, period="weekly"):
         latest_nav = pos.fund.latest_nav or Decimal("0")
         market_value = pos.holding_share * latest_nav
         pnl_val = pos.pnl or 0
-        pnl_r = (
-            f"{(pnl_val / pos.holding_cost * 100):.2f}%"
-            if pos.holding_cost > 0
-            else "0%"
-        )
+        pnl_r = f"{(pnl_val / pos.holding_cost * 100):.2f}%" if pos.holding_cost > 0 else "0%"
         position_lines.append(
             f"- {pos.fund.fund_name}({pos.fund.fund_code}): "
             f"{pos.holding_share:.4f}份, 成本 ¥{pos.holding_cost:.2f}, "
@@ -276,16 +267,10 @@ def build_report_context(user, period="weekly"):
     worst = sorted_perf[-3:][::-1]
 
     top_str = "\n".join(
-        [
-            f"{i+1}. {name}: ¥{pnl:.2f}({rate})"
-            for i, (name, pnl, rate) in enumerate(top)
-        ]
+        [f"{i + 1}. {name}: ¥{pnl:.2f}({rate})" for i, (name, pnl, rate) in enumerate(top)]
     )
     worst_str = "\n".join(
-        [
-            f"{i+1}. {name}: ¥{pnl:.2f}({rate})"
-            for i, (name, pnl, rate) in enumerate(worst)
-        ]
+        [f"{i + 1}. {name}: ¥{pnl:.2f}({rate})" for i, (name, pnl, rate) in enumerate(worst)]
     )
 
     return {
@@ -316,9 +301,7 @@ def ai_analyze(request):
     context_data = request.data.get("context_data", {})
 
     if not template_id:
-        return Response(
-            {"error": "缺少 template_id"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": "缺少 template_id"}, status=status.HTTP_400_BAD_REQUEST)
 
     # 取模板（只能用自己的）
     try:
@@ -361,9 +344,7 @@ def ai_analyze(request):
         content = result["choices"][0]["message"]["content"]
         return Response({"result": content})
     except Exception as e:
-        return Response(
-            {"error": f"AI接口调用失败: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY
-        )
+        return Response({"error": f"AI接口调用失败: {e!s}"}, status=status.HTTP_502_BAD_GATEWAY)
 
 
 @api_view(["POST"])
@@ -395,12 +376,12 @@ def ai_report_preview(request):
     # 系统提示词
     system_prompt = "你是一位专业的基金投资顾问，擅长撰写投资分析报告。请根据提供的持仓数据，生成一份结构清晰、客观专业的投资报告。使用 Markdown 格式，报告标题下方标注生成日期。"
     user_prompt = (
-        f'请根据以下数据生成一份投资报告（报告日期：{timezone.now().strftime("%Y年%m月%d日")}）：\n\n'
-        f'## 账户总览\n{context_data.get("account_summary", "")}\n\n'
-        f'## 持仓明细\n{context_data.get("position_summary", "")}\n\n'
-        f'## 期间表现\n{context_data.get("period_pnl", "")}\n\n'
-        f'## 表现最佳\n{context_data.get("top_performers", "")}\n\n'
-        f'## 表现最差\n{context_data.get("worst_performers", "")}\n'
+        f"请根据以下数据生成一份投资报告（报告日期：{timezone.now().strftime('%Y年%m月%d日')}）：\n\n"
+        f"## 账户总览\n{context_data.get('account_summary', '')}\n\n"
+        f"## 持仓明细\n{context_data.get('position_summary', '')}\n\n"
+        f"## 期间表现\n{context_data.get('period_pnl', '')}\n\n"
+        f"## 表现最佳\n{context_data.get('top_performers', '')}\n\n"
+        f"## 表现最差\n{context_data.get('worst_performers', '')}\n"
     )
 
     # 如果指定了模板，用模板替换
@@ -434,6 +415,4 @@ def ai_report_preview(request):
         content = result["choices"][0]["message"]["content"]
         return Response({"result": content})
     except Exception as e:
-        return Response(
-            {"error": f"AI接口调用失败: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY
-        )
+        return Response({"error": f"AI接口调用失败: {e!s}"}, status=status.HTTP_502_BAD_GATEWAY)

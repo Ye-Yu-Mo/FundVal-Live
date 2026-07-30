@@ -8,8 +8,8 @@
 """
 
 import pytest
-from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -21,7 +21,6 @@ User = get_user_model()
 
 @pytest.mark.django_db
 class TestUserPreferenceModel:
-
     def test_create_preference(self):
         """测试创建偏好"""
         from api.models import UserPreference
@@ -65,14 +64,8 @@ class TestUserPreferenceModel:
         UserPreference.objects.create(user=u1, preferred_source="eastmoney")
         UserPreference.objects.create(user=u2, preferred_source="yangjibao")
 
-        assert (
-            UserPreference.objects.filter(user=u1).first().preferred_source
-            == "eastmoney"
-        )
-        assert (
-            UserPreference.objects.filter(user=u2).first().preferred_source
-            == "yangjibao"
-        )
+        assert UserPreference.objects.filter(user=u1).first().preferred_source == "eastmoney"
+        assert UserPreference.objects.filter(user=u2).first().preferred_source == "yangjibao"
 
 
 # ─────────────────────────────────────────────
@@ -82,7 +75,6 @@ class TestUserPreferenceModel:
 
 @pytest.mark.django_db
 class TestGetPreference:
-
     def setup_method(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testuser", password="pass")
@@ -121,7 +113,6 @@ class TestGetPreference:
 
 @pytest.mark.django_db
 class TestUpdatePreference:
-
     def setup_method(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="testuser", password="pass")
@@ -160,9 +151,7 @@ class TestUpdatePreference:
     def test_update_preference_unauthenticated(self):
         """测试未登录时返回 401"""
         client = APIClient()
-        response = client.put(
-            "/api/preferences/", {"preferred_source": "yangjibao"}, format="json"
-        )
+        response = client.put("/api/preferences/", {"preferred_source": "yangjibao"}, format="json")
 
         assert response.status_code == 401
 
@@ -170,14 +159,8 @@ class TestUpdatePreference:
         """测试多次 PUT 只有一条记录"""
         from api.models import UserPreference
 
-        self.client.put(
-            "/api/preferences/", {"preferred_source": "yangjibao"}, format="json"
-        )
-        self.client.put(
-            "/api/preferences/", {"preferred_source": "eastmoney"}, format="json"
-        )
+        self.client.put("/api/preferences/", {"preferred_source": "yangjibao"}, format="json")
+        self.client.put("/api/preferences/", {"preferred_source": "eastmoney"}, format="json")
 
         assert UserPreference.objects.filter(user=self.user).count() == 1
-        assert (
-            UserPreference.objects.get(user=self.user).preferred_source == "eastmoney"
-        )
+        assert UserPreference.objects.get(user=self.user).preferred_source == "eastmoney"

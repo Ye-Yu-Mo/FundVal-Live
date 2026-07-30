@@ -3,9 +3,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict
-from decimal import Decimal
-from datetime import datetime, date
+from datetime import date
 
 
 class BaseEstimateSource(ABC):
@@ -19,10 +17,9 @@ class BaseEstimateSource(ABC):
         Returns:
             str: 数据源唯一标识
         """
-        pass
 
     @abstractmethod
-    def fetch_estimate(self, fund_code: str) -> Dict:
+    def fetch_estimate(self, fund_code: str) -> dict:
         """
         获取基金估值
 
@@ -38,10 +35,9 @@ class BaseEstimateSource(ABC):
                 'estimate_growth': Decimal,  # 估算涨幅
             }
         """
-        pass
 
     @abstractmethod
-    def fetch_realtime_nav(self, fund_code: str) -> Dict:
+    def fetch_realtime_nav(self, fund_code: str) -> dict:
         """
         获取实际净值（用于计算准确率）
 
@@ -55,10 +51,9 @@ class BaseEstimateSource(ABC):
                 'nav_date': date,
             }
         """
-        pass
 
     @abstractmethod
-    def fetch_today_nav(self, fund_code: str) -> Dict:
+    def fetch_today_nav(self, fund_code: str) -> dict:
         """
         获取当日确认净值（从历史净值接口取最新一条）
 
@@ -73,7 +68,6 @@ class BaseEstimateSource(ABC):
             }
             如果获取失败或数据为空，返回 None
         """
-        pass
 
     def get_login_type(self) -> str:
         """
@@ -86,7 +80,7 @@ class BaseEstimateSource(ABC):
         """
         return "none"
 
-    def get_qrcode(self) -> Dict:
+    def get_qrcode(self) -> dict:
         """
         获取登录二维码（login_type='qrcode' 的数据源实现）
 
@@ -96,7 +90,7 @@ class BaseEstimateSource(ABC):
         """
         return None
 
-    def check_qrcode_state(self, qr_id: str) -> Dict:
+    def check_qrcode_state(self, qr_id: str) -> dict:
         """
         检查二维码扫码状态（login_type='qrcode' 的数据源实现）
 
@@ -108,7 +102,6 @@ class BaseEstimateSource(ABC):
 
     def logout(self):
         """登出（清除 token），不需要登录的数据源无操作"""
-        pass
 
     def send_sms(self, phone: str) -> None:
         """
@@ -156,9 +149,8 @@ class BaseEstimateSource(ABC):
         self, fund_code: str, start_date: date = None, end_date: date = None
     ) -> list:
         """获取历史净值"""
-        pass
 
-    def fetch_market_quote(self, fund_code: str) -> Dict:
+    def fetch_market_quote(self, fund_code: str) -> dict:
         """
         获取场内实时价格（非必选实现）
 

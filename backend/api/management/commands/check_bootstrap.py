@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
-from fundval.config import config
 from fundval.bootstrap import get_bootstrap_key
+from fundval.config import config
 
 
 class Command(BaseCommand):
@@ -19,6 +19,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"  BOOTSTRAP KEY: {bootstrap_key}"))
             self.stdout.write(self.style.SUCCESS("=" * 60))
             self.stdout.write("")
-            self.stdout.write(
-                "Copy this key and use it to initialize the system via web UI"
-            )
+            self.stdout.write("Copy this key and use it to initialize the system via web UI")

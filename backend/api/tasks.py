@@ -4,11 +4,13 @@ Celery 任务
 定义所有后台异步任务
 """
 
-from celery import shared_task
-from django.core.management import call_command
 import logging
-import requests
 from datetime import date
+
+import requests
+from django.core.management import call_command
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ def update_fund_nav():
         logger.info("基金昨日/最新净值同步完成")
         return "净值同步完成"
     except Exception as e:
-        logger.error(f"基金净值自动更新失败: {str(e)}")
+        logger.error(f"基金净值自动更新失败: {e!s}")
         raise
 
 
@@ -41,7 +43,7 @@ def update_fund_today_nav():
         logger.info("基金今日净值确权完成")
         return "当日净值更新完成"
     except Exception as e:
-        logger.error(f"基金当日净值确权失败: {str(e)}")
+        logger.error(f"基金当日净值确权失败: {e!s}")
         raise
 
 
@@ -52,9 +54,10 @@ def capture_estimate_snapshot():
 
     每个交易日 15:05 执行，将收盘估值锁定，用于晚间与真实净值对比计算误差。
     """
-    from api.models import Fund, EstimateAccuracy
-    from api.utils.trading_calendar import is_trading_day
     from django.utils import timezone
+
+    from api.models import EstimateAccuracy, Fund
+    from api.utils.trading_calendar import is_trading_day
 
     today = timezone.localdate()
     if not is_trading_day(today):
@@ -88,10 +91,12 @@ def check_notification_rules():
     每 5 分钟执行一次，检查所有激活的通知规则，
     判断是否触发条件，发送通知并记录日志。
     """
-    from django.utils import timezone
     from datetime import timedelta
     from decimal import Decimal
-    from api.models import NotificationRule, NotificationLog
+
+    from django.utils import timezone
+
+    from api.models import NotificationLog, NotificationRule
     from api.notifications import ChannelRegistry
 
     rules = (
@@ -112,9 +117,9 @@ def check_notification_rules():
 
         # 判断是否触发
         triggered_flag = False
-        if rule.rule_type == "growth_up" and growth >= rule.threshold:
-            triggered_flag = True
-        elif rule.rule_type == "growth_down" and growth <= -rule.threshold:
+        if (rule.rule_type == "growth_up" and growth >= rule.threshold) or (
+            rule.rule_type == "growth_down" and growth <= -rule.threshold
+        ):
             triggered_flag = True
 
         if not triggered_flag:
@@ -155,9 +160,7 @@ def check_notification_rules():
                 success = channel_impl.send(title, content, channel_obj.config)
             except Exception as e:
                 error_msg = str(e)
-                logger.error(
-                    f"发送通知异常：rule={rule.id}, channel={channel_obj.id}, 错误：{e}"
-                )
+                logger.error(f"发送通知异常：rule={rule.id}, channel={channel_obj.id}, 错误：{e}")
 
             NotificationLog.objects.create(
                 rule=rule,
@@ -183,8 +186,9 @@ def audit_accuracy():
 
     每个交易晚间执行，计算所有捕捉到的快照与最终净值的误差。
     """
-    from api.utils.trading_calendar import is_trading_day
     from django.utils import timezone
+
+    from api.utils.trading_calendar import is_trading_day
 
     today = timezone.localdate()
     if not is_trading_day(today):
@@ -194,12 +198,13 @@ def audit_accuracy():
     try:
         # 审计昨天的准确率（昨天的净值今天已确认）
         from datetime import timedelta
+
         yesterday = today - timedelta(days=1)
         call_command("calculate_accuracy", date=yesterday.isoformat())
         logger.info(f"{today} 准确率审计完成")
         return "审计完成"
     except Exception as e:
-        logger.error(f"准确率审计失败: {str(e)}")
+        logger.error(f"准确率审计失败: {e!s}")
         raise
 
 
@@ -212,8 +217,10 @@ def capture_intraday_snapshots():
     用于绘制当日估值曲线。当天收盘后保留 7 天自动清理。
     """
     from datetime import timedelta
+
     from django.utils import timezone
-    from api.models import Fund, EstimateSnapshot, Position
+
+    from api.models import EstimateSnapshot, Fund, Position
     from api.sources import SourceRegistry
     from api.utils.trading_calendar import is_trading_day
 
@@ -253,9 +260,7 @@ def capture_intraday_snapshots():
             continue  # 需要持仓上下文，批量任务不适用
         if name == "xiaobeiyangji":
             # 有凭证时可用（批量 API 支持任意基金查询）
-            cred = UserSourceCredential.objects.filter(
-                source_name=name, is_active=True
-            ).first()
+            cred = UserSourceCredential.objects.filter(source_name=name, is_active=True).first()
             if not cred:
                 continue
             s.set_token(cred.token)
@@ -281,7 +286,7 @@ def capture_intraday_snapshots():
                     fund.save(update_fields=["estimate_nav", "estimate_growth", "estimate_time"])
                     count += 1
                     break
-            except Exception as e:
+            except Exception:
                 continue
 
     logger.info(f"已抓取 {count} 个基金的估值快照")
@@ -296,18 +301,15 @@ def generate_investment_reports():
     遍历所有开启了报告的用户，生成 AI 投资周报/月报/年报并推送。
     根据用户设置的 report_frequency 判断是否应该生成（周报=周一，月报=1日，年报=1月1日）。
     """
-    from django.contrib.auth import get_user_model
     from api.models import AIConfig, UserPreference
-    from api.views import build_report_context, _replace_placeholders
+    from api.views import build_report_context
 
     today = date.today()
     generated = 0
     skip_ai = 0
     skip_disabled = 0
 
-    for pref in UserPreference.objects.filter(report_enabled=True).select_related(
-        "user"
-    ):
+    for pref in UserPreference.objects.filter(report_enabled=True).select_related("user"):
         user = pref.user
 
         # 检查频率是否匹配今天（支持逗号分隔多选）
@@ -332,12 +334,12 @@ def generate_investment_reports():
             context_data = build_report_context(user, pref.report_frequency)
             system_prompt = "你是一位专业的基金投资顾问，请根据提供的持仓数据，生成一份结构清晰、客观专业的投资报告。使用 Markdown 格式，报告标题下方标注生成日期。"
             user_prompt = (
-                f'请根据以下数据生成一份投资报告（报告日期：{today.strftime("%Y年%m月%d日")}）：\n\n'
-                f'## 账户总览\n{context_data.get("account_summary", "")}\n\n'
-                f'## 持仓明细\n{context_data.get("position_summary", "")}\n\n'
-                f'## 期间表现\n{context_data.get("period_pnl", "")}\n\n'
-                f'## 表现最佳\n{context_data.get("top_performers", "")}\n\n'
-                f'## 表现最差\n{context_data.get("worst_performers", "")}\n'
+                f"请根据以下数据生成一份投资报告（报告日期：{today.strftime('%Y年%m月%d日')}）：\n\n"
+                f"## 账户总览\n{context_data.get('account_summary', '')}\n\n"
+                f"## 持仓明细\n{context_data.get('position_summary', '')}\n\n"
+                f"## 期间表现\n{context_data.get('period_pnl', '')}\n\n"
+                f"## 表现最佳\n{context_data.get('top_performers', '')}\n\n"
+                f"## 表现最差\n{context_data.get('worst_performers', '')}\n"
             )
 
             endpoint = ai_config.api_endpoint.rstrip("/")

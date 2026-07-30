@@ -10,18 +10,17 @@
 6. 渠道发送失败记录 failed 日志
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import patch, Mock
+from unittest.mock import patch
+
+import pytest
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestCheckNotificationRules:
-
     @pytest.fixture
     def user(self):
         return User.objects.create_user(username="testuser", password="pass")
@@ -110,9 +109,7 @@ class TestCheckNotificationRules:
         mock_send.assert_called_once()
 
     @patch("api.notifications.webhook.WebhookChannel.send")
-    def test_below_threshold_not_triggered(
-        self, mock_send, user, fund_up, webhook_channel
-    ):
+    def test_below_threshold_not_triggered(self, mock_send, user, fund_up, webhook_channel):
         """未达阈值时不触发"""
         self._make_rule(user, fund_up, "growth_up", 10.0, webhook_channel)
 
@@ -129,9 +126,7 @@ class TestCheckNotificationRules:
         from api.models import NotificationLog
 
         mock_send.return_value = True
-        rule = self._make_rule(
-            user, fund_up, "growth_up", 5.0, webhook_channel, cooldown=60
-        )
+        rule = self._make_rule(user, fund_up, "growth_up", 5.0, webhook_channel, cooldown=60)
 
         # 模拟已有成功通知记录
         NotificationLog.objects.create(
@@ -152,9 +147,7 @@ class TestCheckNotificationRules:
         mock_send.assert_not_called()
 
     @patch("api.notifications.webhook.WebhookChannel.send")
-    def test_no_estimate_skipped(
-        self, mock_send, user, fund_no_estimate, webhook_channel
-    ):
+    def test_no_estimate_skipped(self, mock_send, user, fund_no_estimate, webhook_channel):
         """无估值数据时跳过"""
         self._make_rule(user, fund_no_estimate, "growth_up", 5.0, webhook_channel)
 

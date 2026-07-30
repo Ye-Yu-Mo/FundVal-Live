@@ -10,8 +10,8 @@
 """
 
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 
 def _get_token(client, username, password):
@@ -49,9 +49,7 @@ class TestAdminUserList:
 
         client = Client()
         token = _get_token(client, "admin", "admin123")
-        resp = client.get(
-            "/api/admin/users/?search=ali", HTTP_AUTHORIZATION=f"Bearer {token}"
-        )
+        resp = client.get("/api/admin/users/?search=ali", HTTP_AUTHORIZATION=f"Bearer {token}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 1
@@ -92,9 +90,7 @@ class TestAdminToggleUser:
     def test_admin_can_re_enable_user(self):
         User = get_user_model()
         admin = User.objects.create_superuser(username="admin", password="admin123")
-        user = User.objects.create_user(
-            username="target", password="pass1", is_active=False
-        )
+        user = User.objects.create_user(username="target", password="pass1", is_active=False)
 
         client = Client()
         token = _get_token(client, "admin", "admin123")
@@ -108,9 +104,7 @@ class TestAdminToggleUser:
 
     def test_non_admin_cannot_toggle(self):
         User = get_user_model()
-        admin_user = User.objects.create_superuser(
-            username="admin", password="admin123"
-        )
+        admin_user = User.objects.create_superuser(username="admin", password="admin123")
         normal = User.objects.create_user(username="normal", password="pass1")
         target = User.objects.create_user(username="target", password="pass1")
 
@@ -161,9 +155,7 @@ class TestAdminResetPassword:
 
     def test_non_admin_cannot_reset_password(self):
         User = get_user_model()
-        admin_user = User.objects.create_superuser(
-            username="admin", password="admin123"
-        )
+        admin_user = User.objects.create_superuser(username="admin", password="admin123")
         normal = User.objects.create_user(username="normal", password="pass1")
         target = User.objects.create_user(username="target", password="pass1")
 

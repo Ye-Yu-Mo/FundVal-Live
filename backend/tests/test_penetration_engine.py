@@ -5,29 +5,53 @@
 反向加权推算基金实时估值。
 """
 
-import pytest
+from datetime import datetime, timedelta
 from decimal import Decimal
-from datetime import datetime, date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from api.sources.penetration_engine import PenetrationEngine
 
-
 # ── 辅助: 构造测试数据 ──
+
 
 def _sample_holdings():
     """上证 50 ETF 前十大成分股"""
     return [
-        {"stock_code": "600519", "stock_name": "贵州茅台", "weight": Decimal("7.29"),
-         "price": None, "change_percent": None},
-        {"stock_code": "601318", "stock_name": "中国平安", "weight": Decimal("6.50"),
-         "price": None, "change_percent": None},
-        {"stock_code": "600036", "stock_name": "招商银行", "weight": Decimal("5.80"),
-         "price": None, "change_percent": None},
-        {"stock_code": "601166", "stock_name": "兴业银行", "weight": Decimal("3.90"),
-         "price": None, "change_percent": None},
-        {"stock_code": "600887", "stock_name": "伊利股份", "weight": Decimal("3.50"),
-         "price": None, "change_percent": None},
+        {
+            "stock_code": "600519",
+            "stock_name": "贵州茅台",
+            "weight": Decimal("7.29"),
+            "price": None,
+            "change_percent": None,
+        },
+        {
+            "stock_code": "601318",
+            "stock_name": "中国平安",
+            "weight": Decimal("6.50"),
+            "price": None,
+            "change_percent": None,
+        },
+        {
+            "stock_code": "600036",
+            "stock_name": "招商银行",
+            "weight": Decimal("5.80"),
+            "price": None,
+            "change_percent": None,
+        },
+        {
+            "stock_code": "601166",
+            "stock_name": "兴业银行",
+            "weight": Decimal("3.90"),
+            "price": None,
+            "change_percent": None,
+        },
+        {
+            "stock_code": "600887",
+            "stock_name": "伊利股份",
+            "weight": Decimal("3.50"),
+            "price": None,
+            "change_percent": None,
+        },
     ]
 
 
@@ -45,6 +69,7 @@ def _sample_quotes():
 # ================================================================
 # _is_applicable — 基金类型适用性
 # ================================================================
+
 
 class TestIsApplicable:
     """_is_applicable 类型判断"""
@@ -85,6 +110,7 @@ class TestIsApplicable:
 # _calculate — 加权推算
 # ================================================================
 
+
 class TestCalculate:
     """_calculate 加权推算核心算法"""
 
@@ -93,9 +119,7 @@ class TestCalculate:
         engine = PenetrationEngine()
         latest_nav = Decimal("1.2345")
 
-        result = engine._calculate(
-            _sample_holdings(), _sample_quotes(), "ETF-场内", latest_nav
-        )
+        result = engine._calculate(_sample_holdings(), _sample_quotes(), "ETF-场内", latest_nav)
 
         assert result is not None
         # 手动验算:
@@ -130,9 +154,7 @@ class TestCalculate:
         quotes = _sample_quotes().copy()
         del quotes["600887"]  # 权重 3.50/26.99 ≈ 13% < 30%
 
-        result = engine._calculate(
-            _sample_holdings(), quotes, "ETF-场内", Decimal("1.0")
-        )
+        result = engine._calculate(_sample_holdings(), quotes, "ETF-场内", Decimal("1.0"))
         assert result is not None  # 13% 缺失 → 仍可计算
 
     def test_low_precision_when_over_30pct_missing(self):
@@ -140,25 +162,19 @@ class TestCalculate:
         engine = PenetrationEngine()
         quotes = {"600519": _sample_quotes()["600519"]}  # 只有 1/5 = 80% 缺
 
-        result = engine._calculate(
-            _sample_holdings(), quotes, "ETF-场内", Decimal("1.0")
-        )
+        result = engine._calculate(_sample_holdings(), quotes, "ETF-场内", Decimal("1.0"))
         assert result is None
 
     def test_latest_nav_none_returns_none(self):
         """最新净值为 None → 无法推算"""
         engine = PenetrationEngine()
-        result = engine._calculate(
-            _sample_holdings(), _sample_quotes(), "ETF-场内", None
-        )
+        result = engine._calculate(_sample_holdings(), _sample_quotes(), "ETF-场内", None)
         assert result is None
 
     def test_decimal_precision(self):
         """所有计算使用 Decimal，防止浮点精度问题"""
         engine = PenetrationEngine()
-        result = engine._calculate(
-            _sample_holdings(), _sample_quotes(), "ETF-场内", Decimal("1.0")
-        )
+        result = engine._calculate(_sample_holdings(), _sample_quotes(), "ETF-场内", Decimal("1.0"))
         assert isinstance(result["estimate_nav"], Decimal)
         assert isinstance(result["estimate_growth"], Decimal)
 
@@ -166,8 +182,13 @@ class TestCalculate:
         """权重为零的成分股被过滤"""
         engine = PenetrationEngine()
         holdings = _sample_holdings() + [
-            {"stock_code": "000000", "stock_name": "零权重", "weight": Decimal("0"),
-             "price": None, "change_percent": None},
+            {
+                "stock_code": "000000",
+                "stock_name": "零权重",
+                "weight": Decimal("0"),
+                "price": None,
+                "change_percent": None,
+            },
         ]
         result = engine._calculate(holdings, _sample_quotes(), "ETF-场内", Decimal("1.0"))
         assert result is not None  # 零权重不影响计算
@@ -176,6 +197,7 @@ class TestCalculate:
 # ================================================================
 # estimate — 顶层接口
 # ================================================================
+
 
 class TestEstimate:
     """estimate 顶层接口"""
@@ -225,6 +247,7 @@ class TestEstimate:
 # _get_quotes — 行情缓存
 # ================================================================
 
+
 class TestGetQuotes:
     """_get_quotes 批量获取 + 缓存"""
 
@@ -233,12 +256,16 @@ class TestGetQuotes:
         engine = PenetrationEngine()
 
         with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+
             def fake_quote(code):
                 return {
-                    "fund_code": code, "market_price": Decimal("10.0"),
-                    "market_growth": Decimal("1.0"), "market_time": "2026-07-29",
+                    "fund_code": code,
+                    "market_price": Decimal("10.0"),
+                    "market_growth": Decimal("1.0"),
+                    "market_time": "2026-07-29",
                     "symbol": f"sh{code}",
                 }
+
             mock_sina.side_effect = fake_quote
 
             quotes = engine._get_quotes(["600519", "601318"])
@@ -251,7 +278,8 @@ class TestGetQuotes:
         """缓存命中不调 Sina"""
         engine = PenetrationEngine()
         engine._quote_cache["600519"] = {
-            "price": Decimal("100.0"), "change_percent": Decimal("2.0"),
+            "price": Decimal("100.0"),
+            "change_percent": Decimal("2.0"),
             "ts": datetime.now().timestamp(),
         }
 
@@ -265,14 +293,17 @@ class TestGetQuotes:
         """缓存过期重新拉取"""
         engine = PenetrationEngine()
         engine._quote_cache["600519"] = {
-            "price": Decimal("100.0"), "change_percent": Decimal("2.0"),
+            "price": Decimal("100.0"),
+            "change_percent": Decimal("2.0"),
             "ts": (datetime.now() - timedelta(seconds=40)).timestamp(),  # 过期
         }
 
         with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519", "market_price": Decimal("101.0"),
-                "market_growth": Decimal("3.0"), "market_time": "2026-07-29",
+                "fund_code": "600519",
+                "market_price": Decimal("101.0"),
+                "market_growth": Decimal("3.0"),
+                "market_time": "2026-07-29",
                 "symbol": "sh600519",
             }
             quotes = engine._get_quotes(["600519"])

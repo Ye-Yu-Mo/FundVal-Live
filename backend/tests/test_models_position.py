@@ -8,9 +8,10 @@
 4. 建仓/加仓/减仓逻辑
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -64,8 +65,8 @@ class TestPositionModel:
     def test_position_unique_per_account_fund(self, account, fund):
         """测试同一账户同一基金只能有一个持仓"""
         from api.models import Position
-        from django.db import IntegrityError
         from django.core.exceptions import ValidationError
+        from django.db import IntegrityError
 
         Position.objects.create(
             account=account,

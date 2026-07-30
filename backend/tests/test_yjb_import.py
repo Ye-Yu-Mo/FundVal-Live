@@ -8,12 +8,13 @@
 4. SourceCredentialViewSet.import_from_yangjibao API
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from unittest.mock import Mock, patch, MagicMock
-from rest_framework.test import APIClient
+from decimal import Decimal
+from unittest.mock import Mock, patch
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -230,8 +231,8 @@ class TestImportFromYangJiBao:
 
     def test_import_creates_parent_account(self, user, mock_source):
         """测试导入创建父账户（养基宝）"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import Account
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
 
@@ -241,8 +242,8 @@ class TestImportFromYangJiBao:
 
     def test_import_creates_sub_account(self, user, mock_source):
         """测试导入创建子账户"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import Account
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
 
@@ -253,8 +254,8 @@ class TestImportFromYangJiBao:
 
     def test_import_creates_fund(self, user, mock_source):
         """测试导入创建基金"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import Fund
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
 
@@ -264,8 +265,8 @@ class TestImportFromYangJiBao:
 
     def test_import_creates_position_operation(self, user, mock_source):
         """测试导入创建持仓操作"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import PositionOperation
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
 
@@ -296,8 +297,8 @@ class TestImportFromYangJiBao:
 
     def test_import_idempotent_accounts(self, user, mock_source):
         """测试重复导入账户不重复创建"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import Account
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
         import_from_yangjibao(user, mock_source)
@@ -306,8 +307,8 @@ class TestImportFromYangJiBao:
 
     def test_import_idempotent_holdings(self, user, mock_source):
         """测试重复导入持仓不重复创建"""
-        from api.services.import_yjb import import_from_yangjibao
         from api.models import PositionOperation
+        from api.services.import_yjb import import_from_yangjibao
 
         import_from_yangjibao(user, mock_source)
         import_from_yangjibao(user, mock_source)
@@ -322,8 +323,8 @@ class TestImportFromYangJiBao:
 
     def test_import_multiple_accounts(self, user):
         """测试导入多个账户"""
+        from api.models import Account
         from api.services.import_yjb import import_from_yangjibao
-        from api.models import Account, PositionOperation
 
         mock_source = Mock()
         mock_source.fetch_accounts.return_value = [

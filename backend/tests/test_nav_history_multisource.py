@@ -10,13 +10,13 @@
 6. batch_sync_nav_history 间接受益
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from unittest.mock import patch, MagicMock, call
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.models import Fund, FundNavHistory
-from api.services.nav_history import sync_nav_history, batch_sync_nav_history
+from api.services.nav_history import batch_sync_nav_history, sync_nav_history
 
 
 @pytest.mark.django_db
@@ -90,9 +90,7 @@ class TestNavHistoryMultiSource:
     # eastmoney 空 → danjuan 有数据
     # ──────────────────────────────────────────
 
-    def test_eastmoney_empty_fallback_danjuan_success(
-        self, fund, nav_data_danjuan
-    ):
+    def test_eastmoney_empty_fallback_danjuan_success(self, fund, nav_data_danjuan):
         """eastmoney 返回空，danjuan 返回数据 → 写入 danjuan 数据"""
         mock_eastmoney = MagicMock()
         mock_eastmoney.fetch_nav_history.return_value = []
@@ -115,12 +113,8 @@ class TestNavHistoryMultiSource:
 
         assert count == 2
         assert FundNavHistory.objects.filter(fund=fund).count() == 2
-        assert FundNavHistory.objects.filter(
-            fund=fund, nav_date=date(2024, 6, 15)
-        ).exists()
-        assert FundNavHistory.objects.filter(
-            fund=fund, nav_date=date(2024, 6, 14)
-        ).exists()
+        assert FundNavHistory.objects.filter(fund=fund, nav_date=date(2024, 6, 15)).exists()
+        assert FundNavHistory.objects.filter(fund=fund, nav_date=date(2024, 6, 14)).exists()
 
     # ──────────────────────────────────────────
     # 两个源都空
@@ -184,9 +178,7 @@ class TestNavHistoryMultiSource:
         mock_eastmoney.fetch_nav_history.return_value = []
 
         mock_danjuan = MagicMock()
-        mock_danjuan.fetch_nav_history.side_effect = Exception(
-            "danjuan API error"
-        )
+        mock_danjuan.fetch_nav_history.side_effect = Exception("danjuan API error")
 
         def get_source(name):
             if name == "eastmoney":

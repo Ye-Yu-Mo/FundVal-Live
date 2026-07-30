@@ -7,11 +7,9 @@
 """
 
 import pytest
-from decimal import Decimal
-from datetime import date, timedelta
-from django.test import Client
+from api.models import Account, Fund, Position
 from django.contrib.auth import get_user_model
-from api.models import Fund, Account, Position, PositionOperation, FundNavHistory
+from django.test import Client
 
 
 def _get_token(client, username, password):
@@ -78,13 +76,9 @@ class TestReportContextBuilder:
     def test_builds_account_summary(self):
         User = get_user_model()
         user = User.objects.create_user(username="user", password="pass1")
-        parent = Account.objects.create(
-            user=user, name="主账户", parent=None, is_default=True
-        )
+        parent = Account.objects.create(user=user, name="主账户", parent=None, is_default=True)
         child = Account.objects.create(user=user, name="子账户", parent=parent)
-        fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试基金", latest_nav="1.5"
-        )
+        fund = Fund.objects.create(fund_code="000001", fund_name="测试基金", latest_nav="1.5")
         Position.objects.create(
             account=child,
             fund=fund,
@@ -100,9 +94,7 @@ class TestReportContextBuilder:
         assert "account_summary" in ctx
         assert "总市值" in ctx["account_summary"] or "市值" in ctx["account_summary"]
         assert "position_summary" in ctx
-        assert (
-            "000001" in ctx["position_summary"] or "测试基金" in ctx["position_summary"]
-        )
+        assert "000001" in ctx["position_summary"] or "测试基金" in ctx["position_summary"]
         assert "period_pnl" in ctx
 
     def test_no_positions_returns_empty(self):
@@ -114,6 +106,4 @@ class TestReportContextBuilder:
         ctx = build_report_context(user, "monthly")
 
         assert "account_summary" in ctx
-        assert (
-            "暂无账户" in ctx["account_summary"] or "暂无持仓" in ctx["account_summary"]
-        )
+        assert "暂无账户" in ctx["account_summary"] or "暂无持仓" in ctx["account_summary"]

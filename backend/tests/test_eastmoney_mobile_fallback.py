@@ -10,24 +10,19 @@
 6. fetch_realtime_nav no fallback - Web API 成功时不走 mobile
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock, patch
 
+import pytest
 from api.sources.eastmoney import EastMoneySource
-
 
 # ─────────────────────────────────────────────
 # 辅助函数：构造 mobile API mock 响应
 # ─────────────────────────────────────────────
 
-MOBILE_NAV_HISTORY_URL = (
-    "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
-)
-MOBILE_REALTIME_NAV_URL = (
-    "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
-)
+MOBILE_NAV_HISTORY_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
+MOBILE_REALTIME_NAV_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
 
 PINGZHONGDATA_URL = "http://fund.eastmoney.com/pingzhongdata/{code}.js"
 FUNDGZ_URL = "http://fundgz.1234567.com.cn/js/{code}.js"
@@ -68,6 +63,7 @@ def _make_web_estimate_response(text):
 # ─────────────────────────────────────────────
 # _fetch_nav_history_mobile 单元测试
 # ─────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestFetchNavHistoryMobile:
@@ -196,7 +192,12 @@ class TestFetchNavHistoryMobile:
         with patch("requests.get") as mock_get:
             mock_get.return_value = _make_mobile_nav_response(
                 [
-                    {"FSRQ": "2026-06-17", "DWJZ": "1.23456789", "LJJZ": "3.60831234", "JZZZL": "3.61456789"},
+                    {
+                        "FSRQ": "2026-06-17",
+                        "DWJZ": "1.23456789",
+                        "LJJZ": "3.60831234",
+                        "JZZZL": "3.61456789",
+                    },
                 ]
             )
 
@@ -210,6 +211,7 @@ class TestFetchNavHistoryMobile:
 # ─────────────────────────────────────────────
 # _fetch_realtime_nav_mobile 单元测试
 # ─────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestFetchRealtimeNavMobile:
@@ -299,6 +301,7 @@ class TestFetchRealtimeNavMobile:
 # fetch_nav_history fallback 测试
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestFetchNavHistoryFallback:
     """fetch_nav_history 的 M1 行为 — 直接调 Mobile API"""
@@ -346,7 +349,12 @@ class TestFetchNavHistoryFallback:
                 return _make_mobile_nav_response(
                     [
                         {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
-                        {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
+                        {
+                            "FSRQ": "2026-06-16",
+                            "DWJZ": "1.3580",
+                            "LJJZ": "3.5593",
+                            "JZZZL": "-1.20",
+                        },
                     ]
                 )
             return MagicMock()
@@ -403,6 +411,7 @@ class TestFetchNavHistoryFallback:
 # ─────────────────────────────────────────────
 # fetch_realtime_nav fallback 测试
 # ─────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestFetchRealtimeNavFallback:
@@ -488,6 +497,7 @@ class TestFetchRealtimeNavFallback:
 # fetch_today_nav 间接受益测试
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestFetchTodayNavFallback:
     """fetch_today_nav 通过 fetch_nav_history 的 fallback 间接受益"""
@@ -508,7 +518,12 @@ class TestFetchTodayNavFallback:
                 return _make_mobile_nav_response(
                     [
                         {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
-                        {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
+                        {
+                            "FSRQ": "2026-06-16",
+                            "DWJZ": "1.3580",
+                            "LJJZ": "3.5593",
+                            "JZZZL": "-1.20",
+                        },
                         {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
                     ]
                 )

@@ -7,10 +7,11 @@
 3. 正常生成报告并返回结果
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+from api.models import Account, AIConfig, Fund, Position, UserPreference
 from django.contrib.auth import get_user_model
-from api.models import Fund, Account, Position, AIConfig, UserPreference
 
 
 @pytest.mark.django_db
@@ -18,9 +19,7 @@ class TestReportTask:
     def test_skips_user_without_ai_config(self):
         User = get_user_model()
         user = User.objects.create_user(username="user", password="pass1")
-        UserPreference.objects.create(
-            user=user, report_enabled=True, report_frequency="weekly"
-        )
+        UserPreference.objects.create(user=user, report_enabled=True, report_frequency="weekly")
 
         from api.tasks import generate_investment_reports
 
@@ -45,16 +44,10 @@ class TestReportTask:
         AIConfig.objects.create(
             user=user, api_endpoint="https://a.com", api_key="k", model_name="gpt-4"
         )
-        UserPreference.objects.create(
-            user=user, report_enabled=True, report_frequency="weekly"
-        )
-        parent = Account.objects.create(
-            user=user, name="主账户", parent=None, is_default=True
-        )
+        UserPreference.objects.create(user=user, report_enabled=True, report_frequency="weekly")
+        parent = Account.objects.create(user=user, name="主账户", parent=None, is_default=True)
         child = Account.objects.create(user=user, name="子账户", parent=parent)
-        fund = Fund.objects.create(
-            fund_code="000001", fund_name="测试基金", latest_nav="1.5"
-        )
+        fund = Fund.objects.create(fund_code="000001", fund_name="测试基金", latest_nav="1.5")
         Position.objects.create(
             account=child,
             fund=fund,
@@ -67,14 +60,10 @@ class TestReportTask:
 
         monday = dt.date(2026, 6, 8)  # 周一
 
-        with patch("api.tasks.requests.post") as mock_post, patch(
-            "api.tasks.date"
-        ) as mock_date:
+        with patch("api.tasks.requests.post") as mock_post, patch("api.tasks.date") as mock_date:
             mock_date.today.return_value = monday
             mock_resp = MagicMock()
-            mock_resp.json.return_value = {
-                "choices": [{"message": {"content": "# 投资报告"}}]
-            }
+            mock_resp.json.return_value = {"choices": [{"message": {"content": "# 投资报告"}}]}
             mock_resp.raise_for_status = lambda: None
             mock_post.return_value = mock_resp
 

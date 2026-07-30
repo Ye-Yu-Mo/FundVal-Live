@@ -5,50 +5,50 @@ API ViewSets
 """
 
 import logging
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
-from django.shortcuts import get_object_or_404
-from django.db import models
-from django.db.models import Q, Sum
-from django.utils import timezone
-from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from decimal import Decimal
+
+from django.db import models
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from fundval.config import config
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
 
 from .models import (
-    Fund,
     Account,
+    AIConfig,
+    AIPromptTemplate,
+    EstimateAccuracy,
+    Fund,
+    FundNavHistory,
+    NotificationChannel,
+    NotificationLog,
+    NotificationRule,
     Position,
     PositionOperation,
     Watchlist,
     WatchlistItem,
-    EstimateAccuracy,
-    FundNavHistory,
-    AIConfig,
-    AIPromptTemplate,
-    NotificationChannel,
-    NotificationRule,
-    NotificationLog,
 )
 from .serializers import (
-    FundSerializer,
     AccountSerializer,
-    PositionSerializer,
-    PositionOperationSerializer,
-    WatchlistSerializer,
-    UserRegisterSerializer,
-    FundNavHistorySerializer,
-    QueryNavSerializer,
     AIConfigSerializer,
     AIPromptTemplateSerializer,
+    FundNavHistorySerializer,
+    FundSerializer,
     NotificationChannelSerializer,
-    NotificationRuleSerializer,
     NotificationLogSerializer,
+    NotificationRuleSerializer,
+    PositionOperationSerializer,
+    PositionSerializer,
+    QueryNavSerializer,
+    UserRegisterSerializer,
+    WatchlistSerializer,
 )
-from .sources import SourceRegistry
 from .services import recalculate_all_positions
-from fundval.config import config
+from .sources import SourceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -146,26 +146,20 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 )
             return Response(data)
         except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
     def market_quote(self, request, fund_code=None):
         """获取场内实时价格"""
         source = SourceRegistry.get_source("sina")
         if not source:
-            return Response(
-                {"error": "数据源 sina 不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "数据源 sina 不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         try:
             data = source.fetch_market_quote(fund_code)
             return Response(data)
         except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
     def index_holdings(self, request, fund_code=None):
@@ -201,9 +195,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             price = change = None
             try:
                 url = f"http://hq.sinajs.cn/list={code}"
-                resp = req.get(
-                    url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=10
-                )
+                resp = req.get(url, headers={"Referer": "http://finance.sina.com.cn"}, timeout=10)
                 resp.encoding = "gbk"
                 import re
 
@@ -237,8 +229,8 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=["get"], url_path="rankings")
     def rankings(self, request):
         """GET /api/funds/rankings/?type=gain&category=股票型 — 排行榜"""
-        from django.db.models import Count, Avg
         from django.core.paginator import Paginator
+        from django.db.models import Avg, Count
 
         rank_type = request.query_params.get("type", "gain")
         category = request.query_params.get("category", "")
@@ -255,9 +247,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             from django.db.models.functions import Abs
 
             queryset = (
-                Fund.objects.annotate(
-                    avg_error=Avg(Abs("accuracy_records__error_rate"))
-                )
+                Fund.objects.annotate(avg_error=Avg(Abs("accuracy_records__error_rate")))
                 .filter(avg_error__isnull=False)
                 .order_by("avg_error")
             )
@@ -279,9 +269,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 "fund_name": f.fund_name,
                 "fund_type": f.fund_type,
                 "latest_nav": str(f.latest_nav) if f.latest_nav else None,
-                "estimate_growth": (
-                    str(f.estimate_growth) if f.estimate_growth else None
-                ),
+                "estimate_growth": (str(f.estimate_growth) if f.estimate_growth else None),
             }
             if rank_type == "popular":
                 item["pos_count"] = getattr(f, "pos_count", 0)
@@ -295,20 +283,14 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
     def compare(self, request):
         """GET /api/funds/compare/?codes=000001,161725 — 多基金对比"""
         from datetime import date, timedelta
-        from decimal import Decimal
-        from django.db.models import Min, Max
 
         codes_str = request.query_params.get("codes", "")
         codes = [c.strip() for c in codes_str.split(",") if c.strip()]
 
         if len(codes) < 2:
-            return Response(
-                {"error": "至少选择 2 只基金"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "至少选择 2 只基金"}, status=status.HTTP_400_BAD_REQUEST)
         if len(codes) > 5:
-            return Response(
-                {"error": "最多对比 5 只基金"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "最多对比 5 只基金"}, status=status.HTTP_400_BAD_REQUEST)
 
         funds = Fund.objects.filter(fund_code__in=codes)
         fund_map = {f.fund_code: f for f in funds}
@@ -328,9 +310,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 if start_nav and end_nav and start_nav.unit_nav > 0:
                     result[period_name] = str(
                         round(
-                            (end_nav.unit_nav - start_nav.unit_nav)
-                            / start_nav.unit_nav
-                            * 100,
+                            (end_nav.unit_nav - start_nav.unit_nav) / start_nav.unit_nav * 100,
                             2,
                         )
                     )
@@ -354,9 +334,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     max_dd = dd
 
             # 波动率（年化标准差，按 252 个交易日）
-            daily_returns = [
-                (vals[i] - vals[i - 1]) / vals[i - 1] for i in range(1, len(vals))
-            ]
+            daily_returns = [(vals[i] - vals[i - 1]) / vals[i - 1] for i in range(1, len(vals))]
             if len(daily_returns) < 2:
                 return {
                     "max_drawdown": str(round(-max_dd * 100, 2)),
@@ -365,9 +343,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 }
 
             mean = sum(daily_returns) / len(daily_returns)
-            variance = sum((r - mean) ** 2 for r in daily_returns) / (
-                len(daily_returns) - 1
-            )
+            variance = sum((r - mean) ** 2 for r in daily_returns) / (len(daily_returns) - 1)
             annual_vol = (variance**0.5) * (252**0.5)
 
             # 夏普比率 (无风险利率 2%)
@@ -387,12 +363,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             if not fund:
                 continue
             nav_list = list(
-                FundNavHistory.objects.filter(fund=fund, nav_date__lte=today).order_by(
-                    "nav_date"
-                )
+                FundNavHistory.objects.filter(fund=fund, nav_date__lte=today).order_by("nav_date")
             )
 
-            returns = calc_returns(nav_list) if nav_list else {k: None for k in periods}
+            returns = calc_returns(nav_list) if nav_list else dict.fromkeys(periods)
             metrics = (
                 calc_metrics(nav_list)
                 if nav_list
@@ -416,6 +390,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
     def estimate_intraday(self, request, fund_code=None):
         """获取当日盘中估值快照曲线"""
         from datetime import date
+
         from .models import EstimateSnapshot
 
         fund = self.get_object()
@@ -439,9 +414,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                         "timestamp": s.timestamp.isoformat(),
                         "estimate_nav": str(s.estimate_nav),
                         "estimate_growth": (
-                            str(s.estimate_growth)
-                            if s.estimate_growth is not None
-                            else None
+                            str(s.estimate_growth) if s.estimate_growth is not None else None
                         ),
                     }
                     for s in snapshots
@@ -479,10 +452,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         stock_codes = [h["stock_code"] for h in holdings]
         quotes = {}
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(sina.fetch_market_quote, code): code
-                for code in stock_codes
-            }
+            futures = {executor.submit(sina.fetch_market_quote, code): code for code in stock_codes}
             for future in as_completed(futures):
                 code = futures[future]
                 try:
@@ -503,9 +473,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             change = q.get("market_growth")
             contribution = None
             if change is not None and weight:
-                contribution = (weight * change / Decimal("100")).quantize(
-                    Decimal("0.0001")
-                )
+                contribution = (weight * change / Decimal("100")).quantize(Decimal("0.0001"))
             result.append(
                 {
                     "stock_code": h["stock_code"],
@@ -513,9 +481,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     "weight": str(weight),
                     "price": str(price) if price is not None else None,
                     "change_percent": str(change) if change is not None else None,
-                    "contribution": (
-                        str(contribution) if contribution is not None else None
-                    ),
+                    "contribution": (str(contribution) if contribution is not None else None),
                 }
             )
 
@@ -534,9 +500,9 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         days = int(request.query_params.get("days", 100))
 
         # 获取最近 N 天的准确率记录
-        records = EstimateAccuracy.objects.filter(
-            fund=fund, error_rate__isnull=False
-        ).order_by("-estimate_date")[:days]
+        records = EstimateAccuracy.objects.filter(fund=fund, error_rate__isnull=False).order_by(
+            "-estimate_date"
+        )[:days]
 
         # 按数据源分组统计
         result = {}
@@ -607,9 +573,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         ttl_minutes = config.get("estimate_cache_ttl", 5)
 
         if not fund_codes:
-            return Response(
-                {"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 查询数据库
         funds = Fund.objects.filter(fund_code__in=fund_codes)
@@ -647,9 +611,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     "estimate_time": fund.estimate_time.isoformat(),
                     "latest_nav": str(fund.latest_nav) if fund.latest_nav else None,
                     "latest_nav_date": (
-                        fund.latest_nav_date.isoformat()
-                        if fund.latest_nav_date
-                        else None
+                        fund.latest_nav_date.isoformat() if fund.latest_nav_date else None
                     ),
                     "from_cache": True,
                     "estimate_source": fund.estimate_source,  # M2: 来源追溯
@@ -662,9 +624,9 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 从数据源获取
         if need_fetch:
-            source = SourceRegistry.get_source(
-                source_name
-            ) or SourceRegistry.get_source("eastmoney")
+            source = SourceRegistry.get_source(source_name) or SourceRegistry.get_source(
+                "eastmoney"
+            )
 
             # 需要登录的数据源：优先当前用户，fallback 任意用户
             if source_name in ("yangjibao", "xiaobeiyangji"):
@@ -687,8 +649,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {
-                    executor.submit(source.fetch_estimate, code): code
-                    for code in need_fetch
+                    executor.submit(source.fetch_estimate, code): code for code in need_fetch
                 }
 
                 for future in as_completed(futures):
@@ -720,16 +681,16 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                                 "estimate_nav": str(data.get("estimate_nav")),
                                 "estimate_growth": str(data.get("estimate_growth")),
                                 "estimate_time": fund.estimate_time.isoformat(),
-                                "latest_nav": (
-                                    str(fund.latest_nav) if fund.latest_nav else None
-                                ),
+                                "latest_nav": (str(fund.latest_nav) if fund.latest_nav else None),
                                 "latest_nav_date": (
                                     fund.latest_nav_date.isoformat()
                                     if fund.latest_nav_date
                                     else None
                                 ),
                                 "from_cache": False,
-                                "estimate_source": data.get("estimate_source", "akshare"),  # M3: 穿透估算标记
+                                "estimate_source": data.get(
+                                    "estimate_source", "akshare"
+                                ),  # M3: 穿透估算标记
                             }
                             # M2: 新抓取估值在 15:00 后也标记 stale
                             if now.hour >= 15:
@@ -748,7 +709,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     except Exception as e:
                         results[code] = {
                             "fund_code": code,
-                            "error": f"获取估值失败: {str(e)}",
+                            "error": f"获取估值失败: {e!s}",
                         }
 
         return Response(results)
@@ -776,9 +737,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         fund_codes = request.data.get("fund_codes", [])
 
         if not fund_codes:
-            return Response(
-                {"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 查询数据库
         funds = Fund.objects.filter(fund_code__in=fund_codes)
@@ -821,15 +780,13 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                             "fund_code": code,
                             "latest_nav": str(fund.latest_nav),
                             "latest_nav_date": (
-                                fund.latest_nav_date.isoformat()
-                                if fund.latest_nav_date
-                                else None
+                                fund.latest_nav_date.isoformat() if fund.latest_nav_date else None
                             ),
                         }
                 except Exception as e:
                     results[code] = {
                         "fund_code": code,
-                        "error": f"获取净值失败: {str(e)}",
+                        "error": f"获取净值失败: {e!s}",
                     }
 
         return Response(results)
@@ -865,9 +822,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         fund_codes = request.data.get("fund_codes", [])
 
         if not fund_codes:
-            return Response(
-                {"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 查询数据库
         funds = Fund.objects.filter(fund_code__in=fund_codes)
@@ -904,7 +859,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                         results[code] = {
                             "fund_code": code,
                             "updated": False,
-                            "reason": f'非当日净值（{data["nav_date"]}）',
+                            "reason": f"非当日净值（{data['nav_date']}）",
                         }
                         continue
 
@@ -918,9 +873,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                             "fund_code": code,
                             "latest_nav": str(data.get("nav")),
                             "latest_nav_date": (
-                                data.get("nav_date").isoformat()
-                                if data.get("nav_date")
-                                else None
+                                data.get("nav_date").isoformat() if data.get("nav_date") else None
                             ),
                             "updated": True,
                         }
@@ -928,7 +881,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     results[code] = {
                         "fund_code": code,
                         "updated": False,
-                        "error": f"获取净值失败: {str(e)}",
+                        "error": f"获取净值失败: {e!s}",
                     }
 
         return Response(results)
@@ -955,6 +908,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
         }
         """
         from datetime import timedelta
+
         from .utils.trading_calendar import get_last_trading_day
 
         serializer = QueryNavSerializer(data=request.data)
@@ -974,9 +928,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             query_date = get_last_trading_day(operation_date)
 
         # 3. 查询历史净值
-        nav_history = FundNavHistory.objects.filter(
-            fund=fund, nav_date=query_date
-        ).first()
+        nav_history = FundNavHistory.objects.filter(fund=fund, nav_date=query_date).first()
 
         if nav_history:
             return Response(
@@ -990,8 +942,9 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # 4. 如果没有历史净值，尝试从数据源同步
-        from .services.nav_history import sync_nav_history
         import logging
+
+        from .services.nav_history import sync_nav_history
 
         logger = logging.getLogger(__name__)
 
@@ -1001,14 +954,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             logger.info(f"同步完成，新增/更新 {count} 条记录")
 
             # 再次查询
-            nav_history = FundNavHistory.objects.filter(
-                fund=fund, nav_date=query_date
-            ).first()
+            nav_history = FundNavHistory.objects.filter(fund=fund, nav_date=query_date).first()
 
             if nav_history:
-                logger.info(
-                    f"同步后查询成功：{fund_code} {query_date} = {nav_history.unit_nav}"
-                )
+                logger.info(f"同步后查询成功：{fund_code} {query_date} = {nav_history.unit_nav}")
                 return Response(
                     {
                         "fund_code": fund_code,
@@ -1021,9 +970,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             else:
                 logger.warning(f"同步后仍未找到数据：{fund_code} {query_date}")
         except Exception as e:
-            logger.warning(
-                f"同步净值失败：{fund_code} {query_date}, 错误：{e}", exc_info=True
-            )
+            logger.warning(f"同步净值失败：{fund_code} {query_date}, 错误：{e}", exc_info=True)
 
         # 5. fallback 到 Fund.latest_nav
         if fund.latest_nav:
@@ -1032,9 +979,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     "fund_code": fund_code,
                     "fund_name": fund.fund_name,
                     "nav": str(fund.latest_nav),
-                    "nav_date": (
-                        str(fund.latest_nav_date) if fund.latest_nav_date else None
-                    ),
+                    "nav_date": (str(fund.latest_nav_date) if fund.latest_nav_date else None),
                     "source": "latest",
                 }
             )
@@ -1088,9 +1033,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"], url_path="fund_detail")
     def fund_detail(self, request, fund_code=None):
@@ -1141,13 +1084,10 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                             else None
                         ),
                         "nav_date": (
-                            detail["nav_date"].isoformat()
-                            if detail.get("nav_date")
-                            else None
+                            detail["nav_date"].isoformat() if detail.get("nav_date") else None
                         ),
                         "period_returns": {
-                            k: str(v)
-                            for k, v in detail.get("period_returns", {}).items()
+                            k: str(v) for k, v in detail.get("period_returns", {}).items()
                         },
                         "peer_ranking": detail.get("peer_ranking", {}),
                     },
@@ -1156,7 +1096,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         except Exception as e:
             return Response(
-                {"error": f"获取基金详情失败: {str(e)}"},
+                {"error": f"获取基金详情失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1197,8 +1137,8 @@ class AccountViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def delete_info(self, request, pk=None):
         """获取账户删除信息（用于前端确认对话框）"""
-        from decimal import Decimal
         import logging
+        from decimal import Decimal
 
         logger = logging.getLogger(__name__)
         account = self.get_object()
@@ -1226,9 +1166,7 @@ class AccountViewSet(viewsets.ModelViewSet):
 
         positions = Position.objects.filter(account_id__in=all_account_ids)
         positions_count = positions.count()
-        total_cost = positions.aggregate(total=models.Sum("holding_cost"))[
-            "total"
-        ] or Decimal("0")
+        total_cost = positions.aggregate(total=models.Sum("holding_cost"))["total"] or Decimal("0")
 
         logger.info(
             f"Account delete info: user={request.user.username}, "
@@ -1260,15 +1198,12 @@ class AccountViewSet(viewsets.ModelViewSet):
                 f"Attempt to delete default account: user={request.user.username}, "
                 f"account={account.name}"
             )
-            return Response(
-                {"detail": "默认账户不能删除"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "默认账户不能删除"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 记录删除操作日志
         children_count = account.children.count()
         positions_count = Position.objects.filter(
-            account__in=[account.id]
-            + list(account.children.values_list("id", flat=True))
+            account__in=[account.id] + list(account.children.values_list("id", flat=True))
         ).count()
 
         logger.info(
@@ -1292,9 +1227,9 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Position.objects.filter(account__user=self.request.user)
 
         # 按账户过滤（兼容 account_id 和 account 两种参数名）
-        account_id = self.request.query_params.get(
-            "account_id"
-        ) or self.request.query_params.get("account")
+        account_id = self.request.query_params.get("account_id") or self.request.query_params.get(
+            "account"
+        )
         if account_id:
             # 如果是父账户，返回所有子账户的持仓
             from .models import Account
@@ -1342,9 +1277,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         fund_id = position.fund.id
 
         # 删除所有操作流水
-        operations = PositionOperation.objects.filter(
-            account_id=account_id, fund_id=fund_id
-        )
+        operations = PositionOperation.objects.filter(account_id=account_id, fund_id=fund_id)
         operation_count = operations.count()
         operations.delete()
 
@@ -1378,18 +1311,14 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet):
         days = int(request.query_params.get("days", 30))
 
         if not account_id:
-            return Response(
-                {"error": "缺少 account_id 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 account_id 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 验证账户归属
         account = get_object_or_404(Account, id=account_id, user=request.user)
 
         # 只支持子账户
         if account.parent is None:
-            return Response(
-                {"error": "暂不支持父账户历史查询"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "暂不支持父账户历史查询"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 计算历史市值
         result = calculate_account_history(account_id, days)
@@ -1417,9 +1346,9 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
             queryset = PositionOperation.objects.filter(account__user=self.request.user)
 
         # 按账户过滤（兼容 account_id 和 account 两种参数名）
-        account_id = self.request.query_params.get(
-            "account_id"
-        ) or self.request.query_params.get("account")
+        account_id = self.request.query_params.get("account_id") or self.request.query_params.get(
+            "account"
+        )
         if account_id:
             from .models import Account
 
@@ -1455,19 +1384,16 @@ class PositionOperationViewSet(viewsets.ModelViewSet):
         operation_ids = request.data.get("operation_ids", [])
 
         if not operation_ids:
-            return Response(
-                {"error": "操作 ID 列表不能为空"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "操作 ID 列表不能为空"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 转换为 UUID 对象
         try:
             uuid_list = [
-                uuid.UUID(op_id) if isinstance(op_id, str) else op_id
-                for op_id in operation_ids
+                uuid.UUID(op_id) if isinstance(op_id, str) else op_id for op_id in operation_ids
             ]
         except (ValueError, AttributeError) as e:
             return Response(
-                {"error": f"无效的操作 ID: {str(e)}"},
+                {"error": f"无效的操作 ID: {e!s}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1513,9 +1439,7 @@ class WatchlistViewSet(viewsets.ModelViewSet):
         fund_code = request.data.get("fund_code")
 
         if not fund_code:
-            return Response(
-                {"error": "基金代码不能为空"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "基金代码不能为空"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             fund = Fund.objects.get(fund_code=fund_code)
@@ -1524,23 +1448,19 @@ class WatchlistViewSet(viewsets.ModelViewSet):
 
         # 检查是否已存在
         if WatchlistItem.objects.filter(watchlist=watchlist, fund=fund).exists():
-            return Response(
-                {"error": "基金已在自选列表中"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "基金已在自选列表中"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 获取最大 order
         from django.db.models import Max
 
         max_order = (
-            WatchlistItem.objects.filter(watchlist=watchlist).aggregate(
-                max_order=Max("order")
-            )["max_order"]
+            WatchlistItem.objects.filter(watchlist=watchlist).aggregate(max_order=Max("order"))[
+                "max_order"
+            ]
             or -1
         )
 
-        item = WatchlistItem.objects.create(
-            watchlist=watchlist, fund=fund, order=max_order + 1
-        )
+        item = WatchlistItem.objects.create(watchlist=watchlist, fund=fund, order=max_order + 1)
 
         return Response(
             {"id": item.id, "fund_code": fund.fund_code}, status=status.HTTP_201_CREATED
@@ -1557,9 +1477,7 @@ class WatchlistViewSet(viewsets.ModelViewSet):
             item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except (Fund.DoesNotExist, WatchlistItem.DoesNotExist):
-            return Response(
-                {"error": "基金不在自选列表中"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "基金不在自选列表中"}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=["put"])
     def reorder(self, request, pk=None):
@@ -1575,17 +1493,13 @@ class WatchlistViewSet(viewsets.ModelViewSet):
             fund_codes = request.data.get("fund_codes", [])
 
         if not fund_codes:
-            return Response(
-                {"error": "基金代码列表不能为空"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "基金代码列表不能为空"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 更新排序
         for index, fund_code in enumerate(fund_codes):
             try:
                 fund = Fund.objects.get(fund_code=fund_code)
-                WatchlistItem.objects.filter(watchlist=watchlist, fund=fund).update(
-                    order=index
-                )
+                WatchlistItem.objects.filter(watchlist=watchlist, fund=fund).update(order=index)
             except Fund.DoesNotExist:
                 pass
 
@@ -1744,9 +1658,7 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         nav_date = request.data.get("nav_date")
 
         if not fund_codes:
-            return Response(
-                {"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         results = {}
         for fund_code in fund_codes:
@@ -1783,17 +1695,16 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             "end_date": "2024-12-31",    // 可选
         }
         """
-        from .services.nav_history import batch_sync_nav_history
         from datetime import datetime
+
+        from .services.nav_history import batch_sync_nav_history
 
         fund_codes = request.data.get("fund_codes", [])
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
 
         if not fund_codes:
-            return Response(
-                {"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 fund_codes 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 权限检查：超过 15 个基金需要管理员权限
         if len(fund_codes) > 15:
@@ -1855,7 +1766,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
             return Response(qr_data)
         except Exception as e:
             return Response(
-                {"error": f"获取二维码失败: {str(e)}"},
+                {"error": f"获取二维码失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1882,9 +1793,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
 
         source_name = request.query_params.get("source_name")
         if not source_name:
-            return Response(
-                {"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         source = SourceRegistry.get_source(source_name)
         if not source:
@@ -1910,15 +1819,13 @@ class SourceCredentialViewSet(viewsets.ViewSet):
                     },
                 )
 
-                logger.info(
-                    f"用户 {request.user.username} 登录数据源 {source_name} 成功"
-                )
+                logger.info(f"用户 {request.user.username} 登录数据源 {source_name} 成功")
 
             return Response(state_data)
 
         except Exception as e:
             return Response(
-                {"error": f"检查二维码状态失败: {str(e)}"},
+                {"error": f"检查二维码状态失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1936,9 +1843,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
 
         source_name = request.data.get("source_name")
         if not source_name:
-            return Response(
-                {"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # 停用凭证
@@ -1959,7 +1864,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
 
         except Exception as e:
             return Response(
-                {"error": f"登出失败: {str(e)}"},
+                {"error": f"登出失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -1982,9 +1887,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
 
         source_name = request.query_params.get("source_name")
         if not source_name:
-            return Response(
-                {"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "缺少 source_name 参数"}, status=status.HTTP_400_BAD_REQUEST)
 
         source = SourceRegistry.get_source(source_name)
         login_type = source.get_login_type() if source else "none"
@@ -2002,9 +1905,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
 
         if credential:
             serializer = UserSourceCredentialSerializer(credential)
-            return Response(
-                {"logged_in": True, "login_type": login_type, **serializer.data}
-            )
+            return Response({"logged_in": True, "login_type": login_type, **serializer.data})
         else:
             return Response(
                 {
@@ -2052,7 +1953,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
             return Response({"message": "验证码已发送"})
         except Exception as e:
             return Response(
-                {"error": f"发送验证码失败: {str(e)}"},
+                {"error": f"发送验证码失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2107,7 +2008,7 @@ class SourceCredentialViewSet(viewsets.ViewSet):
             return Response({"message": "登录成功", "source_name": source_name})
         except Exception as e:
             return Response(
-                {"error": f"登录失败: {str(e)}"},
+                {"error": f"登录失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2162,24 +2063,20 @@ class SourceCredentialViewSet(viewsets.ViewSet):
             if source_name == "xiaobeiyangji":
                 from .services.import_xiaobeiyangji import import_from_xiaobeiyangji
 
-                result = import_from_xiaobeiyangji(
-                    request.user, source, overwrite=overwrite
-                )
+                result = import_from_xiaobeiyangji(request.user, source, overwrite=overwrite)
             else:
-                from .sources.yangjibao import YangJiBaoSource
                 from .services.import_yjb import import_from_yangjibao
+                from .sources.yangjibao import YangJiBaoSource
 
                 yjb_source = YangJiBaoSource()
                 yjb_source._token = credential.token
-                result = import_from_yangjibao(
-                    request.user, yjb_source, overwrite=overwrite
-                )
+                result = import_from_yangjibao(request.user, yjb_source, overwrite=overwrite)
 
             return Response(result)
         except Exception as e:
             logger.error(f"{source_name} 导入失败: {e}")
             return Response(
-                {"error": f"导入失败: {str(e)}"},
+                {"error": f"导入失败: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -2232,7 +2129,7 @@ class UserPreferenceViewSet(viewsets.ViewSet):
             )
         if preferred_source and preferred_source not in self.VALID_SOURCES:
             return Response(
-                {"error": f'无效的数据源，可选值：{", ".join(self.VALID_SOURCES)}'},
+                {"error": f"无效的数据源，可选值：{', '.join(self.VALID_SOURCES)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2303,9 +2200,7 @@ class AIConfigViewSet(viewsets.ViewSet):
             defaults={
                 "api_endpoint": serializer.validated_data["api_endpoint"],
                 "api_key": serializer.validated_data["api_key"],
-                "model_name": serializer.validated_data.get(
-                    "model_name", "gpt-4o-mini"
-                ),
+                "model_name": serializer.validated_data.get("model_name", "gpt-4o-mini"),
             },
         )
         return Response(AIConfigSerializer(config).data)
@@ -2512,9 +2407,7 @@ class AdminViewSet(viewsets.ViewSet):
             }
         )
 
-    @action(
-        detail=False, methods=["post"], url_path=r"(?P<user_id>[^/.]+)/reset-password"
-    )
+    @action(detail=False, methods=["post"], url_path=r"(?P<user_id>[^/.]+)/reset-password")
     def reset_password(self, request, user_id=None):
         """POST /api/admin/users/{id}/reset-password/ — 重置用户密码"""
         import secrets
@@ -2544,8 +2437,9 @@ class AdminViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request):
         """GET /api/admin/stats/ — 系统统计"""
-        from django.contrib.auth import get_user_model
         from datetime import datetime
+
+        from django.contrib.auth import get_user_model
 
         User = get_user_model()
         now = datetime.now()
@@ -2580,9 +2474,7 @@ class AdminViewSet(viewsets.ViewSet):
 
         if task_name not in TASK_WHITELIST:
             return Response(
-                {
-                    "error": f'未知任务: {task_name}，可选: {", ".join(TASK_WHITELIST.keys())}'
-                },
+                {"error": f"未知任务: {task_name}，可选: {', '.join(TASK_WHITELIST.keys())}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2595,7 +2487,7 @@ class AdminViewSet(viewsets.ViewSet):
             except Exception as e:
                 logger.error(f"重算全部持仓失败: {e}")
                 return Response(
-                    {"error": f"重算失败: {str(e)}"},
+                    {"error": f"重算失败: {e!s}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 

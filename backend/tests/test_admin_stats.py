@@ -7,11 +7,12 @@
 3. 非管理员访问返回 403
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from django.test import Client
-from django.contrib.auth import get_user_model
 from api.models import Fund
+from django.contrib.auth import get_user_model
+from django.test import Client
 
 
 def _get_token(client, username, password):

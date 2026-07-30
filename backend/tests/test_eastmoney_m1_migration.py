@@ -7,20 +7,16 @@ M1 目标：fetch_nav_history / fetch_realtime_nav 直接调用 Mobile API，
 这些测试在 RED 阶段会 FAIL，因为当前代码仍然先走 Web API 路径。
 """
 
-import pytest
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
-from unittest.mock import patch, MagicMock, call
-import pandas as pd
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
+import pytest
 from api.sources.eastmoney import EastMoneySource
 
-MOBILE_NAV_HISTORY_URL = (
-    "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
-)
-MOBILE_REALTIME_NAV_URL = (
-    "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
-)
+MOBILE_NAV_HISTORY_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"
+MOBILE_REALTIME_NAV_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo"
 WEB_PINGZHONGDATA_URL = "http://fund.eastmoney.com/pingzhongdata/"
 WEB_FUNDGZ_URL = "http://fundgz.1234567.com.cn/js/"
 
@@ -45,6 +41,7 @@ def _make_mobile_realtime_response(items):
 # fetch_nav_history — 直接调 Mobile API
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestFetchNavHistoryUsesMobileAPI:
     """fetch_nav_history() 应直接调用 Mobile API，不再先尝试 Web API"""
@@ -54,10 +51,12 @@ class TestFetchNavHistoryUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_nav_response([
-                {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
-                {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
-            ])
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
+                    {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
+                ]
+            )
 
             result = source.fetch_nav_history("000001")
 
@@ -81,9 +80,11 @@ class TestFetchNavHistoryUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_nav_response([
-                {"FSRQ": "2026-07-28", "DWJZ": "2.3456", "LJJZ": "5.6789", "JZZZL": "1.23"},
-            ])
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": "2026-07-28", "DWJZ": "2.3456", "LJJZ": "5.6789", "JZZZL": "1.23"},
+                ]
+            )
 
             result = source.fetch_nav_history("000001")
 
@@ -100,11 +101,13 @@ class TestFetchNavHistoryUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_nav_response([
-                {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
-                {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
-                {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
-            ])
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
+                    {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
+                    {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
+                ]
+            )
 
             result = source.fetch_nav_history(
                 "000001", start_date=date(2026, 6, 15), end_date=date(2026, 6, 16)
@@ -141,6 +144,7 @@ class TestFetchNavHistoryUsesMobileAPI:
 # fetch_realtime_nav — 直接调 Mobile API
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestFetchRealtimeNavUsesMobileAPI:
     """fetch_realtime_nav() 应直接调用 Mobile API，不再先尝试 Web API (fundgz)"""
@@ -150,14 +154,16 @@ class TestFetchRealtimeNavUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_realtime_response([
-                {
-                    "FCODE": "000001",
-                    "SHORTNAME": "华夏成长混合",
-                    "ACCNAV": "1.4070",
-                    "PDATE": "2026-06-17",
-                }
-            ])
+            mock_get.return_value = _make_mobile_realtime_response(
+                [
+                    {
+                        "FCODE": "000001",
+                        "SHORTNAME": "华夏成长混合",
+                        "ACCNAV": "1.4070",
+                        "PDATE": "2026-06-17",
+                    }
+                ]
+            )
 
             result = source.fetch_realtime_nav("000001")
 
@@ -181,13 +187,15 @@ class TestFetchRealtimeNavUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_realtime_response([
-                {
-                    "FCODE": "000001",
-                    "ACCNAV": "2.3456",
-                    "PDATE": "2026-07-28",
-                }
-            ])
+            mock_get.return_value = _make_mobile_realtime_response(
+                [
+                    {
+                        "FCODE": "000001",
+                        "ACCNAV": "2.3456",
+                        "PDATE": "2026-07-28",
+                    }
+                ]
+            )
 
             result = source.fetch_realtime_nav("000001")
 
@@ -213,9 +221,9 @@ class TestFetchRealtimeNavUsesMobileAPI:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_realtime_response([
-                {"FCODE": "000001", "PDATE": "2026-07-28"}
-            ])
+            mock_get.return_value = _make_mobile_realtime_response(
+                [{"FCODE": "000001", "PDATE": "2026-07-28"}]
+            )
 
             result = source.fetch_realtime_nav("000001")
 
@@ -237,6 +245,7 @@ class TestFetchRealtimeNavUsesMobileAPI:
 # fetch_today_nav — 无需改动，自动受益
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestFetchTodayNavUnchanged:
     """
@@ -253,11 +262,13 @@ class TestFetchTodayNavUnchanged:
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
-            mock_get.return_value = _make_mobile_nav_response([
-                {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
-                {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
-                {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
-            ])
+            mock_get.return_value = _make_mobile_nav_response(
+                [
+                    {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
+                    {"FSRQ": "2026-06-16", "DWJZ": "1.3580", "LJJZ": "3.5593", "JZZZL": "-1.20"},
+                    {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
+                ]
+            )
 
             result = source.fetch_today_nav("000001")
 
@@ -283,6 +294,7 @@ class TestFetchTodayNavUnchanged:
 # DEPRECATED 注释验证
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestDeprecatedComments:
     """Web API URL 常量上方应有 DEPRECATED 注释"""
@@ -290,6 +302,7 @@ class TestDeprecatedComments:
     def test_estimate_url_has_deprecated_comment(self):
         """ESTIMATE_URL 行前应有 DEPRECATED 注释"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(EastMoneySource)
         source_text = "".join(source_code)
 
@@ -306,9 +319,7 @@ class TestDeprecatedComments:
         assert estimate_url_line is not None, "找不到 ESTIMATE_URL 常量定义行"
 
         # 检查上方 1-3 行是否有 DEPRECATED 注释
-        surrounding = "".join(
-            source_code[max(0, estimate_url_line - 3): estimate_url_line]
-        )
+        surrounding = "".join(source_code[max(0, estimate_url_line - 3) : estimate_url_line])
         assert "DEPRECATED" in surrounding.upper(), (
             f"ESTIMATE_URL 上方应有 DEPRECATED 注释，实际内容:\n{surrounding}"
         )
@@ -316,6 +327,7 @@ class TestDeprecatedComments:
     def test_fund_list_url_has_deprecated_comment(self):
         """FUND_LIST_URL 行前应有 DEPRECATED 注释"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(EastMoneySource)
 
         fund_list_url_line = None
@@ -326,9 +338,7 @@ class TestDeprecatedComments:
 
         assert fund_list_url_line is not None, "找不到 FUND_LIST_URL 常量定义行"
 
-        surrounding = "".join(
-            source_code[max(0, fund_list_url_line - 3): fund_list_url_line]
-        )
+        surrounding = "".join(source_code[max(0, fund_list_url_line - 3) : fund_list_url_line])
         assert "DEPRECATED" in surrounding.upper(), (
             f"FUND_LIST_URL 上方应有 DEPRECATED 注释，实际内容:\n{surrounding}"
         )
@@ -336,6 +346,7 @@ class TestDeprecatedComments:
     def test_history_url_has_deprecated_comment(self):
         """HISTORY_URL 行前应有 DEPRECATED 注释"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(EastMoneySource)
 
         history_url_line = None
@@ -346,9 +357,7 @@ class TestDeprecatedComments:
 
         assert history_url_line is not None, "找不到 HISTORY_URL 常量定义行"
 
-        surrounding = "".join(
-            source_code[max(0, history_url_line - 3): history_url_line]
-        )
+        surrounding = "".join(source_code[max(0, history_url_line - 3) : history_url_line])
         assert "DEPRECATED" in surrounding.upper(), (
             f"HISTORY_URL 上方应有 DEPRECATED 注释，实际内容:\n{surrounding}"
         )
@@ -358,13 +367,14 @@ class TestDeprecatedComments:
 # 功能2: fetch_estimate() 降级 → 返回 None
 # ================================================================
 
+
 @pytest.mark.django_db
 class TestFetchEstimateDegradation:
     """M1 功能2: fetch_estimate() 应返回 None + 日志，不抛异常"""
 
     def test_returns_none_not_exception(self):
         """fetch_estimate 返回 None，即使 fundgz 返回有效数据也不解析"""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         source = EastMoneySource()
 
@@ -382,9 +392,7 @@ class TestFetchEstimateDegradation:
 
             result = source.fetch_estimate("000001")
 
-        assert result is None, (
-            "M1: fundgz 已失效，fetch_estimate 应返回 None 而非解析 fundgz 数据"
-        )
+        assert result is None, "M1: fundgz 已失效，fetch_estimate 应返回 None 而非解析 fundgz 数据"
 
     def test_does_not_call_fundgz(self):
         """fetch_estimate 不应再请求 fundgz URL"""
@@ -404,6 +412,7 @@ class TestFetchEstimateDegradation:
     def test_logs_warning_when_engine_fails(self, caplog):
         """M2: 估值引擎失败时应记录 warning"""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         source = EastMoneySource()
@@ -418,10 +427,12 @@ class TestFetchEstimateDegradation:
         source = EastMoneySource()
 
         with patch("akshare.fund_name_em") as mock_ak:
-            mock_ak.return_value = pd.DataFrame([
-                {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
-                {"基金代码": "000002", "基金简称": "华夏成长后端", "基金类型": "混合型"},
-            ])
+            mock_ak.return_value = pd.DataFrame(
+                [
+                    {"基金代码": "000001", "基金简称": "华夏成长", "基金类型": "混合型"},
+                    {"基金代码": "000002", "基金简称": "华夏成长后端", "基金类型": "混合型"},
+                ]
+            )
 
             result = source.fetch_fund_list()
 
@@ -443,6 +454,7 @@ class TestFetchEstimateDegradation:
     def test_estimate_code_preserved_as_comment(self):
         """fetch_estimate 原 fundgz 解析代码应在注释中保留"""
         import inspect
+
         source_code, _ = inspect.getsourcelines(EastMoneySource)
 
         in_method = False
@@ -457,11 +469,11 @@ class TestFetchEstimateDegradation:
                 method_lines.append(line)
 
         # 原 fundgz 相关关键字应在注释中出现
-        assert any("gsz" in line and "#" in line for line in method_lines) or \
-            any("gszzl" in line and "#" in line for line in method_lines) or \
-            any("fundgz" in line.lower() and "#" in line for line in method_lines), (
-            f"原 fundgz 估值解析代码应在注释中保留, 方法体行数: {len(method_lines)}"
-        )
+        assert (
+            any("gsz" in line and "#" in line for line in method_lines)
+            or any("gszzl" in line and "#" in line for line in method_lines)
+            or any("fundgz" in line.lower() and "#" in line for line in method_lines)
+        ), f"原 fundgz 估值解析代码应在注释中保留, 方法体行数: {len(method_lines)}"
 
     def test_fund_list_code_not_called_on_import(self):
         """fetch_fund_list 不应在 import 时被意外调用"""

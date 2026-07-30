@@ -11,11 +11,12 @@
 7. 重算持仓
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework.test import APIClient
+from decimal import Decimal
+
+import pytest
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -90,7 +91,7 @@ class TestPositionDetailAPI:
 
     @pytest.fixture
     def position(self, user, create_child_account):
-        from api.models import Account, Fund, Position
+        from api.models import Fund, Position
 
         account = create_child_account(user, "我的账户")
         fund = Fund.objects.create(fund_code="000001", fund_name="基金1")
@@ -225,7 +226,7 @@ class TestPositionOperationListAPI:
 
     @pytest.fixture
     def operations(self, user, create_child_account):
-        from api.models import Account, Fund, PositionOperation
+        from api.models import Fund, PositionOperation
 
         account = create_child_account(user, "我的账户")
         fund = Fund.objects.create(fund_code="000001", fund_name="基金1")
@@ -289,7 +290,7 @@ class TestPositionOperationDetailAPI:
 
     @pytest.fixture
     def operation(self, user, create_child_account):
-        from api.models import Account, Fund, PositionOperation
+        from api.models import Fund, PositionOperation
 
         account = create_child_account(user, "我的账户")
         fund = Fund.objects.create(fund_code="000001", fund_name="基金1")
@@ -330,7 +331,7 @@ class TestPositionOperationDeleteAPI:
 
     @pytest.fixture
     def operation(self, user, create_child_account):
-        from api.models import Account, Fund, PositionOperation
+        from api.models import Fund, PositionOperation
 
         account = create_child_account(user, "我的账户")
         fund = Fund.objects.create(fund_code="000001", fund_name="基金1")
@@ -449,31 +450,21 @@ class TestPositionClearAPI:
 
     def test_clear_position(self, client, user, position_with_operations):
         """测试清空持仓"""
-        from api.models import PositionOperation, Position
+        from api.models import Position, PositionOperation
 
         position_id = position_with_operations.id
         account_id = position_with_operations.account.id
         fund_id = position_with_operations.fund.id
 
         # 确认操作存在
-        assert (
-            PositionOperation.objects.filter(
-                account_id=account_id, fund_id=fund_id
-            ).count()
-            == 3
-        )
+        assert PositionOperation.objects.filter(account_id=account_id, fund_id=fund_id).count() == 3
 
         client.force_authenticate(user=user)
         response = client.delete(f"/api/positions/{position_id}/clear/")
         assert response.status_code == 204
 
         # 确认所有操作已删除
-        assert (
-            PositionOperation.objects.filter(
-                account_id=account_id, fund_id=fund_id
-            ).count()
-            == 0
-        )
+        assert PositionOperation.objects.filter(account_id=account_id, fund_id=fund_id).count() == 0
 
         # 确认持仓已被删除或份额为 0
         position = Position.objects.filter(id=position_id).first()
@@ -646,7 +637,7 @@ class TestPositionOperationDeleteAnyAPI:
 
     def test_delete_middle_operation(self, client, admin_user, operations):
         """测试删除中间的操作（非最新）"""
-        from api.models import PositionOperation, Position
+        from api.models import Position, PositionOperation
 
         # 删除第二条操作（中间的）
         middle_op = operations[1]
@@ -671,7 +662,7 @@ class TestPositionOperationDeleteAnyAPI:
 
     def test_delete_first_operation(self, client, admin_user, operations):
         """测试删除最早的操作"""
-        from api.models import PositionOperation, Position
+        from api.models import Position
 
         first_op = operations[0]
 

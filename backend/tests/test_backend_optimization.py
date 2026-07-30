@@ -9,20 +9,16 @@
 5. Position 只读约束强化
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from django.contrib.auth import get_user_model
-from django.test.utils import override_settings
-from django.db import connection
-from django.test import TestCase
-from django.contrib import admin
-from rest_framework.test import APIClient
-from unittest.mock import patch, MagicMock
-import json
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
-from api.models import Fund, Account, Position, PositionOperation
+import pytest
+from api.models import Account, Fund, Position, PositionOperation
 from api.sources.eastmoney import EastMoneySource
+from django.contrib.auth import get_user_model
+from django.db import connection
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -44,17 +40,15 @@ class TestAccountQueryOptimization:
         # 创建 3 个子账户
         children = []
         for i in range(3):
-            child = Account.objects.create(
-                user=user, name=f"子账户{i+1}", parent=parent
-            )
+            child = Account.objects.create(user=user, name=f"子账户{i + 1}", parent=parent)
             children.append(child)
 
         # 为每个子账户创建 5 个持仓
         funds = []
         for i in range(5):
             fund = Fund.objects.create(
-                fund_code=f"00000{i+1}",
-                fund_name=f"测试基金{i+1}",
+                fund_code=f"00000{i + 1}",
+                fund_name=f"测试基金{i + 1}",
                 latest_nav=Decimal("1.5000"),
             )
             funds.append(fund)
@@ -90,9 +84,7 @@ class TestAccountQueryOptimization:
         query_count = len(context.captured_queries)
         assert query_count <= 10, f"查询次数过多: {query_count} 次"
 
-    def test_account_detail_with_children_query_count(
-        self, user, setup_accounts_with_positions
-    ):
+    def test_account_detail_with_children_query_count(self, user, setup_accounts_with_positions):
         """测试：父账户详情查询次数应该被优化"""
         from django.test.utils import CaptureQueriesContext
 
@@ -437,8 +429,8 @@ class TestPositionReadOnlyConstraint:
 
     def test_position_admin_readonly_permissions(self, admin_user, position):
         """测试：Django Admin 中 Position 只读"""
-        from django.contrib.admin.sites import site
         from api.models import Position
+        from django.contrib.admin.sites import site
 
         # 获取 Position 的 Admin 类
         position_admin = site._registry.get(Position)
@@ -458,8 +450,8 @@ class TestPositionReadOnlyConstraint:
 
     def test_position_fields_are_readonly_in_admin(self, admin_user, position):
         """测试：Django Admin 中 Position 字段只读"""
-        from django.contrib.admin.sites import site
         from api.models import Position
+        from django.contrib.admin.sites import site
 
         position_admin = site._registry.get(Position)
 

@@ -8,8 +8,8 @@
 """
 
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 
 def _get_token(client, username, password):
