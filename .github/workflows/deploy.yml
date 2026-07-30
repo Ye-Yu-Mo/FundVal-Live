@@ -12,10 +12,11 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: root
+          port: ${{ secrets.VPS_PORT || '22' }}
+          username: ${{ secrets.VPS_USER || 'jas' }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /opt/fundval
+            cd ~/fundval
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
