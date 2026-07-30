@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Card, Button, Descriptions, Tag, Spin, message, Space } from 'antd';
 import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { healthCheck } from '../api';
+import packageJson from '../../package.json';
 
 const VersionCard = () => {
   const [info, setInfo] = useState(null);
@@ -45,7 +46,7 @@ const VersionCard = () => {
             <Tag color="blue">{info.backend}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="前端版本">
-            <Tag color="green">2.5.3</Tag>
+            <Tag color="green">v{packageJson.version}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="数据库">
             <Tag color={info.database === 'connected' ? 'green' : 'red'}>{info.database}</Tag>
