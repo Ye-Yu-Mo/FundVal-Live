@@ -310,3 +310,190 @@ class TestGetQuotes:
 
         assert quotes["600519"]["price"] == Decimal("101.0")  # 新数据
         mock_sina.assert_called_once()
+
+
+# ================================================================
+# M4: 港股/美股行情 + 市场分流
+# ================================================================
+
+
+def _hk_quote_df(codes_prices):
+    """构造 akshare stock_hk_spot_em 返回的 DataFrame"""
+    import pandas as pd
+
+    rows = []
+    for code, price, change in codes_prices:
+        rows.append({"代码": code, "名称": f"HK{code}", "最新价": price, "涨跌幅": change})
+    return pd.DataFrame(rows)
+
+
+def _us_quote_df(codes_prices):
+    """构造 akshare stock_us_spot_em 返回的 DataFrame"""
+    import pandas as pd
+
+    rows = []
+    for code, price, change in codes_prices:
+        rows.append({"代码": code, "名称": f"US{code}", "最新价": price, "涨跌幅": change})
+    return pd.DataFrame(rows)
+
+
+class TestMarketRouting:
+    """市场路由: 6位=A股, 5位=港股, 字母+数字=美股"""
+
+    def test_routes_a_stock_to_sina(self):
+        """6 位数字 → A股 → 走 Sina"""
+        engine = PenetrationEngine()
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+            mock_sina.return_value = {
+                "fund_code": "600519",
+                "market_price": Decimal("100"),
+                "market_growth": Decimal("1.0"),
+                "market_time": "",
+                "symbol": "sh600519",
+            }
+            quotes = engine._get_quotes(["600519"])
+        assert "600519" in quotes
+
+    def test_routes_hk_stock_to_akshare(self):
+        """5 位数字 → 港股 → 走 akshare"""
+        engine = PenetrationEngine()
+        with patch("akshare.stock_hk_spot_em") as mock_hk:
+            mock_hk.return_value = _hk_quote_df(
+                [
+                    ("00700", 350.0, 1.5),
+                    ("09988", 80.0, -0.8),
+                ]
+            )
+            quotes = engine._get_quotes(["00700", "09988"])
+
+        assert quotes["00700"]["price"] == Decimal("350.0")
+        assert quotes["00700"]["change_percent"] == Decimal("1.5")
+        assert quotes["09988"]["price"] == Decimal("80.0")
+        mock_hk.assert_called_once()
+
+    def test_routes_us_stock_to_akshare(self):
+        """字母+数字 → 美股 → 走 akshare"""
+        engine = PenetrationEngine()
+        with patch("akshare.stock_us_spot_em") as mock_us:
+            mock_us.return_value = _us_quote_df(
+                [
+                    ("BABA", 85.0, 2.0),
+                    ("PDD", 120.0, -1.0),
+                ]
+            )
+            quotes = engine._get_quotes(["BABA", "PDD"])
+
+        assert quotes["BABA"]["price"] == Decimal("85.0")
+        assert quotes["PDD"]["change_percent"] == Decimal("-1.0")
+        mock_us.assert_called_once()
+
+    def test_mixed_market_routing(self):
+        """混合 A股+港股+美股 → 各自路由到正确源"""
+        engine = PenetrationEngine()
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+            mock_sina.return_value = {
+                "fund_code": "600519",
+                "market_price": Decimal("100"),
+                "market_growth": Decimal("1.0"),
+                "market_time": "",
+                "symbol": "sh600519",
+            }
+            with patch("akshare.stock_hk_spot_em") as mock_hk:
+                mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
+                with patch("akshare.stock_us_spot_em") as mock_us:
+                    mock_us.return_value = _us_quote_df([("BABA", 85.0, 2.0)])
+
+                    quotes = engine._get_quotes(["600519", "00700", "BABA"])
+
+        assert "600519" in quotes  # A股
+        assert "00700" in quotes  # 港股
+        assert "BABA" in quotes  # 美股
+        mock_sina.assert_called()
+        mock_hk.assert_called_once()
+        mock_us.assert_called_once()
+
+
+class TestHKQuotesCache:
+    """港股行情缓存"""
+
+    def test_cache_hit(self):
+        """港股缓存 30s → 命中不调 akshare"""
+        engine = PenetrationEngine()
+        engine._quote_cache["00700"] = {
+            "price": Decimal("350.0"),
+            "change_percent": Decimal("1.5"),
+            "ts": datetime.now().timestamp(),
+        }
+        with patch("akshare.stock_hk_spot_em") as mock_hk:
+            quotes = engine._get_quotes(["00700"])
+        assert quotes["00700"]["price"] == Decimal("350.0")
+        mock_hk.assert_not_called()
+
+    def test_hk_code_format_normalized(self):
+        """港股代码 "700" 和 "00700" 都能匹配到行情"""
+        engine = PenetrationEngine()
+        with patch("akshare.stock_hk_spot_em") as mock_hk:
+            mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
+
+            # 代码是 "00700"
+            quotes = engine._get_quotes(["00700"])
+            assert quotes["00700"]["price"] == Decimal("350.0")
+
+        # 清缓存，用 "700" 再试
+        engine._quote_cache.clear()
+        with patch("akshare.stock_hk_spot_em") as mock_hk:
+            mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
+
+            quotes = engine._get_quotes(["700"])
+            # "700" 应在内部被 zfill(5) 为 "00700" 后匹配
+            assert "700" in quotes
+
+
+# ================================================================
+# M4: Sina 限流 — 100ms 间隔
+# ================================================================
+
+
+class TestSinaRateLimit:
+    """Sina 批量请求 100ms 间隔"""
+
+    def test_sleep_called_between_sina_requests(self):
+        """每个 Sina 请求之间有 time.sleep(0.1)"""
+        import time
+
+        engine = PenetrationEngine()
+
+        codes = ["600519", "601318", "600036"]
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+            mock_sina.return_value = {
+                "fund_code": "600519",
+                "market_price": Decimal("100"),
+                "market_growth": Decimal("1.0"),
+                "market_time": "",
+                "symbol": "sh600519",
+            }
+            with patch("time.sleep") as mock_sleep:
+                engine._get_quotes(codes)
+
+        # 3 只 A 股 → 应该有 3 次 sleep (N 次请求, N 次间隔)
+        assert mock_sleep.call_count == 3, (
+            f"3 次 Sina 请求应有 3 次 sleep, 实际: {mock_sleep.call_count}"
+        )
+
+    def test_no_sleep_for_cached_hits(self):
+        """缓存命中的请求不走 Sina，也不调 sleep"""
+        import time
+
+        engine = PenetrationEngine()
+        engine._quote_cache["600519"] = {
+            "price": Decimal("100"),
+            "change_percent": Decimal("1.0"),
+            "ts": datetime.now().timestamp(),
+        }
+
+        with patch("time.sleep") as mock_sleep:
+            with patch("api.sources.sina.SinaStockSource.fetch_market_quote"):
+                engine._get_quotes(["600519"])
+
+        # 缓存命中 → 不走 Sina → 不调 sleep
+        mock_sleep.assert_not_called()

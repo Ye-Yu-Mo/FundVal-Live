@@ -107,7 +107,7 @@ class AkshareEstimateEngine:
 
             df = ak.fund_value_estimation_em()
             if df is None or not isinstance(df, pd.DataFrame) or df.empty:
-                logger.warning("akshare fund_em_value_estimation 返回空数据")
+                logger.info("akshare fund_em_value_estimation 返回空数据（非交易时段正常现象）")
                 self._cached_df = pd.DataFrame()
             else:
                 self._cached_df = df

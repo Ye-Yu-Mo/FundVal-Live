@@ -305,3 +305,50 @@ class TestGetBatchEstimate:
             engine.get_batch_estimate(["000001", "000002", "161725"])
 
         mock_ak.assert_called_once()
+
+
+# ================================================================
+# M4: 非交易时段日志降级
+# ================================================================
+
+
+class TestNonTradingHoursLogging:
+    """非交易时段返回空数据 → INFO 而非 WARNING"""
+
+    def test_logs_info_not_warning_when_empty_outside_trading(self, caplog):
+        """非交易时段空数据 → INFO 级别日志"""
+        import logging
+        from api.sources.akshare_estimate import AkshareEstimateEngine
+
+        caplog.set_level(logging.INFO)
+        engine = AkshareEstimateEngine()
+        engine._refresh_cache()
+
+        with patch("akshare.fund_value_estimation_em") as mock_ak:
+            mock_ak.return_value = None  # 非交易时段返回空
+
+            engine._load_all_estimates()
+
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        infos = [r for r in caplog.records if r.levelno == logging.INFO]
+        assert len(warnings) == 0, (
+            f"非交易时段空数据不应打 WARNING, 实际: {[r.message for r in warnings]}"
+        )
+        assert len(infos) >= 1, "应至少有一条 INFO 日志"
+
+    def test_still_warns_when_network_error(self, caplog):
+        """网络错误仍然应打 WARNING（不是空数据，是真异常）"""
+        import logging
+        from api.sources.akshare_estimate import AkshareEstimateEngine
+
+        caplog.set_level(logging.WARNING)
+        engine = AkshareEstimateEngine()
+        engine._refresh_cache()
+
+        with patch("akshare.fund_value_estimation_em") as mock_ak:
+            mock_ak.side_effect = ConnectionError("network down")
+
+            engine._load_all_estimates()
+
+        warnings = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+        assert len(warnings) >= 1, f"网络异常应打 WARNING, 实际: {warnings}"

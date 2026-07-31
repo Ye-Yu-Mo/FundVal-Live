@@ -132,18 +132,24 @@ class PenetrationEngine:
         """
         批量获取个股实时行情
 
-        M3: 优先走内存缓存（30s TTL），缓存未命中时调 SinaStockSource。
-        Redis 增强后续可加。
+        M4: 按股票代码格式分流到不同行情源。
+        - 6 位数字 → A股 → SinaStockSource
+        - 5 位数字 → 港股 → akshare stock_hk_spot_em()
+        - 字母 + 数字 → 美股 → akshare stock_us_spot_em()
+
+        内存缓存 30s TTL，所有市场共享 _quote_cache。
 
         Returns:
             {stock_code: {price, change_percent}, ...}
         """
         result = {}
-        need_fetch = []
+        need_sina = []  # A股 — Sina
+        need_hk = []  # 港股 — akshare
+        need_us = []  # 美股 — akshare
 
         now_ts = datetime.now().timestamp()
 
-        # 分离缓存命中和未命中
+        # 分离缓存命中和未命中，按市场分组
         for code in stock_codes:
             cached = self._quote_cache.get(code)
             if cached and (now_ts - cached["ts"]) < QUOTE_CACHE_TTL:
@@ -151,38 +157,151 @@ class PenetrationEngine:
                     "price": cached["price"],
                     "change_percent": cached["change_percent"],
                 }
+                continue
+
+            market = self._detect_market(code)
+            if market == "hk":
+                need_hk.append(code)
+            elif market == "us":
+                need_us.append(code)
             else:
-                need_fetch.append(code)
+                need_sina.append(code)
 
-        if not need_fetch:
-            return result
+        # A股 — Sina（现有逻辑）
+        if need_sina:
+            self._fetch_sina_quotes(need_sina, result, now_ts)
 
-        # 调 Sina 获取
+        # 港股 — akshare（M4 新增）
+        if need_hk:
+            self._fetch_hk_quotes(need_hk, result, now_ts)
+
+        # 美股 — akshare（M4 新增）
+        if need_us:
+            self._fetch_us_quotes(need_us, result, now_ts)
+
+        return result
+
+    # ── 市场检测 ───────────────────────────────────────────
+
+    @staticmethod
+    def _detect_market(code: str) -> str:
+        """
+        检测股票所属市场
+
+        - 1-5 位纯数字 → 港股 (hk) — 港股代码 1-5 位，如 "5", "700", "00700"
+        - 6 位纯数字 → A股 (a)
+        - 字母 + 数字混合 → 美股 (us)
+        - 其他 → A股兜底
+        """
+        if not code:
+            return "a"
+        if code.isdigit():
+            if len(code) <= 5:
+                return "hk"
+            return "a"  # 6 位 → A股
+        return "us"  # 含字母 → 美股
+
+    # ── A股行情（Sina）─────────────────────────────────────
+
+    def _fetch_sina_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
+        """通过 SinaStockSource 获取 A 股行情"""
         try:
             from .sina import SinaStockSource
+            import time
 
             sina = SinaStockSource()
-            for code in need_fetch:
+            for code in codes:
                 try:
                     quote = sina.fetch_market_quote(code)
                     if quote and quote.get("market_price") is not None:
                         price = quote["market_price"]
                         change_pct = quote.get("market_growth", Decimal("0"))
-                        result[code] = {
-                            "price": price,
-                            "change_percent": change_pct,
-                        }
+                        result[code] = {"price": price, "change_percent": change_pct}
                         self._quote_cache[code] = {
                             "price": price,
                             "change_percent": change_pct,
                             "ts": now_ts,
                         }
+                    time.sleep(0.1)  # M4: 100ms 间隔，防 Sina 限流
                 except Exception as e:
-                    logger.debug(f"个股行情获取失败 ({code}): {e}")
+                    logger.debug(f"A股行情获取失败 ({code}): {e}")
         except Exception as e:
-            logger.warning(f"批量获取行情失败: {e}")
+            logger.warning(f"Sina 行情批量获取失败: {e}")
 
-        return result
+    # ── 港股行情（akshare）─────────────────────────────────
+
+    def _fetch_hk_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
+        """通过 akshare stock_hk_spot_em() 获取港股行情"""
+        try:
+            import akshare as ak
+
+            df = ak.stock_hk_spot_em()
+            if df is None or df.empty:
+                logger.warning("akshare 港股行情返回空数据")
+                return
+
+            # 建索引：代码 → 行
+            # akshare 返回 5 位字符串，如 "00700"
+            df_index = {}
+            for _, row in df.iterrows():
+                hk_code = str(row.get("代码", "")).strip()
+                if hk_code:
+                    df_index[hk_code] = row
+
+            for code in codes:
+                # 港股代码兼容：zfill(5) 对齐
+                normalized = str(code).zfill(5)
+                row = df_index.get(normalized)
+                if row is not None:
+                    try:
+                        price = Decimal(str(row["最新价"]))
+                        change_pct = Decimal(str(row.get("涨跌幅", "0")))
+                        result[code] = {"price": price, "change_percent": change_pct}
+                        self._quote_cache[code] = {
+                            "price": price,
+                            "change_percent": change_pct,
+                            "ts": now_ts,
+                        }
+                    except Exception as e:
+                        logger.debug(f"港股行情解析失败 ({code}): {e}")
+        except Exception as e:
+            logger.warning(f"港股行情批量获取失败: {e}")
+
+    # ── 美股行情（akshare）─────────────────────────────────
+
+    def _fetch_us_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
+        """通过 akshare stock_us_spot_em() 获取美股行情"""
+        try:
+            import akshare as ak
+
+            df = ak.stock_us_spot_em()
+            if df is None or df.empty:
+                logger.warning("akshare 美股行情返回空数据")
+                return
+
+            # 建索引：代码 → 行
+            df_index = {}
+            for _, row in df.iterrows():
+                us_code = str(row.get("代码", "")).strip()
+                if us_code:
+                    df_index[us_code] = row
+
+            for code in codes:
+                row = df_index.get(code)
+                if row is not None:
+                    try:
+                        price = Decimal(str(row["最新价"]))
+                        change_pct = Decimal(str(row.get("涨跌幅", "0")))
+                        result[code] = {"price": price, "change_percent": change_pct}
+                        self._quote_cache[code] = {
+                            "price": price,
+                            "change_percent": change_pct,
+                            "ts": now_ts,
+                        }
+                    except Exception as e:
+                        logger.debug(f"美股行情解析失败 ({code}): {e}")
+        except Exception as e:
+            logger.warning(f"美股行情批量获取失败: {e}")
 
     def _calculate(
         self,
