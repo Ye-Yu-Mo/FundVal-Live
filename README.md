@@ -3,6 +3,8 @@
 ![GitHub stars](https://img.shields.io/github/stars/Ye-Yu-Mo/FundVal-Live?style=social)
 ![GitHub views](https://komarev.com/ghpvc/?username=Ye-Yu-Mo&repo=FundVal-Live&color=blue&style=flat-square&label=views)
 
+[![Star History](https://api.star-history.com/svg?repos=Ye-Yu-Mo/FundVal-Live&type=Date)](https://www.star-history.com/?type=date&legend=top-left&repos=Ye-Yu-Mo%2FFundVal-Live)
+
 **盘中基金实时估值与逻辑审计系统**
 
 拒绝黑箱，拒绝情绪化叙事。基于透明的持仓穿透 + 实时行情加权计算 + 硬核数学模型，让基金估值回归数学事实。
