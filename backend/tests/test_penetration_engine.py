@@ -368,8 +368,11 @@ class TestMarketRouting:
         engine = PenetrationEngine()
         with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519", "market_price": Decimal("100"),
-                "market_growth": Decimal("1.0"), "market_time": "", "symbol": "sh600519",
+                "fund_code": "600519",
+                "market_price": Decimal("100"),
+                "market_growth": Decimal("1.0"),
+                "market_time": "",
+                "symbol": "sh600519",
             }
             with patch("requests.get") as mock_get:
                 # push2 港股 + 美股合并响应
@@ -387,7 +390,8 @@ class TestHKQuotesCache:
     def test_cache_hit(self):
         engine = PenetrationEngine()
         engine._quote_cache["00700"] = {
-            "price": Decimal("350.0"), "change_percent": Decimal("1.5"),
+            "price": Decimal("350.0"),
+            "change_percent": Decimal("1.5"),
             "ts": datetime.now().timestamp(),
         }
         with patch("requests.get") as mock_get:

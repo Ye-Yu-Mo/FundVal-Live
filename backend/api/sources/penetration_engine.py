@@ -266,7 +266,9 @@ class PenetrationEngine:
                     if price is not None:
                         result[orig_code] = {"price": price, "change_percent": change_pct}
                         self._quote_cache[orig_code] = {
-                            "price": price, "change_percent": change_pct, "ts": now_ts,
+                            "price": price,
+                            "change_percent": change_pct,
+                            "ts": now_ts,
                         }
                 except Exception as e:
                     logger.debug(f"港股行情解析失败 ({orig_code}): {e}")
@@ -308,7 +310,9 @@ class PenetrationEngine:
                         if price is not None:
                             result[code] = {"price": price, "change_percent": change_pct}
                             self._quote_cache[code] = {
-                                "price": price, "change_percent": change_pct, "ts": now_ts,
+                                "price": price,
+                                "change_percent": change_pct,
+                                "ts": now_ts,
                             }
                     except Exception as e:
                         logger.debug(f"美股行情解析失败 ({code}): {e}")
