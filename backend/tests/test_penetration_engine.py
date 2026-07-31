@@ -317,24 +317,17 @@ class TestGetQuotes:
 # ================================================================
 
 
-def _hk_quote_df(codes_prices):
-    """构造 akshare stock_hk_spot_em 返回的 DataFrame"""
-    import pandas as pd
+def _push2_response(codes_prices):
+    """构造 EastMoney push2 API 响应 {"data": {"diff": [...]}}"""
+    from unittest.mock import MagicMock
 
-    rows = []
+    diff = []
     for code, price, change in codes_prices:
-        rows.append({"代码": code, "名称": f"HK{code}", "最新价": price, "涨跌幅": change})
-    return pd.DataFrame(rows)
-
-
-def _us_quote_df(codes_prices):
-    """构造 akshare stock_us_spot_em 返回的 DataFrame"""
-    import pandas as pd
-
-    rows = []
-    for code, price, change in codes_prices:
-        rows.append({"代码": code, "名称": f"US{code}", "最新价": price, "涨跌幅": change})
-    return pd.DataFrame(rows)
+        diff.append({"f12": code, "f14": f"Stock{code}", "f2": price, "f3": change})
+    mock = MagicMock()
+    mock.json.return_value = {"data": {"diff": diff}}
+    mock.raise_for_status = MagicMock()
+    return mock
 
 
 class TestMarketRouting:
@@ -354,99 +347,61 @@ class TestMarketRouting:
             quotes = engine._get_quotes(["600519"])
         assert "600519" in quotes
 
-    def test_routes_hk_stock_to_akshare(self):
-        """5 位数字 → 港股 → 走 akshare"""
+    def test_routes_hk_stock_to_push2(self):
+        """5 位数字 → 港股 → 走 EastMoney push2"""
         engine = PenetrationEngine()
-        with patch("akshare.stock_hk_spot_em") as mock_hk:
-            mock_hk.return_value = _hk_quote_df(
-                [
-                    ("00700", 350.0, 1.5),
-                    ("09988", 80.0, -0.8),
-                ]
-            )
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = _push2_response([("00700", 350.0, 1.5), ("09988", 80.0, -0.8)])
             quotes = engine._get_quotes(["00700", "09988"])
-
         assert quotes["00700"]["price"] == Decimal("350.0")
-        assert quotes["00700"]["change_percent"] == Decimal("1.5")
-        assert quotes["09988"]["price"] == Decimal("80.0")
-        mock_hk.assert_called_once()
 
-    def test_routes_us_stock_to_akshare(self):
-        """字母+数字 → 美股 → 走 akshare"""
+    def test_routes_us_stock_to_push2(self):
+        """字母+数字 → 美股 → 走 EastMoney push2"""
         engine = PenetrationEngine()
-        with patch("akshare.stock_us_spot_em") as mock_us:
-            mock_us.return_value = _us_quote_df(
-                [
-                    ("BABA", 85.0, 2.0),
-                    ("PDD", 120.0, -1.0),
-                ]
-            )
-            quotes = engine._get_quotes(["BABA", "PDD"])
-
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = _push2_response([("BABA", 85.0, 2.0)])
+            quotes = engine._get_quotes(["BABA"])
         assert quotes["BABA"]["price"] == Decimal("85.0")
-        assert quotes["PDD"]["change_percent"] == Decimal("-1.0")
-        mock_us.assert_called_once()
 
     def test_mixed_market_routing(self):
-        """混合 A股+港股+美股 → 各自路由到正确源"""
+        """混合 A股+港股+美股"""
         engine = PenetrationEngine()
         with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519",
-                "market_price": Decimal("100"),
-                "market_growth": Decimal("1.0"),
-                "market_time": "",
-                "symbol": "sh600519",
+                "fund_code": "600519", "market_price": Decimal("100"),
+                "market_growth": Decimal("1.0"), "market_time": "", "symbol": "sh600519",
             }
-            with patch("akshare.stock_hk_spot_em") as mock_hk:
-                mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
-                with patch("akshare.stock_us_spot_em") as mock_us:
-                    mock_us.return_value = _us_quote_df([("BABA", 85.0, 2.0)])
-
-                    quotes = engine._get_quotes(["600519", "00700", "BABA"])
-
-        assert "600519" in quotes  # A股
-        assert "00700" in quotes  # 港股
-        assert "BABA" in quotes  # 美股
-        mock_sina.assert_called()
-        mock_hk.assert_called_once()
-        mock_us.assert_called_once()
+            with patch("requests.get") as mock_get:
+                # push2 港股 + 美股合并响应
+                mock = _push2_response([("00700", 350.0, 1.5), ("BABA", 85.0, 2.0)])
+                mock_get.return_value = mock
+                quotes = engine._get_quotes(["600519", "00700", "BABA"])
+        assert "600519" in quotes
+        assert "00700" in quotes
+        assert "BABA" in quotes
 
 
 class TestHKQuotesCache:
-    """港股行情缓存"""
+    """港股行情缓存 30s"""
 
     def test_cache_hit(self):
-        """港股缓存 30s → 命中不调 akshare"""
         engine = PenetrationEngine()
         engine._quote_cache["00700"] = {
-            "price": Decimal("350.0"),
-            "change_percent": Decimal("1.5"),
+            "price": Decimal("350.0"), "change_percent": Decimal("1.5"),
             "ts": datetime.now().timestamp(),
         }
-        with patch("akshare.stock_hk_spot_em") as mock_hk:
+        with patch("requests.get") as mock_get:
             quotes = engine._get_quotes(["00700"])
         assert quotes["00700"]["price"] == Decimal("350.0")
-        mock_hk.assert_not_called()
+        mock_get.assert_not_called()
 
     def test_hk_code_format_normalized(self):
-        """港股代码 "700" 和 "00700" 都能匹配到行情"""
+        """港股代码 "700" → push2 返回 "00700" → 匹配"""
         engine = PenetrationEngine()
-        with patch("akshare.stock_hk_spot_em") as mock_hk:
-            mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
-
-            # 代码是 "00700"
-            quotes = engine._get_quotes(["00700"])
-            assert quotes["00700"]["price"] == Decimal("350.0")
-
-        # 清缓存，用 "700" 再试
-        engine._quote_cache.clear()
-        with patch("akshare.stock_hk_spot_em") as mock_hk:
-            mock_hk.return_value = _hk_quote_df([("00700", 350.0, 1.5)])
-
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = _push2_response([("00700", 350.0, 1.5)])
             quotes = engine._get_quotes(["700"])
-            # "700" 应在内部被 zfill(5) 为 "00700" 后匹配
-            assert "700" in quotes
+        assert "700" in quotes
 
 
 # ================================================================

@@ -28,7 +28,7 @@ class EastMoneySource(BaseEstimateSource):
     # 历史净值 Web API 已不可用。保留常量以备后续恢复。
     HISTORY_URL = "http://fund.eastmoney.com/pingzhongdata/{code}.js"
     FUND_HOLDINGS_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition"
-    STOCK_QUOTE_URL = "http://push2.eastmoney.com/api/qt/ulist.np/get"
+    STOCK_QUOTE_URL = "https://push2.eastmoney.com/api/qt/ulist.np/get"
 
     # 移动端 API（作为 Web API 的 fallback，提升净值覆盖率）
     MOBILE_NAV_HISTORY_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList"

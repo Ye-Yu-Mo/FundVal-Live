@@ -134,8 +134,8 @@ class PenetrationEngine:
 
         M4: 按股票代码格式分流到不同行情源。
         - 6 位数字 → A股 → SinaStockSource
-        - 5 位数字 → 港股 → akshare stock_hk_spot_em()
-        - 字母 + 数字 → 美股 → akshare stock_us_spot_em()
+        - 5 位数字 → 港股 → EastMoney push2 API (HTTPS, secid 前缀 116)
+        - 字母 + 数字 → 美股 → EastMoney push2 API (HTTPS, secid 前缀 105/106)
 
         内存缓存 30s TTL，所有市场共享 _quote_cache。
 
@@ -228,80 +228,92 @@ class PenetrationEngine:
         except Exception as e:
             logger.warning(f"Sina 行情批量获取失败: {e}")
 
-    # ── 港股行情（akshare）─────────────────────────────────
+    # ── 港股行情（EastMoney push2 API, HTTPS）─────────────────
+
+    _PUSH2_URL = "https://push2.eastmoney.com/api/qt/ulist.np/get"
 
     def _fetch_hk_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
-        """通过 akshare stock_hk_spot_em() 获取港股行情"""
+        """通过 EastMoney push2 API (HTTPS) 获取港股行情，secid 前缀 116"""
+        import requests
+
+        # 港股代码规范化：zfill(5) 对齐（"700" → "00700"）
+        normalized_map = {str(c).zfill(5): c for c in codes}
+
         try:
-            import akshare as ak
+            secids = [f"116.{n}" for n in normalized_map]
+            resp = requests.get(
+                self._PUSH2_URL,
+                params={"secids": ",".join(secids), "fields": "f12,f14,f2,f3", "fltt": "2"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
 
-            df = ak.stock_hk_spot_em()
-            if df is None or df.empty:
-                logger.warning("akshare 港股行情返回空数据")
-                return
-
-            # 建索引：代码 → 行
-            # akshare 返回 5 位字符串，如 "00700"
-            df_index = {}
-            for _, row in df.iterrows():
-                hk_code = str(row.get("代码", "")).strip()
-                if hk_code:
-                    df_index[hk_code] = row
-
-            for code in codes:
-                # 港股代码兼容：zfill(5) 对齐
-                normalized = str(code).zfill(5)
-                row = df_index.get(normalized)
-                if row is not None:
-                    try:
-                        price = Decimal(str(row["最新价"]))
-                        change_pct = Decimal(str(row.get("涨跌幅", "0")))
-                        result[code] = {"price": price, "change_percent": change_pct}
-                        self._quote_cache[code] = {
-                            "price": price,
-                            "change_percent": change_pct,
-                            "ts": now_ts,
+            for item in data.get("data", {}).get("diff", []):
+                api_code = item["f12"]  # push2 返回的代码（如 "00700"）
+                orig_code = normalized_map.get(api_code, api_code)  # 还原为原始代码
+                try:
+                    price = (
+                        Decimal(str(item.get("f2", "0")))
+                        if item.get("f2") not in (None, "-")
+                        else None
+                    )
+                    change_pct = (
+                        Decimal(str(item.get("f3", "0")))
+                        if item.get("f3") not in (None, "-")
+                        else Decimal("0")
+                    )
+                    if price is not None:
+                        result[orig_code] = {"price": price, "change_percent": change_pct}
+                        self._quote_cache[orig_code] = {
+                            "price": price, "change_percent": change_pct, "ts": now_ts,
                         }
-                    except Exception as e:
-                        logger.debug(f"港股行情解析失败 ({code}): {e}")
+                except Exception as e:
+                    logger.debug(f"港股行情解析失败 ({orig_code}): {e}")
         except Exception as e:
-            logger.warning(f"港股行情批量获取失败: {e}")
+            logger.warning(f"港股行情获取失败: {e}")
 
-    # ── 美股行情（akshare）─────────────────────────────────
+    # ── 美股行情（EastMoney push2 API, HTTPS）─────────────────
 
     def _fetch_us_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
-        """通过 akshare stock_us_spot_em() 获取美股行情"""
+        """通过 EastMoney push2 API (HTTPS) 获取美股行情，secid 前缀 105/106"""
+        import requests
+
         try:
-            import akshare as ak
+            for prefix in ("105", "106"):
+                secids = [f"{prefix}.{code}" for code in codes]
+                resp = requests.get(
+                    self._PUSH2_URL,
+                    params={"secids": ",".join(secids), "fields": "f12,f14,f2,f3", "fltt": "2"},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-            df = ak.stock_us_spot_em()
-            if df is None or df.empty:
-                logger.warning("akshare 美股行情返回空数据")
-                return
-
-            # 建索引：代码 → 行
-            df_index = {}
-            for _, row in df.iterrows():
-                us_code = str(row.get("代码", "")).strip()
-                if us_code:
-                    df_index[us_code] = row
-
-            for code in codes:
-                row = df_index.get(code)
-                if row is not None:
+                for item in data.get("data", {}).get("diff", []):
+                    code = item["f12"]
+                    if code in result:
+                        continue
                     try:
-                        price = Decimal(str(row["最新价"]))
-                        change_pct = Decimal(str(row.get("涨跌幅", "0")))
-                        result[code] = {"price": price, "change_percent": change_pct}
-                        self._quote_cache[code] = {
-                            "price": price,
-                            "change_percent": change_pct,
-                            "ts": now_ts,
-                        }
+                        price = (
+                            Decimal(str(item.get("f2", "0")))
+                            if item.get("f2") not in (None, "-")
+                            else None
+                        )
+                        change_pct = (
+                            Decimal(str(item.get("f3", "0")))
+                            if item.get("f3") not in (None, "-")
+                            else Decimal("0")
+                        )
+                        if price is not None:
+                            result[code] = {"price": price, "change_percent": change_pct}
+                            self._quote_cache[code] = {
+                                "price": price, "change_percent": change_pct, "ts": now_ts,
+                            }
                     except Exception as e:
                         logger.debug(f"美股行情解析失败 ({code}): {e}")
         except Exception as e:
-            logger.warning(f"美股行情批量获取失败: {e}")
+            logger.warning(f"美股行情获取失败: {e}")
 
     def _calculate(
         self,
