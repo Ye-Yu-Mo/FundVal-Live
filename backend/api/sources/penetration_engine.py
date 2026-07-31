@@ -87,7 +87,7 @@ class PenetrationEngine:
 
         ft = fund_type.lower()
         # 不适用的类型
-        blocked = {"债券", "货币", "qdii", "债", "货"}
+        blocked = {"债券", "货币", "债", "货"}
         for keyword in blocked:
             if keyword in ft:
                 return False

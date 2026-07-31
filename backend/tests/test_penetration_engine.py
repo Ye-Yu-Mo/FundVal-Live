@@ -94,10 +94,11 @@ class TestIsApplicable:
         engine = PenetrationEngine()
         assert engine._is_applicable("货币型") is False
 
-    def test_qdii_not_applicable(self):
+    def test_qdii_applicable(self):
+        """M5: QDII 解除限制，允许穿透估算"""
         engine = PenetrationEngine()
-        assert engine._is_applicable("QDII") is False
-        assert engine._is_applicable("QDII-股票") is False
+        assert engine._is_applicable("QDII") is True
+        assert engine._is_applicable("QDII-股票") is True
 
     def test_none_type_applicable(self):
         """未知类型默认适用（不因缺少类型信息而放弃）"""
@@ -209,12 +210,11 @@ class TestEstimate:
         assert data is None
         assert reason == "not_applicable"
 
-    def test_not_applicable_for_qdii(self):
-        """QDII → not_applicable"""
+    def test_qdii_allowed_to_proceed(self):
+        """M5: QDII 不再被 _is_applicable 拦截，进入正常估值流程"""
         engine = PenetrationEngine()
-        data, reason = engine.estimate("000001", "QDII")
-        assert data is None
-        assert reason == "not_applicable"
+        assert engine._is_applicable("QDII-股票") is True
+        # 不再直接返回 not_applicable
 
     def test_no_holdings_when_fetch_fails(self):
         """获取持仓失败 → no_holdings"""
