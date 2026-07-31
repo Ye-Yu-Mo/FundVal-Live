@@ -30,7 +30,7 @@ def health(request):
             "status": "ok",
             "database": db_status,
             "system_initialized": config.get("system_initialized", False),
-            "version": "2.7.2",
+            "version": "2.7.3",
         }
     )
 

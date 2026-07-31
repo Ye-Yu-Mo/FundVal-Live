@@ -16,6 +16,24 @@
 
 ---
 
+## [v2.7.3] - 2026-07-31
+
+### Added
+
+- **穿透估算港股/美股行情支持**：QDII/海外指数基金现在可通过穿透估算获取估值
+  - 港股行情通过 EastMoney push2 API (HTTPS) 获取，代码规范化 zfill(5)
+  - 美股行情通过 EastMoney push2 API (HTTPS) 获取，自动尝试 secid 前缀 105/106
+  - 股票代码自动分流：6位→A股(Sina)、5位→港股、字母→美股
+  - 解除 QDII 基金的穿透估算限制
+- **Sina 请求限流**：`_get_quotes` 循环增加 100ms 间隔，防止批量请求被限流断开
+
+### Fixed
+
+- **Docker 镜像缺少 akshare/pandas 依赖**：`requirements.txt` 补全，估值引擎在容器中正常工作
+- **港股/美股行情获取失败**：akshare `stock_hk_spot_em`/`stock_us_spot_em` 内部使用 HTTP 被容器环境阻断，改为直连 EastMoney push2 HTTPS API
+
+---
+
 ## [v2.7.2] - 2026-07-30
 
 ### Added
