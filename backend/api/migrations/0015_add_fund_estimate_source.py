@@ -12,6 +12,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="fund",
             name="estimate_source",
-            field=models.CharField(blank=True, help_text="估值来源引擎", max_length=50, null=True),
+            field=models.CharField(
+                blank=True,
+                help_text="估值来源（akshare / penetration / yangjibao / xiaobeiyangji）",
+                max_length=50,
+                null=True,
+            ),
         ),
     ]
