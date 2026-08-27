@@ -3,7 +3,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/Ye-Yu-Mo/FundVal-Live?style=social)
 ![GitHub views](https://komarev.com/ghpvc/?username=Ye-Yu-Mo&repo=FundVal-Live&color=blue&style=flat-square&label=views)
 
-[![Star History](https://api.star-history.com/svg?repos=Ye-Yu-Mo/FundVal-Live&type=Date)](https://www.star-history.com/?type=date&legend=top-left&repos=Ye-Yu-Mo%2FFundVal-Live)
+[![Star History](https://star-history.dera.page/svg?repos=Ye-Yu-Mo/FundVal-Live&type=Date)](https://star-history.dera.page/#Ye-Yu-Mo/FundVal-Live&type=date&legend=top-left)
 
 **盘中基金实时估值与逻辑审计系统**
 
