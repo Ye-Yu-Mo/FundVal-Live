@@ -16,6 +16,15 @@
 
 ---
 
+## [v2.7.5] - 2026-10-23
+
+### Fixed
+
+- **Release 流水线 Android 构建失败**：`android-actions/setup-android` 从 v3 升级到 v4。v3 执行 `sdkmanager tools`，Google 已删除 `tools` 包，导致 Capacitor Android 在 Setup Android SDK 步骤失败。
+- v2.7.4 的净值口径与 akshare 估值修复包含在本版本中。
+
+---
+
 ## [v2.7.4] - 2026-10-23
 
 ### Fixed
