@@ -24,9 +24,12 @@ class TestBatchUpdateTodayNavAPI:
 
     def setup_method(self):
         """每个测试前创建测试数据"""
+        from django.contrib.auth import get_user_model
         from api.models import Fund
 
         self.client = APIClient()
+        user = get_user_model().objects.create_user(username="batchuser", password="pass")
+        self.client.force_authenticate(user=user)
 
         # 创建测试基金
         self.fund1 = Fund.objects.create(

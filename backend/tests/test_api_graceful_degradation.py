@@ -81,9 +81,12 @@ class TestBatchEstimateGracefulDegradation:
     """FundViewSet.batch_estimate — 批量估值不可用时标记"""
 
     def setup_method(self):
+        from django.contrib.auth import get_user_model
         from api.models import Fund
 
         self.client = APIClient()
+        user = get_user_model().objects.create_user(username="batchuser", password="pass")
+        self.client.force_authenticate(user=user)
         Fund.objects.create(
             fund_code="000001",
             fund_name="基金1",

@@ -46,22 +46,15 @@ class Command(BaseCommand):
 
         self.stdout.write(f"找到 {records.count()} 条记录")
 
-        # 并发从所有数据源获取实际净值
-        from api.models import UserSourceCredential
-
+        # 只使用公共数据源，不能借用任意用户的登录凭证
         source_names = SourceRegistry.list_sources()
         sources = []
         for name in source_names:
             s = SourceRegistry.get_source(name)
             if not s or name == "sina":
                 continue
-            if name == "yangjibao":
-                continue  # 需要持仓上下文
-            if name == "xiaobeiyangji":
-                cred = UserSourceCredential.objects.filter(source_name=name, is_active=True).first()
-                if not cred:
-                    continue
-                s.set_token(cred.token)
+            if name in ("yangjibao", "xiaobeiyangji"):
+                continue  # 需要用户登录态，后台命令不适用
             sources.append(s)
         if not sources:
             self.stdout.write(self.style.ERROR("没有可用的数据源"))

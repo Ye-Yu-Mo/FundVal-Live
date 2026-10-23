@@ -2,11 +2,10 @@
 测试历史净值同步接口权限
 
 测试点：
-1. 未认证用户同步 ≤15 个基金 → 200（允许）
-2. 未认证用户同步 >15 个基金 → 403（拒绝）
-3. 普通用户同步 ≤15 个基金 → 200（允许）
-4. 普通用户同步 >15 个基金 → 403（拒绝）
-5. 管理员同步任意数量基金 → 200（允许）
+1. 未认证用户同步任意数量基金 → 401（拒绝）
+2. 普通用户同步 ≤15 个基金 → 200（允许）
+3. 普通用户同步 >15 个基金 → 403（拒绝）
+4. 管理员同步任意数量基金 → 200（允许）
 """
 
 import pytest
@@ -19,7 +18,7 @@ class TestNavHistorySyncPermission:
     """历史净值同步权限测试"""
 
     def test_sync_unauthenticated_small_batch(self):
-        """未认证用户同步 ≤15 个基金应返回 200"""
+        """未认证用户同步 ≤15 个基金应返回 401"""
         client = Client()
         response = client.post(
             "/api/nav-history/sync/",
@@ -27,10 +26,10 @@ class TestNavHistorySyncPermission:
             content_type="application/json",
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 401
 
     def test_sync_unauthenticated_large_batch(self):
-        """未认证用户同步 >15 个基金应返回 403"""
+        """未认证用户同步 >15 个基金应返回 401"""
         client = Client()
         # 生成 16 个基金代码
         fund_codes = [f"{i:06d}" for i in range(16)]
@@ -40,8 +39,7 @@ class TestNavHistorySyncPermission:
             content_type="application/json",
         )
 
-        assert response.status_code == 403
-        assert "超过 15 个基金" in response.data["error"]
+        assert response.status_code == 401
 
     def test_sync_normal_user_small_batch(self):
         """普通用户同步 ≤15 个基金应返回 200"""

@@ -232,14 +232,25 @@ class TestCacheTTLConfiguration:
     """测试缓存 TTL 配置化"""
 
     @pytest.fixture
+    def user(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_user(username="ttluser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    @pytest.fixture
     def fund(self):
         return Fund.objects.create(
             fund_code="000001", fund_name="测试基金", latest_nav=Decimal("1.5000")
         )
 
-    def test_batch_estimate_uses_config_ttl(self, fund):
+    def test_batch_estimate_uses_config_ttl(self, client, fund):
         """测试：batch_estimate 使用配置的 TTL"""
-        client = APIClient()
 
         # Mock 配置
         with patch("api.viewsets.config") as mock_config:
@@ -267,9 +278,8 @@ class TestCacheTTLConfiguration:
                 # 验证配置被读取
                 mock_config.get.assert_called_with("estimate_cache_ttl", 5)
 
-    def test_config_default_ttl_when_not_set(self, fund):
+    def test_config_default_ttl_when_not_set(self, client, fund):
         """测试：配置未设置时使用默认 TTL"""
-        client = APIClient()
 
         # Mock 配置返回 None
         with patch("api.viewsets.config") as mock_config:

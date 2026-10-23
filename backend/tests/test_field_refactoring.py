@@ -118,10 +118,18 @@ class TestBatchEstimateAPIWithLatestNav:
     """测试批量估值 API 使用 latest_nav"""
 
     @pytest.fixture
-    def client(self):
+    def user(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_user(username="fielduser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
         from rest_framework.test import APIClient
 
-        return APIClient()
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def fund(self):
@@ -217,10 +225,18 @@ class TestFundListAPIWithLatestNav:
     """测试基金列表 API 返回 latest_nav"""
 
     @pytest.fixture
-    def client(self):
+    def user(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_user(username="fielduser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
         from rest_framework.test import APIClient
 
-        return APIClient()
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def fund(self):
@@ -252,10 +268,18 @@ class TestFundDetailAPIWithLatestNav:
     """测试基金详情 API 返回 latest_nav"""
 
     @pytest.fixture
-    def client(self):
+    def user(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_user(username="fielduser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
         from rest_framework.test import APIClient
 
-        return APIClient()
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def fund(self):

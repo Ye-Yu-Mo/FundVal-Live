@@ -170,6 +170,10 @@ class TestBatchEstimatePenetrationSource:
         from api.models import Fund
 
         self.client = APIClient()
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_user(username="batchuser", password="pass")
+        self.client.force_authenticate(user=user)
         Fund.objects.create(
             fund_code="510050",
             fund_name="上证50ETF",

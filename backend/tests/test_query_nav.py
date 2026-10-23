@@ -26,9 +26,16 @@ class TestQueryNav:
     """测试 query_nav 接口"""
 
     @pytest.fixture
-    def client(self):
-        """创建 API 客户端"""
-        return APIClient()
+    def user(self):
+        """认证用户（query_nav 已要求登录）"""
+        return User.objects.create_user(username="queryuser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
+        """创建已认证的 API 客户端"""
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def fund(self):
