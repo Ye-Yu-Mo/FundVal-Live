@@ -40,9 +40,7 @@ def is_trading_day(d: date) -> bool:
         return not calendar.is_holiday(d)
     except NotImplementedError:
         if d.year not in _warned_years:
-            logger.warning(
-                "chinese-calendar 不支持 %s 年，按周一至周五近似判断交易日", d.year
-            )
+            logger.warning("chinese-calendar 不支持 %s 年，按周一至周五近似判断交易日", d.year)
             _warned_years.add(d.year)
         return True
 

@@ -81,4 +81,3 @@ class TestTradingCalendar:
         assert is_trading_day(date(2027, 1, 4)) is True
         # 2027-01-02 是周六，明确不是交易日
         assert is_trading_day(date(2027, 1, 2)) is False
-
