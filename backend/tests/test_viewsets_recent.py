@@ -25,8 +25,10 @@ class TestFundBatchEstimate:
     """测试 FundViewSet.batch_estimate() - 批量获取估值"""
 
     @pytest.fixture
-    def client(self):
-        return APIClient()
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def user(self):
@@ -173,8 +175,14 @@ class TestFundBatchUpdateNav:
     """测试 FundViewSet.batch_update_nav() - 批量更新净值"""
 
     @pytest.fixture
-    def client(self):
-        return APIClient()
+    def user(self):
+        return User.objects.create_user(username="navuser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def funds(self):
@@ -271,8 +279,10 @@ class TestPositionAPIWithFundDetails:
     """测试持仓 API 返回基金详细信息"""
 
     @pytest.fixture
-    def client(self):
-        return APIClient()
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def user(self):
@@ -361,8 +371,10 @@ class TestPositionOperationAPIWithRecalculation:
     """测试持仓操作 API 自动重算持仓"""
 
     @pytest.fixture
-    def client(self):
-        return APIClient()
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def user(self):

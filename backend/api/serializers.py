@@ -53,6 +53,26 @@ class AccountSerializer(serializers.ModelSerializer):
         queryset=Account.objects.all(), required=False, allow_null=True
     )
 
+    def validate_parent(self, value):
+        """父账户只能属于当前用户，且父子关系最多两层"""
+        if value is None:
+            return value
+
+        request = self.context.get("request")
+        if request and request.user.is_authenticated and value.user_id != request.user.id:
+            raise serializers.ValidationError("无权使用该父账户")
+
+        if self.instance is not None:
+            if value.pk == self.instance.pk:
+                raise serializers.ValidationError("账户不能作为自己的父账户")
+            if self.instance.children.exists():
+                raise serializers.ValidationError("包含子账户的账户不能设为子账户")
+
+        if value.parent_id is not None:
+            raise serializers.ValidationError("最多支持两层账户")
+
+        return value
+
     # 汇总字段
     holding_cost = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     holding_value = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
@@ -121,9 +141,14 @@ class AccountSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, data):
-        """验证账户名唯一性"""
+        """验证账户名唯一性，且默认账户必须是父账户"""
         user = self.context["request"].user
         name = data.get("name")
+
+        parent = data.get("parent", getattr(self.instance, "parent", None))
+        is_default = data.get("is_default", getattr(self.instance, "is_default", False))
+        if is_default and parent is not None:
+            raise serializers.ValidationError({"is_default": "默认账户必须是父账户"})
 
         # 更新时排除自己
         if self.instance:
@@ -221,7 +246,7 @@ class PositionOperationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "fund", "created_at"]
 
     def validate(self, data):
-        """验证并设置 fund"""
+        """验证 Fund、账户归属和子账户约束"""
         fund_code = data.pop("fund_code", None)
         if not fund_code:
             raise serializers.ValidationError({"fund_code": "基金代码不能为空"})
@@ -231,6 +256,14 @@ class PositionOperationSerializer(serializers.ModelSerializer):
             data["fund"] = fund
         except Fund.DoesNotExist:
             raise serializers.ValidationError({"fund_code": "基金不存在"})
+
+        account = data.get("account")
+        if account is not None:
+            request = self.context.get("request")
+            if request and request.user.is_authenticated and account.user_id != request.user.id:
+                raise serializers.ValidationError({"account": "无权操作该账户"})
+            if account.parent_id is None:
+                raise serializers.ValidationError({"account": "持仓只能创建在子账户上"})
 
         return data
 

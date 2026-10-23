@@ -106,7 +106,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 需要登录的数据源：优先当前用户凭证，fallback 到任意用户的凭证
+        # 需要登录的数据源：只能使用当前用户自己的凭证
         if source_name in ("yangjibao", "xiaobeiyangji"):
             from .models import UserSourceCredential
 
@@ -116,19 +116,14 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                     user=request.user, source_name=source_name, is_active=True
                 ).first()
             if not credential:
-                credential = UserSourceCredential.objects.filter(
-                    source_name=source_name, is_active=True
-                ).first()
-            if credential:
-                if hasattr(source, "set_token"):
-                    source.set_token(credential.token)
-                else:
-                    source._token = credential.token
-            else:
                 return Response(
                     {"error": f"未登录 {source_name}，请先在设置中扫码登录"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            if hasattr(source, "set_token"):
+                source.set_token(credential.token)
+            else:
+                source._token = credential.token
 
         try:
             data = source.fetch_estimate(fund_code)
@@ -539,7 +534,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(result)
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def batch_estimate(self, request):
         """
         批量获取基金估值（带缓存）
@@ -628,7 +623,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                 "eastmoney"
             )
 
-            # 需要登录的数据源：优先当前用户，fallback 任意用户
+            # 需要登录的数据源：只能使用当前用户自己的凭证
             if source_name in ("yangjibao", "xiaobeiyangji"):
                 from .models import UserSourceCredential
 
@@ -638,14 +633,14 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
                         user=request.user, source_name=source_name, is_active=True
                     ).first()
                 if not credential:
-                    credential = UserSourceCredential.objects.filter(
-                        source_name=source_name, is_active=True
-                    ).first()
-                if credential:
-                    if hasattr(source, "set_token"):
-                        source.set_token(credential.token)
-                    else:
-                        source._token = credential.token
+                    return Response(
+                        {"error": f"未登录 {source_name}，请先在设置中扫码登录"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if hasattr(source, "set_token"):
+                    source.set_token(credential.token)
+                else:
+                    source._token = credential.token
 
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {
@@ -714,7 +709,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def batch_update_nav(self, request):
         """
         批量更新基金净值
@@ -791,7 +786,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def batch_update_today_nav(self, request):
         """
         批量更新基金当日确认净值
@@ -886,7 +881,7 @@ class FundViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def query_nav(self, request):
         """
         查询持仓操作净值
@@ -1679,7 +1674,7 @@ class FundNavHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(results)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def sync(self, request):
         """
         同步历史净值
@@ -1892,15 +1887,11 @@ class SourceCredentialViewSet(viewsets.ViewSet):
         source = SourceRegistry.get_source(source_name)
         login_type = source.get_login_type() if source else "none"
 
-        # 优先当前用户，fallback 任意用户
+        # 只能查询当前用户自己的登录状态
         credential = None
         if request.user.is_authenticated:
             credential = UserSourceCredential.objects.filter(
                 user=request.user, source_name=source_name, is_active=True
-            ).first()
-        if not credential:
-            credential = UserSourceCredential.objects.filter(
-                source_name=source_name, is_active=True
             ).first()
 
         if credential:

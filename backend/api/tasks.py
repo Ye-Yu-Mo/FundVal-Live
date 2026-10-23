@@ -247,23 +247,15 @@ def capture_intraday_snapshots():
     fund_ids = Position.objects.values_list("fund_id", flat=True).distinct()
     funds = Fund.objects.filter(id__in=fund_ids)
 
-    # 批量快照: yjb 需要持仓上下文，跳过；xbyj 有批量 API，可查任意基金
-    from api.models import UserSourceCredential
-
+    # 批量快照只使用公共数据源，不能借用任意用户的登录凭证
     source_names = SourceRegistry.list_sources()
     sources = []
     for name in source_names:
         s = SourceRegistry.get_source(name)
         if not s or name == "sina":
             continue
-        if name == "yangjibao":
-            continue  # 需要持仓上下文，批量任务不适用
-        if name == "xiaobeiyangji":
-            # 有凭证时可用（批量 API 支持任意基金查询）
-            cred = UserSourceCredential.objects.filter(source_name=name, is_active=True).first()
-            if not cred:
-                continue
-            s.set_token(cred.token)
+        if name in ("yangjibao", "xiaobeiyangji"):
+            continue  # 需要用户登录态，后台任务不适用
         sources.append(s)
 
     count = 0

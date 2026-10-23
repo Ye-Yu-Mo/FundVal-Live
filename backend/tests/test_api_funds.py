@@ -210,8 +210,16 @@ class TestBatchEstimateAPI:
     """测试批量估值 API"""
 
     @pytest.fixture
-    def client(self):
-        return APIClient()
+    def user(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_user(username="batchuser", password="pass")
+
+    @pytest.fixture
+    def client(self, user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
 
     @pytest.fixture
     def funds(self):
