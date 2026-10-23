@@ -1,5 +1,12 @@
 {
   "appId": "com.fundval.app",
   "appName": "Fundval",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
 }
+

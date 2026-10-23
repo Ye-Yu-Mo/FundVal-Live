@@ -14,9 +14,10 @@ from unittest.mock import Mock, patch
 class TestEastMoneyIndexHoldings:
     """EastMoneySource.fetch_index_holdings 测试"""
 
+    @patch("api.sources.sina.SinaStockSource.fetch_market_quotes")
     @patch("requests.get")
-    def test_fetch_index_holdings_success(self, mock_get):
-        """测试获取成分股成功"""
+    def test_fetch_index_holdings_success(self, mock_get, mock_sina):
+        """测试获取成分股成功（A 股行情走 Sina 批量）"""
         from api.sources.eastmoney import EastMoneySource
 
         # Mock 持仓接口响应
@@ -44,19 +45,17 @@ class TestEastMoneyIndexHoldings:
             },
         }
 
-        # Mock 行情接口响应
-        quote_response = Mock()
-        quote_response.status_code = 200
-        quote_response.json.return_value = {
-            "data": {
-                "diff": [
-                    {"f12": "300750", "f2": 400.72, "f3": 1.32},
-                    {"f12": "600519", "f2": 1414.35, "f3": 1.61},
-                ]
-            }
+        mock_get.return_value = holdings_response
+        mock_sina.return_value = {
+            "300750": {
+                "market_price": Decimal("400.72"),
+                "market_growth": Decimal("1.32"),
+            },
+            "600519": {
+                "market_price": Decimal("1414.35"),
+                "market_growth": Decimal("1.61"),
+            },
         }
-
-        mock_get.side_effect = [holdings_response, quote_response]
 
         source = EastMoneySource()
         result = source.fetch_index_holdings("510300")

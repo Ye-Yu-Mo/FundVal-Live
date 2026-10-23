@@ -736,31 +736,68 @@ class EastMoneySource(BaseEstimateSource):
 
             # Step 2: 批量查询实时行情（失败不影响持仓数据返回）
             quotes = {}
-            try:
-                secids = [f"{s['NEWTEXCH']}.{s['GPDM']}" for s in stocks]
-                quote_resp = requests.get(
-                    self.STOCK_QUOTE_URL,
-                    params={
-                        "secids": ",".join(secids),
-                        "fields": "f12,f14,f2,f3",
-                        "fltt": "2",
-                    },
-                    timeout=10,
-                )
-                quote_resp.raise_for_status()
-                quote_data = quote_resp.json()
 
-                for item in quote_data.get("data", {}).get("diff", []):
-                    quotes[item["f12"]] = {
-                        "price": (
-                            Decimal(str(item["f2"])) if item.get("f2") not in (None, "-") else None
-                        ),
-                        "change_percent": (
-                            Decimal(str(item["f3"])) if item.get("f3") not in (None, "-") else None
-                        ),
-                    }
-            except Exception as e:
-                logger.warning(f"获取个股行情失败：{fund_code}, 错误：{e}")
+            # A 股走 Sina 批量接口，避免 push2 批量接口不稳定
+            a_codes = [
+                str(s.get("GPDM", ""))
+                for s in stocks
+                if str(s.get("GPDM", "")).isdigit() and len(str(s.get("GPDM", ""))) == 6
+            ]
+            if a_codes:
+                try:
+                    from .sina import SinaStockSource
+
+                    sina_quotes = SinaStockSource().fetch_market_quotes(a_codes)
+                    for code, quote in sina_quotes.items():
+                        quotes[code] = {
+                            "price": quote.get("market_price"),
+                            "change_percent": quote.get("market_growth"),
+                        }
+                except Exception as e:
+                    logger.warning(
+                        f"获取持仓个股行情失败：fund={fund_code}, "
+                        f"codes={','.join(a_codes)}, 错误：{e}"
+                    )
+
+            # 港美股仍走 EastMoney push2 批量接口
+            other_stocks = [s for s in stocks if str(s.get("GPDM", "")) not in a_codes]
+            if other_stocks:
+                try:
+                    secids = [f"{s['NEWTEXCH']}.{s['GPDM']}" for s in other_stocks]
+                    quote_resp = requests.get(
+                        self.STOCK_QUOTE_URL,
+                        params={
+                            "secids": ",".join(secids),
+                            "fields": "f12,f14,f2,f3",
+                            "fltt": "2",
+                        },
+                        headers={
+                            "User-Agent": "Mozilla/5.0",
+                            "Referer": "https://quote.eastmoney.com/",
+                        },
+                        timeout=10,
+                    )
+                    quote_resp.raise_for_status()
+                    quote_data = quote_resp.json()
+
+                    for item in quote_data.get("data", {}).get("diff", []):
+                        quotes[item["f12"]] = {
+                            "price": (
+                                Decimal(str(item["f2"]))
+                                if item.get("f2") not in (None, "-")
+                                else None
+                            ),
+                            "change_percent": (
+                                Decimal(str(item["f3"]))
+                                if item.get("f3") not in (None, "-")
+                                else None
+                            ),
+                        }
+                except Exception as e:
+                    codes = ",".join(str(s.get("GPDM", "")) for s in other_stocks)
+                    logger.warning(
+                        f"获取港美股持仓行情失败：fund={fund_code}, codes={codes}, 错误：{e}"
+                    )
 
             # Step 3: 合并结果
             result = []

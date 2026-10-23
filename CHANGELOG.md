@@ -16,6 +16,22 @@
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Sina 行情请求超时**：A 股行情改为单次批量请求（最多 50 只/批），HTTP 改为 HTTPS 并补 User-Agent/Referer，去掉逐只 100ms 等待
+- **EastMoney 持仓行情日志误报**：A 股持仓行情改走 Sina 批量接口，不再调用不稳定的 push2 批量接口；日志区分 A 股/港美股并输出 fund/codes
+- **Gunicorn worker 超时**：批量估值不再因逐只 Sina 10 秒超时堆积，避免 `batch_estimate` 被 SIGKILL
+- **Android 服务器配置失败**：Capacitor 开启 cleartext 和 mixed content，服务器地址统一去掉末尾斜杠
+- **缺失迁移**：补充 `0017_alter_fund_estimate_source`，消除启动时“模型有变更未迁移”的警告
+
+### Changed
+
+- Sina 单只行情查询复用批量实现
+
+---
+
 ## [v2.7.6] - 2026-10-23
 
 ### Fixed

@@ -41,6 +41,7 @@ import {
   LockOutlined,
 } from '@ant-design/icons';
 import { isNativeApp } from '../App';
+import { normalizeApiBaseUrl } from '../utils/url';
 import VersionCard from '../components/VersionCard';
 import {
   sourceAPI,
@@ -1516,7 +1517,7 @@ const SettingsPage = () => {
         return;
       }
 
-      const cleanUrl = url.replace(/\/$/, '');
+      const cleanUrl = normalizeApiBaseUrl(url);
       const response = await fetch(`${cleanUrl}/api/health/`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },

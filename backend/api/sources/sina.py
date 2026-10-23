@@ -1,6 +1,6 @@
 import logging
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import requests
 
@@ -12,7 +12,15 @@ logger = logging.getLogger(__name__)
 class SinaStockSource(BaseEstimateSource):
     """新浪财经股票/ETF实时行情"""
 
-    BASE_URL = "http://hq.sinajs.cn/list={symbol}"
+    BASE_URL = "https://hq.sinajs.cn/list={symbols}"
+    HEADERS = {
+        "Referer": "https://finance.sina.com.cn",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    BATCH_SIZE = 50
 
     def get_source_name(self) -> str:
         return "sina"
@@ -37,55 +45,83 @@ class SinaStockSource(BaseEstimateSource):
     def fetch_nav_history(self, fund_code: str, start_date=None, end_date=None) -> list[dict]:
         return []
 
+    @staticmethod
+    def _to_symbol(fund_code: str) -> str:
+        """把 6 位代码转成 Sina 的 sh/sz 前缀格式"""
+        if fund_code.startswith(("50", "51", "52", "56", "58")):
+            prefix = "sh"
+        elif fund_code.startswith(("15", "16", "18")):
+            prefix = "sz"
+        else:
+            prefix = "sh" if fund_code.startswith("6") else "sz"
+        return f"{prefix}{fund_code}"
+
     def fetch_market_quote(self, fund_code: str) -> dict | None:
-        """
-        获取场内实时价格
+        """获取单只场内实时价格（复用批量实现）"""
+        return self.fetch_market_quotes([fund_code]).get(fund_code)
 
-        返回格式:
-        var hq_str_sh511520="富国中债7-10年期国债ETF,115.630,115.635,115.660,115.680,115.580,115.660,115.670,1402200,162158860,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2026-02-27,15:00:00,00,0";
+    def fetch_market_quotes(self, fund_codes: list[str]) -> dict[str, dict]:
         """
+        批量获取场内实时价格
+
+        一次请求最多 BATCH_SIZE 只，返回 {代码: 行情}。
+        单只失败不影响整批，网络异常返回已解析到的部分。
+        """
+        result: dict[str, dict] = {}
+        codes = [code for code in dict.fromkeys(fund_codes) if code]
+
+        for start in range(0, len(codes), self.BATCH_SIZE):
+            batch = codes[start : start + self.BATCH_SIZE]
+            symbols = {self._to_symbol(code): code for code in batch}
+            try:
+                response = requests.get(
+                    self.BASE_URL.format(symbols=",".join(symbols)),
+                    headers=self.HEADERS,
+                    timeout=10,
+                )
+                response.raise_for_status()
+                response.encoding = "gbk"
+
+                for line in response.text.splitlines():
+                    match = re.search(r'hq_str_([^=]+)="(.*)"', line)
+                    if not match:
+                        continue
+                    symbol, payload = match.group(1), match.group(2)
+                    code = symbols.get(symbol)
+                    if not code:
+                        continue
+                    quote = self._parse_quote(code, symbol, payload)
+                    if quote:
+                        result[code] = quote
+            except Exception as e:
+                logger.error(f"Sina batch fetch error ({len(batch)} codes): {e}")
+
+        return result
+
+    @staticmethod
+    def _parse_quote(fund_code: str, symbol: str, payload: str) -> dict | None:
+        """解析 Sina 单行行情数据"""
+        parts = payload.split(",")
+        if len(parts) < 32:
+            return None
+
         try:
-            # 判断市场：上海 50/51/52/56/58/6x，深圳 15/16/18/其他
-            if fund_code.startswith(("50", "51", "52", "56", "58")):
-                symbol_prefix = "sh"
-            elif fund_code.startswith(("15", "16", "18")):
-                symbol_prefix = "sz"
-            else:
-                # 兜底：6 开头上海，其他深圳
-                symbol_prefix = "sh" if fund_code.startswith("6") else "sz"
-            symbol = f"{symbol_prefix}{fund_code}"
-
-            headers = {"Referer": "http://finance.sina.com.cn"}
-            url = self.BASE_URL.format(symbol=symbol)
-            response = requests.get(url, headers=headers, timeout=10)
-            response.encoding = "gbk"
-
-            text = response.text
-            match = re.search(r'"(.*)"', text)
-            if not match or not match.group(1):
-                return None
-
-            parts = match.group(1).split(",")
-            if len(parts) < 32:
-                return None
-
             current_price = Decimal(parts[3])
             prev_close = Decimal(parts[2])
-
-            if current_price == 0:
-                current_price = prev_close
-
-            growth = Decimal(0)
-            if prev_close > 0:
-                growth = ((current_price - prev_close) / prev_close) * 100
-
-            return {
-                "fund_code": fund_code,
-                "market_price": current_price,
-                "market_growth": growth,
-                "market_time": f"{parts[30]} {parts[31]}",
-                "symbol": symbol,
-            }
-        except Exception as e:
-            logger.error(f"Sina fetch error for {fund_code}: {e}")
+        except (InvalidOperation, ValueError, TypeError):
             return None
+
+        if current_price == 0:
+            current_price = prev_close
+
+        growth = Decimal(0)
+        if prev_close > 0:
+            growth = ((current_price - prev_close) / prev_close) * 100
+
+        return {
+            "fund_code": fund_code,
+            "market_price": current_price,
+            "market_growth": growth,
+            "market_time": f"{parts[30]} {parts[31]}",
+            "symbol": symbol,
+        }

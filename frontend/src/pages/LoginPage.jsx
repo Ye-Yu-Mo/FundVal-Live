@@ -12,6 +12,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api';
 import { setToken } from '../utils/auth';
+import { normalizeApiBaseUrl } from '../utils/url';
 import { useAuth } from '../contexts/AuthContext';
 import { isNativeApp } from '../App';
 
@@ -72,25 +73,26 @@ function LoginPage() {
   };
 
   const handleServerConfig = async () => {
-    if (!serverUrl.trim()) {
+    const cleanUrl = normalizeApiBaseUrl(serverUrl);
+    if (!cleanUrl) {
       message.error('请输入服务器地址');
       return;
     }
 
-    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
       message.error('服务器地址必须以 http:// 或 https:// 开头');
       return;
     }
 
     setTestingConnection(true);
     try {
-      const response = await fetch(`${serverUrl}/api/health/`, {
+      const response = await fetch(`${cleanUrl}/api/health/`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
 
       if (response.ok) {
-        localStorage.setItem('apiBaseUrl', serverUrl);
+        localStorage.setItem('apiBaseUrl', cleanUrl);
         message.success('服务器配置成功！');
         setServerModalVisible(false);
         // 刷新页面以应用新配置
