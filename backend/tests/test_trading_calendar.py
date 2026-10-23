@@ -69,3 +69,15 @@ class TestTradingCalendar:
         """长假期间应该能正确往前找"""
         # 2024-02-12 是春节假期（2月10-17日），应该返回 2024-02-09（周五）
         assert get_last_trading_day(date(2024, 2, 12)) == date(2024, 2, 9)
+
+    def test_makeup_weekend_is_not_trading_day(self):
+        """周末调休上班日不是交易日（股市休市）"""
+        # 2026-10-10 是周六，chinese_calendar 标记为调休工作日
+        assert is_trading_day(date(2026, 10, 10)) is False
+
+    def test_unsupported_year_does_not_raise(self):
+        """chinese-calendar 不支持的年份不能抛异常"""
+        # 2027-01-04 是周一，近似按交易日处理
+        assert is_trading_day(date(2027, 1, 4)) is True
+        # 2027-01-02 是周六，明确不是交易日
+        assert is_trading_day(date(2027, 1, 2)) is False
