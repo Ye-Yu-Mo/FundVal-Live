@@ -204,27 +204,21 @@ class PenetrationEngine:
     # ── A股行情（Sina）─────────────────────────────────────
 
     def _fetch_sina_quotes(self, codes: list[str], result: dict, now_ts: float) -> None:
-        """通过 SinaStockSource 获取 A 股行情"""
+        """通过 SinaStockSource 批量获取 A 股行情"""
         try:
             from .sina import SinaStockSource
-            import time
 
-            sina = SinaStockSource()
-            for code in codes:
-                try:
-                    quote = sina.fetch_market_quote(code)
-                    if quote and quote.get("market_price") is not None:
-                        price = quote["market_price"]
-                        change_pct = quote.get("market_growth", Decimal("0"))
-                        result[code] = {"price": price, "change_percent": change_pct}
-                        self._quote_cache[code] = {
-                            "price": price,
-                            "change_percent": change_pct,
-                            "ts": now_ts,
-                        }
-                    time.sleep(0.1)  # M4: 100ms 间隔，防 Sina 限流
-                except Exception as e:
-                    logger.debug(f"A股行情获取失败 ({code}): {e}")
+            quotes = SinaStockSource().fetch_market_quotes(codes)
+            for code, quote in quotes.items():
+                if quote and quote.get("market_price") is not None:
+                    price = quote["market_price"]
+                    change_pct = quote.get("market_growth", Decimal("0"))
+                    result[code] = {"price": price, "change_percent": change_pct}
+                    self._quote_cache[code] = {
+                        "price": price,
+                        "change_percent": change_pct,
+                        "ts": now_ts,
+                    }
         except Exception as e:
             logger.warning(f"Sina 行情批量获取失败: {e}")
 

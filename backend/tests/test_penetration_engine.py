@@ -255,24 +255,46 @@ class TestGetQuotes:
         """批量获取个股行情"""
         engine = PenetrationEngine()
 
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
-
-            def fake_quote(code):
-                return {
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_sina:
+            mock_sina.side_effect = lambda codes: {
+                code: {
                     "fund_code": code,
                     "market_price": Decimal("10.0"),
                     "market_growth": Decimal("1.0"),
                     "market_time": "2026-07-29",
                     "symbol": f"sh{code}",
                 }
-
-            mock_sina.side_effect = fake_quote
+                for code in codes
+            }
 
             quotes = engine._get_quotes(["600519", "601318"])
 
         assert len(quotes) == 2
         assert quotes["600519"]["price"] == Decimal("10.0")
         assert quotes["601318"]["change_percent"] == Decimal("1.0")
+
+    def test_batch_fetch_uses_single_sina_request(self):
+        """多只 A 股走一次 Sina 批量请求"""
+        engine = PenetrationEngine()
+
+        with patch(
+            "api.sources.sina.SinaStockSource.fetch_market_quotes",
+            return_value={
+                "600519": {
+                    "market_price": Decimal("100.0"),
+                    "market_growth": Decimal("1.0"),
+                },
+                "601318": {
+                    "market_price": Decimal("50.0"),
+                    "market_growth": Decimal("-0.5"),
+                },
+            },
+        ) as mock_batch:
+            quotes = engine._get_quotes(["600519", "601318"])
+
+        assert quotes["600519"]["price"] == Decimal("100.0")
+        assert quotes["601318"]["change_percent"] == Decimal("-0.5")
+        mock_batch.assert_called_once_with(["600519", "601318"])
 
     def test_cache_hit(self):
         """缓存命中不调 Sina"""
@@ -283,7 +305,7 @@ class TestGetQuotes:
             "ts": datetime.now().timestamp(),
         }
 
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_sina:
             quotes = engine._get_quotes(["600519"])
 
         assert quotes["600519"]["price"] == Decimal("100.0")
@@ -298,18 +320,20 @@ class TestGetQuotes:
             "ts": (datetime.now() - timedelta(seconds=40)).timestamp(),  # 过期
         }
 
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519",
-                "market_price": Decimal("101.0"),
-                "market_growth": Decimal("3.0"),
-                "market_time": "2026-07-29",
-                "symbol": "sh600519",
+                "600519": {
+                    "fund_code": "600519",
+                    "market_price": Decimal("101.0"),
+                    "market_growth": Decimal("3.0"),
+                    "market_time": "2026-07-29",
+                    "symbol": "sh600519",
+                }
             }
             quotes = engine._get_quotes(["600519"])
 
         assert quotes["600519"]["price"] == Decimal("101.0")  # 新数据
-        mock_sina.assert_called_once()
+        mock_sina.assert_called_once_with(["600519"])
 
 
 # ================================================================
@@ -336,13 +360,15 @@ class TestMarketRouting:
     def test_routes_a_stock_to_sina(self):
         """6 位数字 → A股 → 走 Sina"""
         engine = PenetrationEngine()
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519",
-                "market_price": Decimal("100"),
-                "market_growth": Decimal("1.0"),
-                "market_time": "",
-                "symbol": "sh600519",
+                "600519": {
+                    "fund_code": "600519",
+                    "market_price": Decimal("100"),
+                    "market_growth": Decimal("1.0"),
+                    "market_time": "",
+                    "symbol": "sh600519",
+                }
             }
             quotes = engine._get_quotes(["600519"])
         assert "600519" in quotes
@@ -366,13 +392,15 @@ class TestMarketRouting:
     def test_mixed_market_routing(self):
         """混合 A股+港股+美股"""
         engine = PenetrationEngine()
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_sina:
             mock_sina.return_value = {
-                "fund_code": "600519",
-                "market_price": Decimal("100"),
-                "market_growth": Decimal("1.0"),
-                "market_time": "",
-                "symbol": "sh600519",
+                "600519": {
+                    "fund_code": "600519",
+                    "market_price": Decimal("100"),
+                    "market_growth": Decimal("1.0"),
+                    "market_time": "",
+                    "symbol": "sh600519",
+                }
             }
             with patch("requests.get") as mock_get:
                 # push2 港股 + 美股合并响应
@@ -409,40 +437,35 @@ class TestHKQuotesCache:
 
 
 # ================================================================
-# M4: Sina 限流 — 100ms 间隔
+# ================================================================
+# Sina 批量请求
 # ================================================================
 
 
-class TestSinaRateLimit:
-    """Sina 批量请求 100ms 间隔"""
+class TestSinaBatchUsage:
+    """A 股行情走单次批量请求，不再逐只请求"""
 
-    def test_sleep_called_between_sina_requests(self):
-        """每个 Sina 请求之间有 time.sleep(0.1)"""
-        import time
-
+    def test_multiple_codes_single_batch_call(self):
         engine = PenetrationEngine()
-
         codes = ["600519", "601318", "600036"]
-        with patch("api.sources.sina.SinaStockSource.fetch_market_quote") as mock_sina:
-            mock_sina.return_value = {
-                "fund_code": "600519",
-                "market_price": Decimal("100"),
-                "market_growth": Decimal("1.0"),
-                "market_time": "",
-                "symbol": "sh600519",
+
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_batch:
+            mock_batch.return_value = {
+                code: {
+                    "fund_code": code,
+                    "market_price": Decimal("100"),
+                    "market_growth": Decimal("1.0"),
+                    "market_time": "",
+                    "symbol": f"sh{code}",
+                }
+                for code in codes
             }
-            with patch("time.sleep") as mock_sleep:
-                engine._get_quotes(codes)
+            quotes = engine._get_quotes(codes)
 
-        # 3 只 A 股 → 应该有 3 次 sleep (N 次请求, N 次间隔)
-        assert mock_sleep.call_count == 3, (
-            f"3 次 Sina 请求应有 3 次 sleep, 实际: {mock_sleep.call_count}"
-        )
+        assert len(quotes) == 3
+        mock_batch.assert_called_once_with(codes)
 
-    def test_no_sleep_for_cached_hits(self):
-        """缓存命中的请求不走 Sina，也不调 sleep"""
-        import time
-
+    def test_cached_codes_excluded_from_batch(self):
         engine = PenetrationEngine()
         engine._quote_cache["600519"] = {
             "price": Decimal("100"),
@@ -450,9 +473,18 @@ class TestSinaRateLimit:
             "ts": datetime.now().timestamp(),
         }
 
-        with patch("time.sleep") as mock_sleep:
-            with patch("api.sources.sina.SinaStockSource.fetch_market_quote"):
-                engine._get_quotes(["600519"])
+        with patch("api.sources.sina.SinaStockSource.fetch_market_quotes") as mock_batch:
+            mock_batch.return_value = {
+                "601318": {
+                    "fund_code": "601318",
+                    "market_price": Decimal("50"),
+                    "market_growth": Decimal("-0.5"),
+                    "market_time": "",
+                    "symbol": "sh601318",
+                }
+            }
+            quotes = engine._get_quotes(["600519", "601318"])
 
-        # 缓存命中 → 不走 Sina → 不调 sleep
-        mock_sleep.assert_not_called()
+        mock_batch.assert_called_once_with(["601318"])
+        assert quotes["600519"]["price"] == Decimal("100")
+        assert quotes["601318"]["price"] == Decimal("50")

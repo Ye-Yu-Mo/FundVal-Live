@@ -1,10 +1,11 @@
 import axios from 'axios';
+import { normalizeApiBaseUrl } from '../utils/url';
 
 // 获取 API 基础 URL
 const getApiBaseUrl = () => {
   // 优先使用 localStorage 中的配置
   const stored = localStorage.getItem('apiBaseUrl');
-  if (stored) return stored;
+  if (stored) return normalizeApiBaseUrl(stored);
 
   // 否则使用当前域名（生产环境）
   if (typeof window !== 'undefined') {
