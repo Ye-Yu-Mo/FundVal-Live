@@ -1,21 +1,24 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { preferencesAPI } from '../api';
-import { getToken } from '../utils/auth';
+import { useAuth } from './AuthContext';
 
 const PreferenceContext = createContext();
 
 export const PreferenceProvider = ({ children }) => {
+  const { user } = useAuth();
   const [preferredSource, setPreferredSource] = useState('eastmoney');
   const [themeMode, setThemeMode] = useState('light');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (getToken().accessToken) {
+    if (user) {
       loadPreference();
     } else {
+      setPreferredSource('eastmoney');
+      setThemeMode('light');
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const loadPreference = async () => {
     try {

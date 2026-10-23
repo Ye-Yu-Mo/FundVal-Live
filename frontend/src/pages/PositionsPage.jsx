@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
   Select,
@@ -43,6 +43,7 @@ const { useBreakpoint } = Grid;
 
 const PositionsPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { preferredSource } = usePreference();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -435,10 +436,10 @@ const PositionsPage = () => {
   };
 
   // 打开加仓/减仓 Modal
-  const handleOpenOperationModal = (position) => {
+  const handleOpenOperationModal = (position, type = 'BUY') => {
     operationForm.resetFields();
     setSelectedPosition(position);
-    setOperationType('BUY');
+    setOperationType(type);
     setOperationModalVisible(true);
     setNavError(null);
 
@@ -1271,7 +1272,7 @@ const PositionsPage = () => {
                         {operation.operation_type === 'BUY' ? '买入' : '卖出'}
                       </Tag>
                       <span style={{ marginLeft: 8, color: '#999', fontSize: 12 }}>
-                        {operation.date}
+                        {formatDate(operation.operation_date)}
                       </span>
                     </div>
                     <div style={{ marginBottom: 4 }}>
@@ -1281,7 +1282,7 @@ const PositionsPage = () => {
                   </div>
                   <Popconfirm
                     title="确定删除？"
-                    onConfirm={() => handleDeleteOperation(operation.id)}
+                    onConfirm={() => handleRollback(operation.id)}
                   >
                     <Button type="link" danger size="small">
                       删除

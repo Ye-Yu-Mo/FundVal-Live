@@ -1,8 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import PositionsPage from '../pages/PositionsPage';
 import * as api from '../api';
+
+const { mockNavigate, mockAccountsRef } = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockAccountsRef: {
+    current: [
+      { id: 1, name: '父账户1', parent: null, is_default: true },
+      {
+        id: 2,
+        name: '子账户1',
+        parent: 1,
+        holding_cost: 10000,
+        holding_value: 11000,
+        pnl: 1000,
+        pnl_rate: 10,
+      },
+    ],
+  },
+}));
 
 vi.mock('../api', () => ({
   positionsAPI: {
@@ -10,6 +34,8 @@ vi.mock('../api', () => ({
     listOperations: vi.fn(),
     create: vi.fn(),
     delete: vi.fn(),
+    deleteOperation: vi.fn(),
+    batchDeleteOperations: vi.fn(),
   },
   fundsAPI: {
     search: vi.fn(),
@@ -24,23 +50,16 @@ vi.mock('../api', () => ({
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useSearchParams: () => [new URLSearchParams()] };
+  return {
+    ...actual,
+    useSearchParams: () => [new URLSearchParams()],
+    useNavigate: () => mockNavigate,
+  };
 });
 
 vi.mock('../contexts/AccountContext', () => ({
   useAccounts: () => ({
-    accounts: [
-      { id: 1, name: '父账户1', parent: null, is_default: true },
-      {
-        id: 2,
-        name: '子账户1',
-        parent: 1,
-        holding_cost: 10000,
-        holding_value: 11000,
-        pnl: 1000,
-        pnl_rate: 10,
-      },
-    ],
+    accounts: mockAccountsRef.current,
     loading: false,
     loadAccounts: vi.fn(),
   }),
@@ -79,7 +98,11 @@ const mockPositions = [
   },
   {
     id: 2,
-    fund: { fund_code: '110011', fund_name: '易方达中小盘混合', fund_type: '混合' },
+    fund: {
+      fund_code: '110011',
+      fund_name: '易方达中小盘混合',
+      fund_type: '混合',
+    },
     holding_share: 2000,
     holding_cost: 4690.0,
     holding_value: 4800.0,
@@ -89,8 +112,22 @@ const mockPositions = [
 ];
 
 const mockOperations = [
-  { id: 1, operation_type: 'BUY', date: '2026-03-20', share: 1000, nav: 1.2345, amount: 1234.56 },
-  { id: 2, operation_type: 'SELL', date: '2026-03-21', share: 500, nav: 1.3, amount: 650.0 },
+  {
+    id: 1,
+    operation_type: 'BUY',
+    date: '2026-03-20',
+    share: 1000,
+    nav: 1.2345,
+    amount: 1234.56,
+  },
+  {
+    id: 2,
+    operation_type: 'SELL',
+    date: '2026-03-21',
+    share: 500,
+    nav: 1.3,
+    amount: 650.0,
+  },
 ];
 
 describe('PositionsPage 桌面端', () => {
@@ -107,7 +144,7 @@ describe('PositionsPage 桌面端', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(() => {
       expect(api.positionsAPI.list).toHaveBeenCalled();
@@ -119,7 +156,7 @@ describe('PositionsPage 桌面端', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(() => {
       expect(api.positionsAPI.list).toHaveBeenCalled();
@@ -141,20 +178,22 @@ describe('PositionsPage 移动端', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(
       () => {
         expect(api.positionsAPI.list).toHaveBeenCalled();
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
     // 移动端应该渲染卡片（实现后会通过）
     await waitFor(
       () => {
-        expect(screen.getAllByTestId('position-card').length).toBeGreaterThan(0);
+        expect(screen.getAllByTestId('position-card').length).toBeGreaterThan(
+          0,
+        );
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
   });
 
@@ -162,20 +201,22 @@ describe('PositionsPage 移动端', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(
       () => {
         expect(api.positionsAPI.listOperations).toHaveBeenCalled();
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
     // 移动端应该渲染操作流水卡片（实现后会通过）
     await waitFor(
       () => {
-        expect(screen.getAllByTestId('operation-card').length).toBeGreaterThan(0);
+        expect(screen.getAllByTestId('operation-card').length).toBeGreaterThan(
+          0,
+        );
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
   });
 
@@ -183,13 +224,13 @@ describe('PositionsPage 移动端', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(
       () => {
         expect(screen.getByText('持仓总成本')).toBeInTheDocument();
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
   });
 });
@@ -208,13 +249,105 @@ describe('PositionsPage 通用行为', () => {
     render(
       <BrowserRouter>
         <PositionsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(
       () => {
         expect(api.positionsAPI.list).toHaveBeenCalled();
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
+  });
+});
+
+describe('PositionsPage P0 回归', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAccountsRef.current = [
+      { id: 1, name: '父账户1', parent: null, is_default: true },
+      {
+        id: 2,
+        name: '子账户1',
+        parent: 1,
+        holding_cost: 10000,
+        holding_value: 11000,
+        pnl: 1000,
+        pnl_rate: 10,
+      },
+    ];
+    api.positionsAPI.list.mockResolvedValue({ data: mockPositions });
+    api.positionsAPI.listOperations.mockResolvedValue({ data: mockOperations });
+    api.positionsAPI.deleteOperation.mockResolvedValue({ data: {} });
+    api.fundsAPI.batchUpdateNav.mockResolvedValue({ data: {} });
+    api.fundsAPI.batchEstimate.mockResolvedValue({ data: {} });
+  });
+
+  it('无子账户时点击“去创建账户”能跳转', async () => {
+    mockScreens = { md: true };
+    mockAccountsRef.current = [];
+
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>,
+    );
+
+    fireEvent.click(screen.getByText('去创建账户'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/accounts');
+  });
+
+  it('移动端删除流水调用 deleteOperation', async () => {
+    mockScreens = { md: false };
+
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>,
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('operation-card').length).toBeGreaterThan(
+          0,
+        );
+      },
+      { timeout: 3000 },
+    );
+
+    const card = screen.getAllByTestId('operation-card')[0];
+    fireEvent.click(within(card).getByText('删除'));
+
+    const okButton = await screen.findByRole('button', { name: /OK|确\s*定/ });
+    fireEvent.click(okButton);
+
+    await waitFor(() => {
+      expect(api.positionsAPI.deleteOperation).toHaveBeenCalledWith(1);
+    });
+  });
+
+  it('移动端“减仓”打开减仓弹窗', async () => {
+    mockScreens = { md: false };
+
+    render(
+      <BrowserRouter>
+        <PositionsPage />
+      </BrowserRouter>,
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getAllByTestId('position-card').length).toBeGreaterThan(
+          0,
+        );
+      },
+      { timeout: 3000 },
+    );
+
+    fireEvent.click(screen.getAllByText('减仓')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/减仓 -/)).toBeInTheDocument();
+    });
   });
 });

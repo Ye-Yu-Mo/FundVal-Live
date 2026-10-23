@@ -234,7 +234,7 @@ const WatchlistsPage = () => {
     if (user) loadTodayPnl();
     const i = setInterval(loadIndices, 30000);
     return () => clearInterval(i);
-  }, []);
+  }, [user]);
 
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState({
