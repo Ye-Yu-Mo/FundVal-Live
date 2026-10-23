@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import AccountsPage from '../pages/AccountsPage';
+import * as api from '../api';
 
 vi.mock('../contexts/PreferenceContext', () => ({
   usePreference: () => ({
@@ -19,6 +26,7 @@ vi.mock('../api', () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    deleteInfo: vi.fn(),
     getSummary: vi.fn(),
   },
 }));
@@ -78,7 +86,7 @@ describe('AccountsPage 桌面端', () => {
     render(
       <BrowserRouter>
         <AccountsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(() => {
       expect(screen.queryAllByTestId('parent-account-card')).toHaveLength(0);
@@ -89,7 +97,7 @@ describe('AccountsPage 桌面端', () => {
     render(
       <BrowserRouter>
         <AccountsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(() => {
       expect(screen.queryAllByTestId('child-account-card')).toHaveLength(0);
@@ -107,14 +115,16 @@ describe('AccountsPage 移动端', () => {
     render(
       <BrowserRouter>
         <AccountsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(
       () => {
         // 默认显示全部账户汇总，父账户卡片应在 all-accounts-summary 视图中
-        expect(screen.getAllByTestId('parent-account-card').length).toBeGreaterThan(0);
+        expect(
+          screen.getAllByTestId('parent-account-card').length,
+        ).toBeGreaterThan(0);
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
   });
 
@@ -122,19 +132,58 @@ describe('AccountsPage 移动端', () => {
     render(
       <BrowserRouter>
         <AccountsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     // 默认全部账户汇总视图，需切换到单账户视图看子账户
     await waitFor(() => {
-      expect(screen.getByTestId('all-accounts-summary-button')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('all-accounts-summary-button'),
+      ).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
     await waitFor(
       () => {
-        expect(screen.getAllByTestId('child-account-card').length).toBeGreaterThan(0);
+        expect(
+          screen.getAllByTestId('child-account-card').length,
+        ).toBeGreaterThan(0);
       },
-      { timeout: 3000 }
+      { timeout: 3000 },
     );
+  });
+
+  it('删除账户传的是 id 而不是整个对象', async () => {
+    api.accountsAPI.deleteInfo.mockResolvedValue({
+      data: { can_delete: false, message: '不能删除' },
+    });
+
+    render(
+      <BrowserRouter>
+        <AccountsPage />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('all-accounts-summary-button'),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('all-accounts-summary-button'));
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getAllByTestId('child-account-card').length,
+        ).toBeGreaterThan(0);
+      },
+      { timeout: 3000 },
+    );
+
+    const childCard = screen.getAllByTestId('child-account-card')[0];
+    fireEvent.click(within(childCard).getByText('删除'));
+
+    await waitFor(() => {
+      expect(api.accountsAPI.deleteInfo).toHaveBeenCalledWith(2);
+    });
   });
 });
 
@@ -148,7 +197,7 @@ describe('AccountsPage 通用行为', () => {
     render(
       <BrowserRouter>
         <AccountsPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     await waitFor(() => {
       expect(screen.getByText('账户管理')).toBeInTheDocument();

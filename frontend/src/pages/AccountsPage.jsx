@@ -543,7 +543,7 @@ const AccountsPage = () => {
                         size="small"
                         danger
                         icon={<DeleteOutlined />}
-                        onClick={() => handleDelete(account)}
+                        onClick={() => handleDelete(account.id)}
                       >
                         删除
                       </Button>
@@ -675,7 +675,7 @@ const AccountsPage = () => {
                           size="small"
                           danger
                           icon={<DeleteOutlined />}
-                          onClick={() => handleDelete(account)}
+                          onClick={() => handleDelete(account.id)}
                         >
                           删除
                         </Button>

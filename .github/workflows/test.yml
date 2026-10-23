@@ -55,6 +55,10 @@ jobs:
         working-directory: frontend
         run: npm run lint 2>&1 | tail -10 || true
 
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --run
+
   test:
     needs: [lint, frontend-lint]
     runs-on: ubuntu-latest
