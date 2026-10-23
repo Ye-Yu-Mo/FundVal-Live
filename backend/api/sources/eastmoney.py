@@ -295,11 +295,11 @@ class EastMoneySource(BaseEstimateSource):
                 return None
 
             item = items[0]
-            nav_str = item.get("ACCNAV")
+            nav_str = item.get("NAV")
             date_str = item.get("PDATE")
 
             if not nav_str or not date_str:
-                logger.warning(f"移动端净值数据缺少字段（ACCNAV/PDATE）：{fund_code}")
+                logger.warning(f"移动端净值数据缺少字段（NAV/PDATE）：{fund_code}")
                 return None
 
             return {
@@ -421,8 +421,8 @@ class EastMoneySource(BaseEstimateSource):
                 logger.warning(f"获取当日净值失败：{fund_code}，历史净值数据为空")
                 return None
 
-            # 取最后一条记录（最新净值）
-            latest = history[-1]
+            # 接口按日期降序返回，不能依赖顺序；显式取最新日期
+            latest = max(history, key=lambda item: item["nav_date"])
 
             return {
                 "fund_code": fund_code,

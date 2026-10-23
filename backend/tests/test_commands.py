@@ -111,7 +111,12 @@ class TestUpdateNavCommand:
         mock = MagicMock()
         mock.json.return_value = {
             "Datas": [
-                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": "2026-02-10"},
+                {
+                    "FCODE": "000001",
+                    "NAV": "1.1490",
+                    "ACCNAV": "3.1490",
+                    "PDATE": "2026-02-10",
+                },
             ]
         }
         mock.raise_for_status = MagicMock()
@@ -172,7 +177,12 @@ class TestCalculateAccuracyCommand:
         mock = MagicMock()
         mock.json.return_value = {
             "Datas": [
-                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": date_str},
+                {
+                    "FCODE": "000001",
+                    "NAV": "1.1490",
+                    "ACCNAV": "3.1490",
+                    "PDATE": date_str,
+                },
             ]
         }
         mock.raise_for_status = MagicMock()
@@ -233,7 +243,12 @@ class TestCalculateAccuracyCommand:
         mock = MagicMock()
         mock.json.return_value = {
             "Datas": [
-                {"FCODE": "000001", "ACCNAV": "1.1490", "PDATE": "2024-02-11"},
+                {
+                    "FCODE": "000001",
+                    "NAV": "1.1490",
+                    "ACCNAV": "3.1490",
+                    "PDATE": "2024-02-11",
+                },
             ]
         }
         mock.raise_for_status = MagicMock()

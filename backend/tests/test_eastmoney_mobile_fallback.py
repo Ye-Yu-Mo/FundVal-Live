@@ -218,7 +218,7 @@ class TestFetchRealtimeNavMobile:
     """_fetch_realtime_nav_mobile 方法测试"""
 
     def test_success(self):
-        """移动端实时净值获取成功"""
+        """移动端实时净值获取成功，取单位净值 NAV"""
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
@@ -227,9 +227,10 @@ class TestFetchRealtimeNavMobile:
                     {
                         "FCODE": "000001",
                         "SHORTNAME": "华夏成长混合",
-                        "ACCNAV": "1.4070",
-                        "PDATE": "2026-06-17",
-                        "GZTIME": "2026-06-18 14:30:00",
+                        "NAV": "1.0250",
+                        "ACCNAV": "3.5980",
+                        "PDATE": "2026-10-22",
+                        "GZTIME": "2026-10-23 14:30:00",
                         "GSZZL": "0.32",
                     }
                 ]
@@ -239,8 +240,8 @@ class TestFetchRealtimeNavMobile:
 
             assert result is not None
             assert result["fund_code"] == "000001"
-            assert result["nav"] == Decimal("1.4070")
-            assert result["nav_date"] == date(2026, 6, 17)
+            assert result["nav"] == Decimal("1.0250")
+            assert result["nav_date"] == date(2026, 10, 22)
 
     def test_empty_data(self):
         """移动端实时净值 - 空数据"""
@@ -265,7 +266,7 @@ class TestFetchRealtimeNavMobile:
             assert result is None
 
     def test_missing_nav(self):
-        """移动端实时净值 - ACCNAV 为空"""
+        """移动端实时净值 - NAV 为空（只有 ACCNAV）→ None，不得回退累计净值"""
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
@@ -273,7 +274,8 @@ class TestFetchRealtimeNavMobile:
                 [
                     {
                         "FCODE": "000001",
-                        "PDATE": "2026-06-17",
+                        "ACCNAV": "3.5980",
+                        "PDATE": "2026-10-22",
                     }
                 ]
             )
@@ -427,8 +429,9 @@ class TestFetchRealtimeNavFallback:
                     {
                         "FCODE": "000001",
                         "SHORTNAME": "华夏成长",
-                        "ACCNAV": "1.4070",
-                        "PDATE": "2026-06-17",
+                        "NAV": "1.0250",
+                        "ACCNAV": "3.5980",
+                        "PDATE": "2026-10-22",
                     }
                 ]
             )
@@ -436,7 +439,7 @@ class TestFetchRealtimeNavFallback:
             result = source.fetch_realtime_nav("000001")
 
             assert result is not None
-            assert result["nav"] == Decimal("1.4070")
+            assert result["nav"] == Decimal("1.0250")
 
             # 验证调了 Mobile API，没调 fundgz Web API
             called_urls = [str(c) for c in mock_get.call_args_list]
@@ -462,8 +465,9 @@ class TestFetchRealtimeNavFallback:
                     [
                         {
                             "FCODE": "000001",
-                            "ACCNAV": "1.4070",
-                            "PDATE": "2026-06-17",
+                            "NAV": "1.0250",
+                            "ACCNAV": "3.5980",
+                            "PDATE": "2026-10-22",
                         }
                     ]
                 )
@@ -473,8 +477,8 @@ class TestFetchRealtimeNavFallback:
             result = source.fetch_realtime_nav("000001")
 
             assert result is not None
-            assert result["nav"] == Decimal("1.4070")
-            assert result["nav_date"] == date(2026, 6, 17)
+            assert result["nav"] == Decimal("1.0250")
+            assert result["nav_date"] == date(2026, 10, 22)
 
     def test_both_fail_returns_none(self):
         """Web 和 Mobile 都失败时返回 None"""
@@ -517,14 +521,14 @@ class TestFetchTodayNavFallback:
             elif "FundMNHisNetList" in url:
                 return _make_mobile_nav_response(
                     [
-                        {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
+                        {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
                         {
                             "FSRQ": "2026-06-16",
                             "DWJZ": "1.3580",
                             "LJJZ": "3.5593",
                             "JZZZL": "-1.20",
                         },
-                        {"FSRQ": "2026-06-17", "DWJZ": "1.4070", "LJJZ": "3.6083", "JZZZL": "3.61"},
+                        {"FSRQ": "2026-06-15", "DWJZ": "1.3745", "LJJZ": "3.5758", "JZZZL": "0.05"},
                     ]
                 )
             return MagicMock()

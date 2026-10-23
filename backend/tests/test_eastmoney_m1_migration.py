@@ -159,8 +159,9 @@ class TestFetchRealtimeNavUsesMobileAPI:
                     {
                         "FCODE": "000001",
                         "SHORTNAME": "华夏成长混合",
-                        "ACCNAV": "1.4070",
-                        "PDATE": "2026-06-17",
+                        "NAV": "1.0250",
+                        "ACCNAV": "3.5980",
+                        "PDATE": "2026-10-22",
                     }
                 ]
             )
@@ -169,8 +170,8 @@ class TestFetchRealtimeNavUsesMobileAPI:
 
             assert result is not None
             assert result["fund_code"] == "000001"
-            assert result["nav"] == Decimal("1.4070")
-            assert result["nav_date"] == date(2026, 6, 17)
+            assert result["nav"] == Decimal("1.0250")
+            assert result["nav_date"] == date(2026, 10, 22)
 
             # 验证调了 Mobile API
             called_urls = [str(c) for c in mock_get.call_args_list]
@@ -191,7 +192,8 @@ class TestFetchRealtimeNavUsesMobileAPI:
                 [
                     {
                         "FCODE": "000001",
-                        "ACCNAV": "2.3456",
+                        "NAV": "2.3456",
+                        "ACCNAV": "4.5678",
                         "PDATE": "2026-07-28",
                     }
                 ]
@@ -216,13 +218,13 @@ class TestFetchRealtimeNavUsesMobileAPI:
 
             assert result is None
 
-    def test_missing_accnav_returns_none(self):
-        """ACCNAV 缺失 → 返回 None"""
+    def test_missing_nav_returns_none(self):
+        """NAV 缺失（只有 ACCNAV）→ 返回 None，不得回退累计净值"""
         source = EastMoneySource()
 
         with patch("requests.get") as mock_get:
             mock_get.return_value = _make_mobile_realtime_response(
-                [{"FCODE": "000001", "PDATE": "2026-07-28"}]
+                [{"FCODE": "000001", "ACCNAV": "3.5980", "PDATE": "2026-07-28"}]
             )
 
             result = source.fetch_realtime_nav("000001")

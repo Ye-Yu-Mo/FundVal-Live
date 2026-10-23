@@ -24,6 +24,21 @@ def _make_estimate_df(rows):
     return pd.DataFrame(rows)
 
 
+def _dated_columns_df():
+    """模拟 akshare 1.18.80 真实列名：估算日期作为列名前缀"""
+    return _make_estimate_df(
+        [
+            {
+                "基金代码": "000001",
+                "基金名称": "华夏成长混合",
+                "2026-10-23-估算数据-估算值": 1.0250,
+                "2026-10-23-估算数据-估算增长率": "-3.67",
+                "2026-10-23-公布数据-单位净值": 1.0250,
+            },
+        ]
+    )
+
+
 def _sample_df():
     """标准 3 只基金的估值 DataFrame（模拟 akshare 1.18 列名）"""
     return _make_estimate_df(
@@ -207,6 +222,35 @@ class TestGetEstimate:
             result = engine.get_estimate("000001")
 
         assert result is None, "缺少必需列应返回 None"
+
+    def test_compatible_with_dated_column_names(self):
+        """akshare 1.18.80 真实列名带估算日期前缀 → 仍能解析"""
+        engine = AkshareEstimateEngine()
+
+        with patch("akshare.fund_value_estimation_em") as mock_ak:
+            mock_ak.return_value = _dated_columns_df()
+
+            result = engine.get_estimate("000001")
+
+        assert result is not None
+        assert result["estimate_nav"] == Decimal("1.0250")
+        assert result["estimate_growth"] == Decimal("-3.67")
+
+    def test_missing_column_warning_includes_actual_columns(self, caplog):
+        """缺少估算值列时，日志必须带出实际列名，便于线上诊断"""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        engine = AkshareEstimateEngine()
+
+        with patch("akshare.fund_value_estimation_em") as mock_ak:
+            mock_ak.return_value = pd.DataFrame([{"基金代码": "000001", "一个没人认识的列": 1.0}])
+
+            result = engine.get_estimate("000001")
+
+        assert result is None
+        messages = " ".join(record.message for record in caplog.records)
+        assert "一个没人认识的列" in messages
 
     def test_does_not_cache_after_error(self):
         """上次拉取失败后可以重试（不保留空缓存）"""

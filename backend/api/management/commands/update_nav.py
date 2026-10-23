@@ -56,7 +56,7 @@ def _fetch_batch_nav(fund_codes):
 
         for item in data["Datas"]:
             code = item.get("FCODE")
-            nav_str = item.get("ACCNAV")
+            nav_str = item.get("NAV")
             date_str = item.get("PDATE")
             if not code or not nav_str or not date_str:
                 continue

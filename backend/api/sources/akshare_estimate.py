@@ -21,6 +21,17 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def _find_column(df: pd.DataFrame, exact: tuple[str, ...], suffix: str) -> str | None:
+    """按精确名或后缀查找列，兼容 akshare 带日期前缀的动态列名"""
+    for candidate in exact:
+        if candidate in df.columns:
+            return candidate
+    for column in df.columns:
+        if isinstance(column, str) and column.endswith(suffix):
+            return column
+    return None
+
+
 class AkshareEstimateEngine:
     """akshare 估值引擎
 
@@ -129,8 +140,8 @@ class AkshareEstimateEngine:
         akshare 1.18 列名（会因版本和交易时段变化）:
         - 基金代码            → fund_code
         - 基金名称            → fund_name
-        - 交易日-估算数据-估算值   → estimate_nav（或旧版: 估算值）
-        - 交易日-估算数据-估算增长率 → estimate_growth（或旧版: 估算增长率）
+        - {估算日期}-估算数据-估算值   → estimate_nav（或旧版: 交易日-..., 估算值）
+        - {估算日期}-估算数据-估算增长率 → estimate_growth（或旧版: 交易日-..., 估算增长率）
         - 交易日-单位净值       → 参考净值日期
         - (无)                → estimate_time = timezone.now()
         """
@@ -140,22 +151,31 @@ class AkshareEstimateEngine:
             logger.warning("akshare DataFrame 缺少基金代码列")
             return None
 
-        # 估值净值列：兼容新旧格式
-        nav_col = None
-        for candidate in ("交易日-估算数据-估算值", "估算值"):
-            if candidate in df.columns:
-                nav_col = candidate
-                break
+        # 估值净值列：兼容固定列名和带日期前缀的动态列名
+        nav_col = _find_column(
+            df,
+            exact=("交易日-估算数据-估算值", "估算值"),
+            suffix="-估算数据-估算值",
+        )
         if nav_col is None:
-            logger.warning("akshare DataFrame 缺少估算值列")
+            columns = ", ".join(str(column) for column in list(df.columns)[:12])
+            try:
+                import akshare as ak
+
+                version = getattr(ak, "__version__", "unknown")
+            except Exception:
+                version = "unknown"
+            logger.warning(
+                f"akshare DataFrame 缺少估算值列（akshare {version}），实际列名: {columns}"
+            )
             return None
 
-        # 增长率列：兼容新旧格式
-        growth_col = None
-        for candidate in ("交易日-估算数据-估算增长率", "估算增长率"):
-            if candidate in df.columns:
-                growth_col = candidate
-                break
+        # 增长率列：兼容固定列名和带日期前缀的动态列名
+        growth_col = _find_column(
+            df,
+            exact=("交易日-估算数据-估算增长率", "估算增长率"),
+            suffix="-估算数据-估算增长率",
+        )
 
         # 按基金代码筛选
         row = df[df[code_col] == fund_code]

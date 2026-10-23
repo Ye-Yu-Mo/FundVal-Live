@@ -56,9 +56,9 @@ class TestEastMoneySourceTodayNav:
 
         mock_get.return_value = _make_mobile_nav_response(
             [
-                {"FSRQ": "2024-02-11", "DWJZ": "1.1234", "LJJZ": "1.5234", "JZZZL": "0.50"},
-                {"FSRQ": "2024-02-12", "DWJZ": "1.1345", "LJJZ": "1.5345", "JZZZL": "1.00"},
                 {"FSRQ": "2024-02-13", "DWJZ": "1.1456", "LJJZ": "1.5456", "JZZZL": "0.98"},
+                {"FSRQ": "2024-02-12", "DWJZ": "1.1345", "LJJZ": "1.5345", "JZZZL": "1.00"},
+                {"FSRQ": "2024-02-11", "DWJZ": "1.1234", "LJJZ": "1.5234", "JZZZL": "0.50"},
             ]
         )
 
@@ -97,6 +97,43 @@ class TestEastMoneySourceTodayNav:
 
         # 网络错误应返回 None
         assert result is None
+
+
+class TestFetchBatchNavUsesUnitNav:
+    """update_nav 批量接口必须取单位净值 NAV，不能取累计净值 ACCNAV"""
+
+    @patch("requests.get")
+    def test_batch_nav_uses_nav_not_accnav(self, mock_get):
+        from api.management.commands.update_nav import _fetch_batch_nav
+
+        mock_get.return_value = _make_mobile_realtime_response(
+            [
+                {
+                    "FCODE": "000001",
+                    "NAV": "1.0250",
+                    "ACCNAV": "3.5980",
+                    "PDATE": "2026-10-22",
+                }
+            ]
+        )
+
+        result = _fetch_batch_nav(["000001"])
+
+        assert result["000001"]["nav"] == Decimal("1.0250")
+        assert result["000001"]["nav_date"] == date(2026, 10, 22)
+
+    @patch("requests.get")
+    def test_batch_nav_skips_record_without_nav(self, mock_get):
+        """只有 ACCNAV、没有 NAV 的记录必须跳过，不得回退累计净值"""
+        from api.management.commands.update_nav import _fetch_batch_nav
+
+        mock_get.return_value = _make_mobile_realtime_response(
+            [{"FCODE": "000001", "ACCNAV": "3.5980", "PDATE": "2026-10-22"}]
+        )
+
+        result = _fetch_batch_nav(["000001"])
+
+        assert "000001" not in result
 
 
 @pytest.mark.django_db
